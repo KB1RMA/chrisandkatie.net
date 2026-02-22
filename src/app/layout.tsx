@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Roboto, Roboto_Mono } from 'next/font/google';
+import { CountdownPageTitle } from '@/components/CountdownPageTitle';
 import './globals.css';
 
 const roboto = Roboto({
@@ -29,6 +30,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
       </head>
       <body className={`${roboto.variable} ${robotoMono.variable} antialiased`}>
+        <CountdownPageTitle />
         {children}
       </body>
     </html>

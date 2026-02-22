@@ -1,31 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-interface CountdownTime {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-}
-
-/**
- * Calculates the remaining time until the wedding date.
- *
- * @returns The countdown time object with days, hours, minutes, and seconds.
- */
-function calculateCountdown(): CountdownTime {
-  const weddingDate = new Date('2026-09-12T17:00:00').getTime();
-  const now = new Date().getTime();
-  const difference = weddingDate - now;
-
-  return {
-    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-    minutes: Math.floor((difference / 1000 / 60) % 60),
-    seconds: Math.floor((difference / 1000) % 60),
-  };
-}
+import { calculateCountdown, type CountdownTime } from '@/lib/countdown';
 
 /**
  * Displays a real-time countdown timer to the wedding date.
