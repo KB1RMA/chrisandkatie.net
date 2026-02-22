@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Middleware to track page views and basic analytics.
+ * Proxy handler to track page views and basic analytics.
  * Runs on every request to track which pages are being visited.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Skip tracking for API routes, static assets, and system paths
