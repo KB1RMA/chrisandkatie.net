@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Roboto, Roboto_Mono } from 'next/font/google';
+import { Roboto } from 'next/font/google';
 import { CountdownPageTitle } from '@/components/CountdownPageTitle';
 import { PageViewTracker } from '@/components/PageViewTracker';
 import './globals.css';
@@ -10,10 +10,6 @@ const roboto = Roboto({
   weight: ['400', '500', '700'],
 });
 
-const robotoMono = Roboto_Mono({
-  variable: '--font-roboto-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Chris and Katie - Marriage Celebration',
@@ -30,7 +26,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
       </head>
-      <body className={`${roboto.variable} ${robotoMono.variable} antialiased`}>
+      <body className={`${roboto.variable} antialiased`}>
         <CountdownPageTitle />
         <PageViewTracker />
         {children}
