@@ -25,42 +25,42 @@ export function CountdownTimer() {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 mb-12">
-      <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
-        <div className="text-4xl sm:text-5xl font-bold text-purple-600 mb-2">
+      <div className="bg-[#fffdfb] rounded-lg shadow-lg p-6 sm:p-8">
+        <div className="text-4xl sm:text-5xl font-bold text-[#9e3f3f] mb-2">
           {countdown.days}
         </div>
 
-        <div className="text-gray-600 font-medium text-sm sm:text-base">
+        <div className="text-[#7a6666] font-medium text-sm sm:text-base">
           Days
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
-        <div className="text-4xl sm:text-5xl font-bold text-purple-600 mb-2">
+      <div className="bg-[#fffdfb] rounded-lg shadow-lg p-6 sm:p-8">
+        <div className="text-4xl sm:text-5xl font-bold text-[#9e3f3f] mb-2">
           {String(countdown.hours).padStart(2, '0')}
         </div>
 
-        <div className="text-gray-600 font-medium text-sm sm:text-base">
+        <div className="text-[#7a6666] font-medium text-sm sm:text-base">
           Hours
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
-        <div className="text-4xl sm:text-5xl font-bold text-purple-600 mb-2">
+      <div className="bg-[#fffdfb] rounded-lg shadow-lg p-6 sm:p-8">
+        <div className="text-4xl sm:text-5xl font-bold text-[#9e3f3f] mb-2">
           {String(countdown.minutes).padStart(2, '0')}
         </div>
 
-        <div className="text-gray-600 font-medium text-sm sm:text-base">
+        <div className="text-[#7a6666] font-medium text-sm sm:text-base">
           Minutes
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
-        <div className="text-4xl sm:text-5xl font-bold text-purple-600 mb-2">
+      <div className="bg-[#fffdfb] rounded-lg shadow-lg p-6 sm:p-8">
+        <div className="text-4xl sm:text-5xl font-bold text-[#9e3f3f] mb-2">
           {String(countdown.seconds).padStart(2, '0')}
         </div>
 
-        <div className="text-gray-600 font-medium text-sm sm:text-base">
+        <div className="text-[#7a6666] font-medium text-sm sm:text-base">
           Seconds
         </div>
       </div>

@@ -4,7 +4,7 @@
 export type AnalyticsEventType =
   | 'page_view'
   | 'rsvp_submission'
-  | 'navigate_to_rsvp';
+  | 'navigate_to_page';
 
 /**
  * Analytics event structure.
@@ -21,6 +21,8 @@ export type AnalyticsEvent = {
  * Beacon API is ideal for analytics - non-blocking and survives page unloads.
  *
  * @param event - The analytics event to track.
+ * @returns Nothing.
+ * @throws {Error} Does not throw.
  */
 export function trackEvent(event: AnalyticsEvent): void {
   // Check if Beacon API is available (client-side only)
@@ -43,6 +45,8 @@ export function trackEvent(event: AnalyticsEvent): void {
  *
  * @param page - The page path (e.g., "/", "/rsvp").
  * @param referrer - Optional referrer source.
+ * @returns Nothing.
+ * @throws {Error} Does not throw.
  */
 export function trackPageView(page: string, referrer?: string): void {
   trackEvent({
@@ -55,6 +59,9 @@ export function trackPageView(page: string, referrer?: string): void {
 
 /**
  * Tracks an RSVP form submission.
+ *
+ * @returns Nothing.
+ * @throws {Error} Does not throw.
  */
 export function trackRsvpSubmission(): void {
   trackEvent({
@@ -65,11 +72,16 @@ export function trackRsvpSubmission(): void {
 }
 
 /**
- * Tracks navigation to the RSVP page.
+ * Tracks navigation to a page by its href.
+ *
+ * @param href - The path being navigated to.
+ * @returns Nothing.
+ * @throws {Error} Does not throw.
  */
-export function trackNavigateToRsvp(): void {
+export function trackNavigateToPath(href: string): void {
   trackEvent({
-    type: 'navigate_to_rsvp',
+    type: 'navigate_to_page',
+    page: href,
     timestamp: Date.now(),
   });
 }

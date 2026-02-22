@@ -18,7 +18,7 @@ type CloudflareEnv = {
     }) => void;
   };
   ANALYTICS_ENABLED?: string;
-}
+};
 
 /**
  * Logs analytics events to Cloudflare Analytics Engine and stores locally.
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     pageViews: eventLog.filter((e) => e.type === 'page_view').length,
     rsvpSubmissions: eventLog.filter((e) => e.type === 'rsvp_submission')
       .length,
-    navigateToRsvp: eventLog.filter((e) => e.type === 'navigate_to_rsvp')
+    navigateToPage: eventLog.filter((e) => e.type === 'navigate_to_page')
       .length,
     lastEvents: eventLog.slice(-10),
   };

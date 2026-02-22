@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Button } from '@/components/Button';
 
 /**
  * Schedule item for the celebration events.
@@ -57,13 +57,13 @@ const scheduleItems: ScheduleItem[] = [
  */
 export default function SchedulePage() {
   return (
-    <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-8">
+    <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
       <div className="w-full max-w-3xl">
-        <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-4 text-center">
+        <h1 className="text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center">
           Schedule
         </h1>
 
-        <p className="text-xl text-gray-700 mb-12 text-center">
+        <p className="text-xl text-[#6a5555] mb-12 text-center">
           Join us for the celebration weekend!
         </p>
 
@@ -71,19 +71,19 @@ export default function SchedulePage() {
           {scheduleItems.map((item, index) => (
             <div
               key={index}
-              className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow duration-200"
+              className="bg-[#fffdfb] rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow duration-200"
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-purple-600">
+                  <h2 className="text-2xl font-bold text-[#9e3f3f]">
                     {item.event}
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-[#7a6666]">
                     {item.date} • {item.day}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold text-purple-600">
+                  <p className="text-3xl font-bold text-[#9e3f3f]">
                     {item.endTime
                       ? `${item.time} - ${item.endTime}`
                       : item.time}
@@ -91,24 +91,19 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              <div className="space-y-2 text-gray-700">
+              <div className="space-y-2 text-[#6a5555]">
                 <p className="flex items-center gap-2">
-                  <span className="text-purple-500">📍</span>
+                  <span className="text-[#b76565]">📍</span>
                   <span className="font-medium">{item.location}</span>
                 </p>
-                <p className="text-gray-600">{item.description}</p>
+                <p className="text-[#7a6666]">{item.description}</p>
               </div>
             </div>
           ))}
         </div>
 
         <div className="text-center">
-          <Link
-            href="/"
-            className="inline-block bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all duration-200"
-          >
-            Back Home
-          </Link>
+          <Button href="/">Back Home</Button>
         </div>
       </div>
     </div>
