@@ -22,6 +22,8 @@ updates:
     labels:
       - 'dependencies'
       - 'npm'
+    commit-message:
+      prefix: 'chore'
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: 'github-actions'
@@ -34,3 +36,5 @@ updates:
     labels:
       - 'dependencies'
       - 'github-actions'
+    commit-message:
+      prefix: 'chore'
