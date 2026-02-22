@@ -1,5 +1,11 @@
+import { Marcellus } from 'next/font/google';
 import type { Metadata } from 'next';
 import { WEDDING_DATE_DISPLAY } from '@/lib/constants';
+
+const marcellus = Marcellus({
+  subsets: ['latin'],
+  weight: '400',
+});
 
 export const metadata: Metadata = {
   title: 'RSVP - Chris & Katie',
@@ -13,7 +19,9 @@ export default function RSVPPage() {
   return (
     <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
       <div className="w-full max-w-2xl">
-        <h1 className="text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center">
+        <h1
+          className={`${marcellus.className} text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center`}
+        >
           RSVP
         </h1>
 

@@ -1,16 +1,31 @@
+import { Great_Vibes, Marcellus } from 'next/font/google';
 import { WEDDING_DISPLAY_TEXT } from '@/lib/constants';
 import { Button } from '@/components/Button';
 import { CountdownTimer } from '@/components/CountdownTimer';
+
+const greatVibes = Great_Vibes({
+  subsets: ['latin'],
+  weight: '400',
+});
+
+const marcellus = Marcellus({
+  subsets: ['latin'],
+  weight: '400',
+});
 
 export default function Home() {
   return (
     <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
       <div className="text-center max-w-2xl">
-        <h1 className="text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4">
+        <h1
+          className={`${greatVibes.className} text-5xl sm:text-6xl font-normal text-[#9e3f3f] mb-4`}
+        >
           Chris & Katie
         </h1>
 
-        <p className="text-xl sm:text-2xl text-[#6a5555] mb-12">
+        <p
+          className={`${marcellus.className} text-xl sm:text-2xl text-[#6a5555] mb-12`}
+        >
           {WEDDING_DISPLAY_TEXT}
         </p>
 

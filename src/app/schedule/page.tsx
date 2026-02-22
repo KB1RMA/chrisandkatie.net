@@ -1,4 +1,10 @@
+import { Marcellus } from 'next/font/google';
 import { Button } from '@/components/Button';
+
+const marcellus = Marcellus({
+  subsets: ['latin'],
+  weight: '400',
+});
 
 /**
  * Schedule item for the celebration events.
@@ -59,7 +65,9 @@ export default function SchedulePage() {
   return (
     <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
       <div className="w-full max-w-3xl">
-        <h1 className="text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center">
+        <h1
+          className={`${marcellus.className} text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center`}
+        >
           Schedule
         </h1>
 
@@ -75,7 +83,9 @@ export default function SchedulePage() {
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#9e3f3f]">
+                  <h2
+                    className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f]`}
+                  >
                     {item.event}
                   </h2>
                   <p className="text-[#7a6666]">
