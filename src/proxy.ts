@@ -30,6 +30,8 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
+export const runtime = 'edge';
+
 export const config = {
   matcher: [
     /*
