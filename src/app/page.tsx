@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { WEDDING_DISPLAY_TEXT } from '@/lib/constants';
 import { CountdownTimer } from '@/components/CountdownTimer';
+import { RsvpButton } from '@/components/RsvpButton';
 
 export default function Home() {
   return (
@@ -16,12 +16,7 @@ export default function Home() {
 
         <CountdownTimer />
 
-        <Link
-          href="/rsvp"
-          className="inline-block bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all duration-200 mb-8"
-        >
-          RSVP Now
-        </Link>
+        <RsvpButton />
 
         <p className="text-lg text-gray-600">
           We can&#39;t wait to celebrate with you!

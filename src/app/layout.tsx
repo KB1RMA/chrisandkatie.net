@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Roboto, Roboto_Mono } from 'next/font/google';
 import { CountdownPageTitle } from '@/components/CountdownPageTitle';
+import { PageViewTracker } from '@/components/PageViewTracker';
 import './globals.css';
 
 const roboto = Roboto({
@@ -31,6 +32,7 @@ export default function RootLayout({
       </head>
       <body className={`${roboto.variable} ${robotoMono.variable} antialiased`}>
         <CountdownPageTitle />
+        <PageViewTracker />
         {children}
       </body>
     </html>
