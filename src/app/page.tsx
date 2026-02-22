@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { Great_Vibes, Marcellus } from 'next/font/google';
 import { WEDDING_DISPLAY_TEXT } from '@/lib/constants';
 import { Button } from '@/components/Button';
@@ -15,8 +16,25 @@ const marcellus = Marcellus({
 
 export default function Home() {
   return (
-    <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
-      <div className="text-center max-w-2xl">
+    <div className="font-roboto relative flex min-h-screen items-center justify-center p-8">
+      <Image
+        src="/IMG_8943.jpg"
+        alt="Chris and Katie"
+        fill
+        priority
+        sizes="(max-width: 640px) 100vw, 0px"
+        className="absolute inset-0 sm:hidden object-cover object-center"
+      />
+      <Image
+        src="/IMG_8940-2.jpg"
+        alt="Chris and Katie"
+        fill
+        priority
+        sizes="(min-width: 641px) 100vw, 0px"
+        className="absolute inset-0 hidden sm:block object-cover object-center"
+      />
+      <div className="absolute inset-0 bg-[#fff7f4]/80"></div>
+      <div className="relative z-10 text-center max-w-2xl">
         <h1
           className={`${greatVibes.className} text-5xl sm:text-6xl font-normal text-[#9e3f3f] mb-4`}
         >
