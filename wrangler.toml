@@ -17,3 +17,8 @@ vars = { ANALYTICS_ENABLED = "false" }
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
