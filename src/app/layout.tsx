@@ -16,8 +16,8 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Chris and Katie - Getting Married!',
-  description: 'Wedding website for Chris and Katie',
+  title: 'Chris and Katie - Marriage Celebration',
+  description: 'Celebration website for Chris and Katie',
 };
 
 export default function RootLayout({

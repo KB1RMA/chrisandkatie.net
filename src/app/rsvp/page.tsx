@@ -3,7 +3,7 @@ import { WEDDING_DATE_DISPLAY } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'RSVP - Chris & Katie',
-  description: `RSVP for Chris and Katie's wedding on ${WEDDING_DATE_DISPLAY}`,
+  description: `RSVP for Chris and Katie's celebration on ${WEDDING_DATE_DISPLAY}`,
 };
 
 /**
