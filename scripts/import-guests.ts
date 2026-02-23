@@ -6,6 +6,7 @@
  * Usage:
  *   npm run db:seed
  *   npm run db:seed:d1 -- --env production
+ *   npm run db:seed:local
  */
 
 import { execFileSync } from 'child_process';
@@ -26,6 +27,16 @@ interface CSVRow {
   'State / Region': string;
   'Zip / Postal Code': string;
   Country: string;
+  'Child 1 First Name': string;
+  'Child 1 Last Name': string;
+  'Child 2 First Name': string;
+  'Child 2 Last Name': string;
+  'Child 3 First Name': string;
+  'Child 3 Last Name': string;
+  'Child 4 First Name': string;
+  'Child 4 Last Name': string;
+  'Child 5 First Name': string;
+  'Child 5 Last Name': string;
 }
 
 /**
@@ -86,18 +97,15 @@ async function importGuests() {
 
   console.log('🎉 Generating guest seed SQL...\n');
 
-  // Read CSV file
-  const csvPath = join(
-    process.cwd(),
-    'seed-data',
-    'address-list-from-zola.csv',
-  );
+  // Read CSV file (use guest-list.csv which includes children)
+  const csvPath = join(process.cwd(), 'seed-data', 'guest-list.csv');
   const csvContent = readFileSync(csvPath, 'utf-8');
   const rows = parseCSV(csvContent);
 
-  console.log(`📋 Found ${rows.length} guest records in CSV\n`);
+  console.log(`📋 Found ${rows.length} invitation records in CSV\n`);
 
-  let imported = 0;
+  let invitationsCreated = 0;
+  let guestsCreated = 0;
   let skipped = 0;
   const insertStatements: string[] = [];
 
@@ -106,19 +114,17 @@ async function importGuests() {
     const lastName = row['Last Name'];
 
     if (!firstName || !lastName) {
-      console.log(`⚠️  Skipping row with missing name`);
+      console.log(`⚠️  Skipping row with missing primary guest name`);
       skipped++;
       continue;
     }
 
+    const invitationId = randomUUID();
     const totalInvited = parseInt(row['Total Definitely Invited']) || 1;
-    const insertValues = [
-      randomUUID(),
-      null,
-      firstName,
-      lastName,
-      row['Partner First Name'] || null,
-      row['Partner Last Name'] || null,
+
+    // Create Invitation record
+    const invitationValues = [
+      invitationId,
       row['Relationship To Couple'] || null,
       totalInvited,
       row['Street Address'] || null,
@@ -132,7 +138,7 @@ async function importGuests() {
       now,
     ];
 
-    const sqlValues = insertValues
+    const invitationSqlValues = invitationValues
       .map((value) => {
         if (value === null) {
           return 'NULL';
@@ -147,11 +153,79 @@ async function importGuests() {
       .join(', ');
 
     insertStatements.push(
-      `INSERT INTO "Guest" ("id", "userId", "firstName", "lastName", "partnerFirstName", "partnerLastName", "relationshipToCouple", "totalInvited", "address", "addressLine2", "city", "state", "zipCode", "country", "visibleEvents", "createdAt", "updatedAt") VALUES (${sqlValues});`,
+      `INSERT INTO "Invitation" ("id", "relationshipToCouple", "totalInvited", "address", "addressLine2", "city", "state", "zipCode", "country", "visibleEvents", "createdAt", "updatedAt") VALUES (${invitationSqlValues});`,
     );
+    invitationsCreated++;
 
-    console.log(`✅ Staged: ${firstName} ${lastName}`);
-    imported++;
+    // Create Guest records for this invitation
+    const guests: Array<{
+      firstName: string;
+      lastName: string;
+      type: 'adult' | 'child';
+    }> = [];
+
+    // Primary guest (adult)
+    guests.push({ firstName, lastName, type: 'adult' });
+
+    // Partner (adult, if present)
+    if (row['Partner First Name'] && row['Partner Last Name']) {
+      guests.push({
+        firstName: row['Partner First Name'],
+        lastName: row['Partner Last Name'],
+        type: 'adult',
+      });
+    }
+
+    // Children (if present)
+    for (let i = 1; i <= 5; i++) {
+      const childFirstName = row[`Child ${i} First Name` as keyof CSVRow];
+      const childLastName = row[`Child ${i} Last Name` as keyof CSVRow];
+
+      if (childFirstName && childLastName) {
+        guests.push({
+          firstName: childFirstName,
+          lastName: childLastName,
+          type: 'child',
+        });
+      }
+    }
+
+    // Insert all guests for this invitation
+    for (const guest of guests) {
+      const guestValues = [
+        randomUUID(),
+        invitationId,
+        null, // userId (will be set on first login)
+        guest.firstName,
+        guest.lastName,
+        guest.type,
+        now,
+        now,
+      ];
+
+      const guestSqlValues = guestValues
+        .map((value) => {
+          if (value === null) {
+            return 'NULL';
+          }
+
+          if (typeof value === 'number') {
+            return value.toString();
+          }
+
+          return `'${String(value).replace(/'/g, "''")}'`;
+        })
+        .join(', ');
+
+      insertStatements.push(
+        `INSERT INTO "Guest" ("id", "invitationId", "userId", "firstName", "lastName", "type", "createdAt", "updatedAt") VALUES (${guestSqlValues});`,
+      );
+      guestsCreated++;
+    }
+
+    console.log(
+      `✅ Invitation for ${firstName} ${lastName} (${guests.length} guests)`,
+    );
   }
 
   const seedFilePath = join(process.cwd(), 'seed-data', 'guests-import.sql');
@@ -166,9 +240,9 @@ async function importGuests() {
   writeFileSync(seedFilePath, sqlFileContents, 'utf-8');
 
   console.log(`\n🎊 Seed file created at ${seedFilePath}`);
-  console.log(`   Staged:   ${imported}`);
-  console.log(`   Skipped:  ${skipped}`);
-  console.log(`   Total:    ${rows.length}`);
+  console.log(`   Invitations: ${invitationsCreated}`);
+  console.log(`   Guests:      ${guestsCreated}`);
+  console.log(`   Skipped:     ${skipped}`);
 
   if (!shouldExecute) {
     console.log('\nℹ️  Run with --remote or --local to import into D1.');

@@ -1,10 +1,8 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
-import { eq } from 'drizzle-orm';
 import { Button } from '@/components/Button';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guests } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,22 +77,24 @@ export default async function SchedulePage() {
     redirect('/login?callbackUrl=/schedule');
   }
 
-  // Get guest data to determine visible events
+  // Get guest data with invitation to determine visible events
   const db = getDb();
-  const [guest] = await db
-    .select()
-    .from(guests)
-    .where(eq(guests.id, session.user.guestId));
+  const guest = await db.query.guests.findFirst({
+    where: (table, { eq }) => eq(table.id, session.user.guestId as string),
+    with: {
+      invitation: true,
+    },
+  });
 
-  if (!guest) {
+  if (!guest || !guest.invitation) {
     redirect('/login?callbackUrl=/schedule');
   }
 
-  // Parse visible events from JSON string
+  // Parse visible events from invitation's JSON string
   let visibleEventIndices: number[] = [];
 
   try {
-    visibleEventIndices = JSON.parse(guest.visibleEvents || '[]');
+    visibleEventIndices = JSON.parse(guest.invitation.visibleEvents || '[]');
   } catch (error) {
     console.error('Failed to parse visibleEvents:', error);
   }

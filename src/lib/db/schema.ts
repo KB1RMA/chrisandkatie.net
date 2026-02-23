@@ -78,26 +78,39 @@ export const verificationTokens = sqliteTable(
   }),
 );
 
+export const invitations = sqliteTable('Invitation', {
+  id: text('id').primaryKey(),
+  relationshipToCouple: text('relationshipToCouple'),
+  totalInvited: integer('totalInvited').notNull().default(1),
+  address: text('address'),
+  addressLine2: text('addressLine2'),
+  city: text('city'),
+  state: text('state'),
+  zipCode: text('zipCode'),
+  country: text('country'),
+  visibleEvents: text('visibleEvents').notNull().default('[0,1,2,3]'),
+  createdAt: text('createdAt').notNull().default(timestampDefault),
+  updatedAt: text('updatedAt').notNull().default(timestampDefault),
+});
+
 export const guests = sqliteTable(
   'Guest',
   {
     id: text('id').primaryKey(),
+    invitationId: text('invitationId')
+      .notNull()
+      .references(() => invitations.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
     userId: text('userId')
       .references(() => users.id, { onDelete: 'set null', onUpdate: 'cascade' })
       .unique(),
     firstName: text('firstName').notNull(),
     lastName: text('lastName').notNull(),
-    partnerFirstName: text('partnerFirstName'),
-    partnerLastName: text('partnerLastName'),
-    relationshipToCouple: text('relationshipToCouple'),
-    totalInvited: integer('totalInvited').notNull().default(1),
-    address: text('address'),
-    addressLine2: text('addressLine2'),
-    city: text('city'),
-    state: text('state'),
-    zipCode: text('zipCode'),
-    country: text('country'),
-    visibleEvents: text('visibleEvents').notNull().default('[0,1,2,3]'),
+    type: text('type', { enum: ['adult', 'child'] })
+      .notNull()
+      .default('adult'),
     createdAt: text('createdAt').notNull().default(timestampDefault),
     updatedAt: text('updatedAt').notNull().default(timestampDefault),
   },
@@ -107,6 +120,7 @@ export const guests = sqliteTable(
       table.lastName,
     ),
     userIdIndex: uniqueIndex('Guest_userId_key').on(table.userId),
+    invitationIndex: index('Guest_invitationId_idx').on(table.invitationId),
   }),
 );
 
@@ -119,9 +133,17 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
 }));
 
+export const invitationsRelations = relations(invitations, ({ many }) => ({
+  guests: many(guests),
+}));
+
 export const guestsRelations = relations(guests, ({ one }) => ({
   user: one(users, {
     fields: [guests.userId],
     references: [users.id],
+  }),
+  invitation: one(invitations, {
+    fields: [guests.invitationId],
+    references: [invitations.id],
   }),
 }));
