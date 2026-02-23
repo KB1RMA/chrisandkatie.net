@@ -40,7 +40,18 @@ declare module '@auth/core/jwt' {
 export async function createAuth(env?: CloudflareEnv) {
   const prisma = await getPrismaClient(env);
 
+  // In Cloudflare Workers, env vars are in the env binding, not process.env
+  // NextAuth reads from process.env internally, so we need to set them explicitly
+  if (env?.AUTH_SECRET) {
+    process.env.AUTH_SECRET = env.AUTH_SECRET;
+  }
+
+  if (env?.NEXTAUTH_URL) {
+    process.env.NEXTAUTH_URL = env.NEXTAUTH_URL;
+  }
+
   return NextAuth({
+    trustHost: true, // Required for Cloudflare Workers with custom domains
     adapter: PrismaAdapter(prisma),
 
     providers: [
