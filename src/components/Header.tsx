@@ -7,7 +7,14 @@
  * Shows user name and sign out button for authenticated users.
  */
 import { useSession, signOut } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { Marcellus } from 'next/font/google';
+
+const marcellus = Marcellus({
+  subsets: ['latin'],
+  weight: '400',
+});
 
 /**
  * Header component that displays authentication status and controls.
@@ -16,18 +23,23 @@ import Link from 'next/link';
  */
 export function Header() {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const isHomepage = pathname === '/';
 
   return (
     <header className="w-full bg-white/80 backdrop-blur-sm border-b border-[#f3dedb] sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo/Brand */}
-          <Link
-            href="/"
-            className="text-xl font-semibold text-[#9e3f3f] hover:text-[#b76565] transition-colors"
-          >
-            Chris & Katie
-          </Link>
+          {!isHomepage && (
+            <Link
+              href="/"
+              className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f] hover:text-[#b76565] transition-colors`}
+            >
+              Chris & Katie
+            </Link>
+          )}
+          {isHomepage && <div />}
 
           {/* Auth Controls */}
           <div className="flex items-center gap-4">
