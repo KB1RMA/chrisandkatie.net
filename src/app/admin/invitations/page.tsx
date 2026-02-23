@@ -79,6 +79,7 @@ export default async function AdminInvitationsPage() {
     const searchText = `${invitationName} ${relationshipToCouple} ${guestNames}`
       .toLowerCase()
       .trim();
+    const visibleEvents = JSON.parse(invitation.visibleEvents) as number[];
 
     return {
       id: invitation.id,
@@ -98,6 +99,7 @@ export default async function AdminInvitationsPage() {
         mealChoice: guest.mealChoice as MealOption | null,
         notes: guest.notes,
       })),
+      visibleEvents,
       searchText,
     };
   });

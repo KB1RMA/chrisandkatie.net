@@ -5,6 +5,7 @@ import type { Row } from '@tanstack/react-table';
 import { DataTable } from '@/components/table/DataTable';
 import type { DataTableColumnConfig } from '@/components/table/tableTypes';
 import { MEAL_CHOICE_LABELS, type MealOption } from '@/lib/constants';
+import { EventVisibilityEditor } from '@/components/admin/EventVisibilityEditor';
 
 export type InvitationGuestRow = {
   id: string;
@@ -26,6 +27,7 @@ export type InvitationTableRow = {
   declinedCount: number;
   pendingCount: number;
   guests: InvitationGuestRow[];
+  visibleEvents: number[];
   searchText: string;
 };
 
@@ -134,44 +136,59 @@ export function InvitationTable({ data }: InvitationTableProps) {
     }
 
     return (
-      <div className="space-y-2">
-        <p className="text-sm font-semibold text-gray-700">Guests</p>
-        <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-              <tr>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Type</th>
-                <th className="px-3 py-2">RSVP</th>
-                <th className="px-3 py-2">Meal</th>
-                <th className="px-3 py-2">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {guests.map((guest) => {
-                const guestName = formatGuestName(guest);
-                const attendingStatus = formatGuestAttendance(guest.attending);
-                const mealChoice = guest.mealChoice
-                  ? (MEAL_CHOICE_LABELS[guest.mealChoice] ?? guest.mealChoice)
-                  : '-';
-                const notes = guest.notes?.trim() || '-';
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-gray-700">Guests</p>
+          <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">Type</th>
+                  <th className="px-3 py-2">RSVP</th>
+                  <th className="px-3 py-2">Meal</th>
+                  <th className="px-3 py-2">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {guests.map((guest) => {
+                  const guestName = formatGuestName(guest);
+                  const attendingStatus = formatGuestAttendance(
+                    guest.attending,
+                  );
+                  const mealChoice = guest.mealChoice
+                    ? (MEAL_CHOICE_LABELS[guest.mealChoice] ??
+                      guest.mealChoice)
+                    : '-';
+                  const notes = guest.notes?.trim() || '-';
 
-                return (
-                  <tr key={guest.id}>
-                    <td className="px-3 py-2 text-gray-700">{guestName}</td>
-                    <td className="px-3 py-2 text-gray-700 capitalize">
-                      {guest.type}
-                    </td>
-                    <td className="px-3 py-2 text-gray-700">
-                      {attendingStatus}
-                    </td>
-                    <td className="px-3 py-2 text-gray-700">{mealChoice}</td>
-                    <td className="px-3 py-2 text-gray-700">{notes}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                  return (
+                    <tr key={guest.id}>
+                      <td className="px-3 py-2 text-gray-700">{guestName}</td>
+                      <td className="px-3 py-2 text-gray-700 capitalize">
+                        {guest.type}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {attendingStatus}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">{mealChoice}</td>
+                      <td className="px-3 py-2 text-gray-700">{notes}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-gray-700">Visible Events</p>
+          <div className="rounded-md border border-gray-200 bg-white p-4">
+            <EventVisibilityEditor
+              invitationId={row.original.id}
+              initialVisibleEvents={row.original.visibleEvents}
+            />
+          </div>
         </div>
       </div>
     );

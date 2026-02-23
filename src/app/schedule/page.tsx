@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Button } from '@/components/Button';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
+import { SCHEDULE_EVENTS } from '@/lib/events';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,58 +11,6 @@ const marcellus = Marcellus({
   subsets: ['latin'],
   weight: '400',
 });
-
-/**
- * Schedule item for the celebration events.
- */
-interface ScheduleItem {
-  date: string;
-  day: string;
-  time: string;
-  endTime?: string;
-  event: string;
-  location: string;
-  description: string;
-}
-
-const scheduleItems: ScheduleItem[] = [
-  {
-    date: 'September 10',
-    day: 'Thursday',
-    time: '6:00 PM',
-    event: 'Barbecue',
-    location: "Dad's House",
-    description: 'Casual outdoor gathering with appetizers and refreshments.',
-  },
-  {
-    date: 'September 11',
-    day: 'Friday',
-    time: '6:00 PM',
-    event: 'Barbecue',
-    location: "Chris & Katie's House",
-    description:
-      'Final gathering with close friends and family before the celebration weekend.',
-  },
-  {
-    date: 'September 12',
-    day: 'Saturday',
-    time: '4:00 PM',
-    event: 'Cocktail Hour',
-    location: 'The Venue',
-    description:
-      'Pre-celebration gathering with drinks, appetizers, and mingling.',
-  },
-  {
-    date: 'September 12',
-    day: 'Saturday',
-    time: '5:00 PM',
-    endTime: '10:00 PM',
-    event: 'Marriage Celebration',
-    location: 'The Venue',
-    description:
-      'Join us for dinner, dancing, and a celebration of our marriage!',
-  },
-];
 
 /**
  * Schedule page displaying celebration events filtered by guest permissions.
@@ -100,8 +49,8 @@ export default async function SchedulePage() {
   }
 
   // Filter schedule items based on guest permissions
-  const visibleScheduleItems = scheduleItems.filter((_, index) =>
-    visibleEventIndices.includes(index),
+  const visibleScheduleItems = SCHEDULE_EVENTS.filter((event) =>
+    visibleEventIndices.includes(event.id),
   );
 
   return (
@@ -118,9 +67,9 @@ export default async function SchedulePage() {
         </p>
 
         <div className="space-y-6 mb-12">
-          {visibleScheduleItems.map((item, index) => (
+          {visibleScheduleItems.map((item) => (
             <div
-              key={index}
+              key={item.id}
               className="bg-[#fffdfb] rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow duration-200"
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
