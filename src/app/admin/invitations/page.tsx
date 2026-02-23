@@ -97,6 +97,7 @@ export default async function AdminInvitationsPage() {
         type: guest.type as 'adult' | 'child',
         attending: guest.attending,
         mealChoice: guest.mealChoice as MealOption | null,
+        dietaryRestrictions: guest.dietaryRestrictions,
         notes: guest.notes,
       })),
       visibleEvents,

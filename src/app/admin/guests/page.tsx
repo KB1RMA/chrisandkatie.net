@@ -85,6 +85,7 @@ export default async function AdminGuestsPage() {
         status,
         attending: guest.attending,
         mealChoice: guest.mealChoice as MealOption | null,
+        dietaryRestrictions: guest.dietaryRestrictions,
         notes: guest.notes,
         searchText,
       };

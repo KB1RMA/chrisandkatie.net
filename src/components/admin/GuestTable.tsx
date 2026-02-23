@@ -14,6 +14,7 @@ export type GuestTableRow = {
   status: 'submitted' | 'pending';
   attending: boolean | null;
   mealChoice: MealOption | null;
+  dietaryRestrictions: string | null;
   notes: string | null;
   searchText: string;
 };
@@ -111,6 +112,11 @@ export function GuestTable({ data }: GuestTableProps) {
           value && value !== '-'
             ? (MEAL_CHOICE_LABELS[value as MealOption] ?? String(value))
             : '-',
+      },
+      {
+        id: 'dietaryRestrictions',
+        header: 'Dietary',
+        accessor: (row) => row.dietaryRestrictions ?? '-',
       },
       {
         id: 'notes',

@@ -27,6 +27,7 @@ export type GuestRSVP = {
   type: 'adult' | 'child';
   attending: boolean | null;
   mealChoice: MealOption | null;
+  dietaryRestrictions: string | null;
   notes: string | null;
 };
 
@@ -63,6 +64,7 @@ export function RSVPForm({
         lastName: g.lastName,
         attending: g.attending ?? undefined,
         mealChoice: g.mealChoice,
+        dietaryRestrictions: g.dietaryRestrictions || null,
         notes: g.notes,
       })),
     },
@@ -155,13 +157,13 @@ export function RSVPForm({
                           type="text"
                           placeholder="First Name"
                           {...register(`guests.${index}.firstName`)}
-                          className="flex-1 px-4 py-3 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+                          className="flex-1 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
                         />
                         <input
                           type="text"
                           placeholder="Last Name"
                           {...register(`guests.${index}.lastName`)}
-                          className="flex-1 px-4 py-3 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+                          className="flex-1 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
                         />
                       </div>
                       <p className="text-xs text-gray-500">
@@ -237,11 +239,17 @@ export function RSVPForm({
                       name={`guests.${index}.mealChoice`}
                       control={control}
                       render={({ field }) => (
-                        <div className="space-y-3">
+                        <div
+                          className={`space-y-2 sm:space-y-3 ${
+                            errors.guests?.[index]?.mealChoice
+                              ? 'p-3 border-2 border-red-300 rounded-md bg-red-50'
+                              : ''
+                          }`}
+                        >
                           {Object.entries(MEAL_OPTIONS).map(([, value]) => (
                             <label
                               key={value}
-                              className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
+                              className="flex items-center cursor-pointer p-3 sm:p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200"
                             >
                               <input
                                 type="radio"
@@ -249,7 +257,7 @@ export function RSVPForm({
                                 onChange={() => field.onChange(value)}
                                 className="form-radio h-5 w-5 text-[#9e3f3f] flex-shrink-0"
                               />
-                              <span className="ml-3 text-base sm:text-sm text-gray-700">
+                              <span className="ml-3 text-base sm:text-sm text-gray-900 font-medium">
                                 {MEAL_CHOICE_LABELS[value]}
                               </span>
                             </label>
@@ -266,6 +274,27 @@ export function RSVPForm({
 
                   <div>
                     <label
+                      htmlFor={`dietary-${guest.id}`}
+                      className="block text-base sm:text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Dietary Restrictions (optional)
+                    </label>
+                    <input
+                      id={`dietary-${guest.id}`}
+                      type="text"
+                      placeholder="e.g., Gluten-free, Nut allergy, Vegan"
+                      {...register(`guests.${index}.dietaryRestrictions`)}
+                      className="w-full px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
+                    />
+                    {errors.guests?.[index]?.dietaryRestrictions && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {errors.guests[index]?.dietaryRestrictions?.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
                       htmlFor={`notes-${guest.id}`}
                       className="block text-base sm:text-sm font-medium text-gray-700 mb-2"
                     >
@@ -276,7 +305,7 @@ export function RSVPForm({
                       placeholder="Any special requests or information"
                       rows={3}
                       {...register(`guests.${index}.notes`)}
-                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+                      className="w-full px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
                     />
                     {errors.guests?.[index]?.notes && (
                       <p className="text-sm text-red-600 mt-1">

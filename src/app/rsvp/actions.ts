@@ -58,6 +58,7 @@ export async function submitRsvp(input: SubmitRsvpInput) {
       const updateData: Record<string, any> = {
         attending: guestUpdate.attending,
         mealChoice: guestUpdate.mealChoice,
+        dietaryRestrictions: guestUpdate.dietaryRestrictions,
         notes: guestUpdate.notes,
         updatedAt: now,
       };

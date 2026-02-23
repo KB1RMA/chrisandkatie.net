@@ -59,6 +59,7 @@ export default async function RSVPPage() {
     type: g.type as 'adult' | 'child',
     attending: g.attending,
     mealChoice: g.mealChoice as MealOption | null,
+    dietaryRestrictions: g.dietaryRestrictions,
     notes: g.notes,
   }));
 

@@ -114,6 +114,7 @@ export const guests = sqliteTable(
       .default('adult'),
     attending: integer('attending', { mode: 'boolean' }),
     mealChoice: text('mealChoice'),
+    dietaryRestrictions: text('dietaryRestrictions'),
     notes: text('notes'),
     createdAt: text('createdAt').notNull().default(timestampDefault),
     updatedAt: text('updatedAt').notNull().default(timestampDefault),

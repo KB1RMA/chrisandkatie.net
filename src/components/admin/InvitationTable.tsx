@@ -14,6 +14,7 @@ export type InvitationGuestRow = {
   type: 'adult' | 'child';
   attending: boolean | null;
   mealChoice: MealOption | null;
+  dietaryRestrictions: string | null;
   notes: string | null;
 };
 
@@ -147,6 +148,7 @@ export function InvitationTable({ data }: InvitationTableProps) {
                   <th className="px-3 py-2">Type</th>
                   <th className="px-3 py-2">RSVP</th>
                   <th className="px-3 py-2">Meal</th>
+                  <th className="px-3 py-2">Dietary</th>
                   <th className="px-3 py-2">Notes</th>
                 </tr>
               </thead>
@@ -160,6 +162,8 @@ export function InvitationTable({ data }: InvitationTableProps) {
                     ? (MEAL_CHOICE_LABELS[guest.mealChoice] ??
                       guest.mealChoice)
                     : '-';
+                  const dietaryRestrictions =
+                    guest.dietaryRestrictions?.trim() || '-';
                   const notes = guest.notes?.trim() || '-';
 
                   return (
@@ -172,6 +176,9 @@ export function InvitationTable({ data }: InvitationTableProps) {
                         {attendingStatus}
                       </td>
                       <td className="px-3 py-2 text-gray-700">{mealChoice}</td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {dietaryRestrictions}
+                      </td>
                       <td className="px-3 py-2 text-gray-700">{notes}</td>
                     </tr>
                   );
