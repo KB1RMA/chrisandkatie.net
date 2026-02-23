@@ -70,7 +70,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
         // but TypeScript can't infer the actual route here
         router.push(callbackUrl);
       }
-    } catch (err) {
+    } catch {
       setAuthError('An error occurred during sign in. Please try again.');
     }
   };

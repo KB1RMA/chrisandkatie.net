@@ -1,8 +1,10 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
+import { eq } from 'drizzle-orm';
 import { Button } from '@/components/Button';
 import { auth } from '@/lib/auth';
-import { getPrismaClient } from '@/lib/db';
+import { getDb } from '@/lib/db';
+import { guests } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,12 +80,11 @@ export default async function SchedulePage() {
   }
 
   // Get guest data to determine visible events
-  const prisma = await getPrismaClient();
-  const guest = await prisma.guest.findUnique({
-    where: {
-      id: session.user.guestId,
-    },
-  });
+  const db = getDb();
+  const [guest] = await db
+    .select()
+    .from(guests)
+    .where(eq(guests.id, session.user.guestId));
 
   if (!guest) {
     redirect('/login?callbackUrl=/schedule');

@@ -2,12 +2,20 @@
  * Auth.js v5 configuration for guest authentication.
  *
  * Uses a custom credentials provider that authenticates guests by name lookup.
- * Stores session data in D1/SQLite via Prisma adapter.
+ * Stores session data in D1 via Drizzle adapter.
  */
 import NextAuth, { type DefaultSession } from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
+import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import Credentials from 'next-auth/providers/credentials';
-import { getPrismaClient } from '@/lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '@/lib/db';
+import {
+  accounts,
+  guests,
+  sessions,
+  users,
+  verificationTokens,
+} from '@/lib/db/schema';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 /**
@@ -37,8 +45,8 @@ declare module '@auth/core/jwt' {
  * @param env - Optional Cloudflare environment bindings (for D1)
  * @returns NextAuth instance with auth(), signIn(), signOut() handlers
  */
-export async function createAuth(env?: CloudflareEnv) {
-  const prisma = await getPrismaClient(env);
+export function createAuth(env?: CloudflareEnv) {
+  const db = getDb();
 
   // In Cloudflare Workers, env vars are in the env binding, not process.env
   // NextAuth reads from process.env internally, so we need to set them explicitly
@@ -52,7 +60,12 @@ export async function createAuth(env?: CloudflareEnv) {
 
   return NextAuth({
     trustHost: true, // Required for Cloudflare Workers with custom domains
-    adapter: PrismaAdapter(prisma),
+    adapter: DrizzleAdapter(db, {
+      usersTable: users,
+      accountsTable: accounts,
+      sessionsTable: sessions,
+      verificationTokensTable: verificationTokens,
+    }),
 
     providers: [
       Credentials({
@@ -71,55 +84,61 @@ export async function createAuth(env?: CloudflareEnv) {
             return null;
           }
 
-          // Case-insensitive name search using LIKE
+          // Case-insensitive name match
           const firstName = (credentials.firstName as string).trim();
           const lastName = (credentials.lastName as string).trim();
 
-          const guest = await prisma.guest.findFirst({
-            where: {
-              AND: [
-                {
-                  firstName: {
-                    contains: firstName,
-                  },
-                },
-                {
-                  lastName: {
-                    contains: lastName,
-                  },
-                },
-              ],
-            },
-            include: {
-              user: true,
-            },
+          const guest = await db.query.guests.findFirst({
+            where: (table) =>
+              sql`LOWER(${table.firstName}) = LOWER(${firstName}) AND LOWER(${table.lastName}) = LOWER(${lastName})`,
           });
 
           if (!guest) {
             return null;
           }
 
-          let user = guest.user;
+          let userId = guest.userId;
+          let userName = `${guest.firstName} ${guest.lastName}`;
+          let userEmail: string | null = null;
 
-          // Create user if guest doesn't have one yet
-          if (!user) {
-            user = await prisma.user.create({
-              data: {
-                name: `${guest.firstName} ${guest.lastName}`,
-                email: null,
-                guest: {
-                  connect: {
-                    id: guest.id,
-                  },
-                },
-              },
+          if (userId) {
+            const existingUser = await db.query.users.findFirst({
+              where: (table) => eq(table.id, userId as string),
             });
+
+            if (existingUser) {
+              userName = existingUser.name ?? userName;
+              userEmail = existingUser.email ?? null;
+            } else {
+              userId = null;
+            }
+          }
+
+          if (!userId) {
+            const newUserId = crypto.randomUUID();
+
+            const now = new Date().toISOString();
+
+            await db.insert(users).values({
+              id: newUserId,
+              name: userName,
+              email: null,
+              createdAt: now,
+              updatedAt: now,
+            });
+
+            await db
+              .update(guests)
+              .set({ userId: newUserId })
+              .where(eq(guests.id, guest.id));
+
+            userId = newUserId;
           }
 
           return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
+            id: userId,
+            name: userName,
+            email: userEmail,
             guestId: guest.id,
           };
         },
@@ -165,7 +184,7 @@ export async function createAuth(env?: CloudflareEnv) {
  * Get auth instance with automatic environment detection.
  * Uses Cloudflare context when available, falls back to local development.
  */
-async function getAuthInstance() {
+function getAuthInstance() {
   let env: CloudflareEnv | undefined;
 
   try {
@@ -183,7 +202,7 @@ async function getAuthInstance() {
  * Get current session with automatic environment detection.
  */
 export async function auth() {
-  const authInstance = await getAuthInstance();
+  const authInstance = getAuthInstance();
 
   return authInstance.auth();
 }
@@ -192,9 +211,9 @@ export async function auth() {
  * Sign in function with automatic environment detection.
  */
 export async function signIn(
-  ...args: Parameters<Awaited<ReturnType<typeof createAuth>>['signIn']>
+  ...args: Parameters<ReturnType<typeof createAuth>['signIn']>
 ) {
-  const authInstance = await getAuthInstance();
+  const authInstance = getAuthInstance();
 
   return authInstance.signIn(...args);
 }
@@ -203,9 +222,9 @@ export async function signIn(
  * Sign out function with automatic environment detection.
  */
 export async function signOut(
-  ...args: Parameters<Awaited<ReturnType<typeof createAuth>>['signOut']>
+  ...args: Parameters<ReturnType<typeof createAuth>['signOut']>
 ) {
-  const authInstance = await getAuthInstance();
+  const authInstance = getAuthInstance();
 
   return authInstance.signOut(...args);
 }
