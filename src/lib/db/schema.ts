@@ -88,6 +88,7 @@ export const invitations = sqliteTable('Invitation', {
   state: text('state'),
   zipCode: text('zipCode'),
   country: text('country'),
+  mailingAddress: text('mailingAddress'),
   visibleEvents: text('visibleEvents').notNull().default('[0,1,2,3]'),
   createdAt: text('createdAt').notNull().default(timestampDefault),
   updatedAt: text('updatedAt').notNull().default(timestampDefault),
@@ -111,6 +112,9 @@ export const guests = sqliteTable(
     type: text('type', { enum: ['adult', 'child'] })
       .notNull()
       .default('adult'),
+    attending: integer('attending', { mode: 'boolean' }),
+    mealChoice: text('mealChoice'),
+    notes: text('notes'),
     createdAt: text('createdAt').notNull().default(timestampDefault),
     updatedAt: text('updatedAt').notNull().default(timestampDefault),
   },

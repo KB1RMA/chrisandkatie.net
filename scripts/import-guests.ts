@@ -40,6 +40,46 @@ interface CSVRow {
 }
 
 /**
+ * Generate invitation address based on guest composition.
+ *
+ * @param adults - Array of adult guests with firstName and lastName
+ * @param hasChildren - Whether the invitation includes children
+ * @returns Generated invitation address
+ */
+function generateInvitationAddress(
+  adults: Array<{ firstName: string; lastName: string }>,
+  hasChildren: boolean,
+): string {
+  // If there are children, use "The [last name] Family"
+  if (hasChildren && adults.length > 0) {
+    return `The ${adults[0].lastName} Family`;
+  }
+
+  // If only one adult
+  if (adults.length === 1) {
+    return `${adults[0].firstName} ${adults[0].lastName}`;
+  }
+
+  // If two adults
+  if (adults.length === 2) {
+    const [adult1, adult2] = adults;
+
+    // Same last name: "First and Second LastName"
+    if (adult1.lastName === adult2.lastName) {
+      return `${adult1.firstName} and ${adult2.firstName} ${adult1.lastName}`;
+    }
+
+    // Different last names: both full names
+    return `${adult1.firstName} ${adult1.lastName} and ${adult2.firstName} ${adult2.lastName}`;
+  }
+
+  // Fallback for more than 2 adults
+  const names = adults.map((a) => `${a.firstName} ${a.lastName}`).join(' and ');
+
+  return names;
+}
+
+/**
  * Parse CSV file into array of objects.
  *
  * @param csvContent - Raw CSV file content
@@ -122,6 +162,48 @@ async function importGuests() {
     const invitationId = randomUUID();
     const totalInvited = parseInt(row['Total Definitely Invited']) || 1;
 
+    // Create Guest records for this invitation
+    const guests: Array<{
+      firstName: string;
+      lastName: string;
+      type: 'adult' | 'child';
+    }> = [];
+
+    // Primary guest (adult)
+    guests.push({ firstName, lastName, type: 'adult' });
+
+    // Partner (adult, if present)
+    if (row['Partner First Name']) {
+      guests.push({
+        firstName: row['Partner First Name'],
+        lastName: row['Partner Last Name'] || '',
+        type: 'adult',
+      });
+    }
+
+    // Children (if present)
+    let hasChildren = false;
+
+    for (let i = 1; i <= 5; i++) {
+      const childFirstName = row[`Child ${i} First Name` as keyof CSVRow];
+      const childLastName = row[`Child ${i} Last Name` as keyof CSVRow];
+
+      if (childFirstName) {
+        guests.push({
+          firstName: childFirstName,
+          lastName: childLastName || '',
+          type: 'child',
+        });
+        hasChildren = true;
+      }
+    }
+
+    // Generate invitation address based on guest composition
+    const adults = guests.filter(
+      (g) => g.type === 'adult' && g.firstName.toLowerCase() !== 'guest',
+    );
+    const mailingAddress = generateInvitationAddress(adults, hasChildren);
+
     // Create Invitation record
     const invitationValues = [
       invitationId,
@@ -133,6 +215,7 @@ async function importGuests() {
       row['State / Region'] || null,
       row['Zip / Postal Code'] || null,
       row['Country'] || null,
+      mailingAddress,
       '[0,1,2,3]',
       now,
       now,
@@ -153,42 +236,9 @@ async function importGuests() {
       .join(', ');
 
     insertStatements.push(
-      `INSERT INTO "Invitation" ("id", "relationshipToCouple", "totalInvited", "address", "addressLine2", "city", "state", "zipCode", "country", "visibleEvents", "createdAt", "updatedAt") VALUES (${invitationSqlValues});`,
+      `INSERT INTO "Invitation" ("id", "relationshipToCouple", "totalInvited", "address", "addressLine2", "city", "state", "zipCode", "country", "mailingAddress", "visibleEvents", "createdAt", "updatedAt") VALUES (${invitationSqlValues});`,
     );
     invitationsCreated++;
-
-    // Create Guest records for this invitation
-    const guests: Array<{
-      firstName: string;
-      lastName: string;
-      type: 'adult' | 'child';
-    }> = [];
-
-    // Primary guest (adult)
-    guests.push({ firstName, lastName, type: 'adult' });
-
-    // Partner (adult, if present)
-    if (row['Partner First Name'] && row['Partner Last Name']) {
-      guests.push({
-        firstName: row['Partner First Name'],
-        lastName: row['Partner Last Name'],
-        type: 'adult',
-      });
-    }
-
-    // Children (if present)
-    for (let i = 1; i <= 5; i++) {
-      const childFirstName = row[`Child ${i} First Name` as keyof CSVRow];
-      const childLastName = row[`Child ${i} Last Name` as keyof CSVRow];
-
-      if (childFirstName && childLastName) {
-        guests.push({
-          firstName: childFirstName,
-          lastName: childLastName,
-          type: 'child',
-        });
-      }
-    }
 
     // Insert all guests for this invitation
     for (const guest of guests) {
@@ -231,9 +281,7 @@ async function importGuests() {
   const seedFilePath = join(process.cwd(), 'seed-data', 'guests-import.sql');
   const sqlFileContents = [
     'PRAGMA foreign_keys=OFF;',
-    'BEGIN TRANSACTION;',
     ...insertStatements,
-    'COMMIT;',
     'PRAGMA foreign_keys=ON;',
   ].join('\n');
 
