@@ -144,24 +144,24 @@ export function RSVPForm({
           return (
             <div
               key={guest.id}
-              className="bg-white rounded-lg p-6 shadow-sm border border-gray-200"
+              className="bg-white rounded-lg p-4 sm:p-6 shadow-sm border border-gray-200"
             >
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
                 <div>
                   {guest.firstName.toLowerCase() === 'guest' ? (
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
+                    <div className="space-y-2 w-full">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
                           placeholder="First Name"
                           {...register(`guests.${index}.firstName`)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+                          className="flex-1 px-4 py-3 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
                         />
                         <input
                           type="text"
                           placeholder="Last Name"
                           {...register(`guests.${index}.lastName`)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+                          className="flex-1 px-4 py-3 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
                         />
                       </div>
                       <p className="text-xs text-gray-500">
@@ -181,7 +181,7 @@ export function RSVPForm({
                 </div>
 
                 <div
-                  className={`flex flex-col gap-2 ${
+                  className={`flex flex-col gap-2 w-full sm:w-auto ${
                     errors.guests?.[index]?.attending
                       ? 'border-l-2 border-red-500 pl-2'
                       : ''
@@ -191,27 +191,27 @@ export function RSVPForm({
                     name={`guests.${index}.attending`}
                     control={control}
                     render={({ field }) => (
-                      <div className="flex items-center gap-2">
-                        <label className="inline-flex items-center">
+                      <div className="flex flex-row sm:flex-row items-start sm:items-center gap-3 sm:gap-2">
+                        <label className="inline-flex items-center cursor-pointer">
                           <input
                             type="radio"
                             checked={field.value === true}
                             onChange={() => field.onChange(true)}
-                            className="form-radio h-4 w-4 text-[#9e3f3f]"
+                            className="form-radio h-5 w-5 text-[#9e3f3f]"
                           />
-                          <span className="ml-2 text-sm text-gray-700">
+                          <span className="ml-2 text-base sm:text-sm text-gray-700 whitespace-nowrap">
                             Attending
                           </span>
                         </label>
 
-                        <label className="inline-flex items-center ml-4">
+                        <label className="inline-flex items-center cursor-pointer">
                           <input
                             type="radio"
                             checked={field.value === false}
                             onChange={() => field.onChange(false)}
-                            className="form-radio h-4 w-4 text-gray-400"
+                            className="form-radio h-5 w-5 text-gray-400"
                           />
-                          <span className="ml-2 text-sm text-gray-700">
+                          <span className="ml-2 text-base sm:text-sm text-gray-700 whitespace-nowrap">
                             Declining
                           </span>
                         </label>
@@ -228,28 +228,28 @@ export function RSVPForm({
               </div>
 
               {isAttending && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-base sm:text-sm font-medium text-gray-700 mb-3">
                       Meal Choice *
                     </label>
                     <Controller
                       name={`guests.${index}.mealChoice`}
                       control={control}
                       render={({ field }) => (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {Object.entries(MEAL_OPTIONS).map(([, value]) => (
                             <label
                               key={value}
-                              className="flex items-center cursor-pointer"
+                              className="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded"
                             >
                               <input
                                 type="radio"
                                 checked={field.value === value}
                                 onChange={() => field.onChange(value)}
-                                className="form-radio h-4 w-4 text-[#9e3f3f]"
+                                className="form-radio h-5 w-5 text-[#9e3f3f] flex-shrink-0"
                               />
-                              <span className="ml-2 text-sm text-gray-700">
+                              <span className="ml-3 text-base sm:text-sm text-gray-700">
                                 {MEAL_CHOICE_LABELS[value]}
                               </span>
                             </label>
@@ -267,16 +267,16 @@ export function RSVPForm({
                   <div>
                     <label
                       htmlFor={`notes-${guest.id}`}
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className="block text-base sm:text-sm font-medium text-gray-700 mb-2"
                     >
                       Additional Notes (optional)
                     </label>
                     <textarea
                       id={`notes-${guest.id}`}
                       placeholder="Any special requests or information"
-                      rows={2}
+                      rows={3}
                       {...register(`guests.${index}.notes`)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
                     />
                     {errors.guests?.[index]?.notes && (
                       <p className="text-sm text-red-600 mt-1">

@@ -68,7 +68,7 @@ export default async function RSVPPage() {
   const submittedAt = loggedInGuest.updatedAt;
 
   return (
-    <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
+    <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8">
       <div className="w-full max-w-3xl">
         <h1
           className={`${marcellus.className} text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center`}
@@ -76,12 +76,12 @@ export default async function RSVPPage() {
           RSVP
         </h1>
 
-        <p className="text-xl text-[#6a5555] mb-8 text-center">
+        <p className="text-lg sm:text-xl text-[#6a5555] mb-6 sm:mb-8 text-center px-2">
           We can&#39;t wait to celebrate with you! Please let us know if
           you&#39;ll be joining us on {WEDDING_DATE_DISPLAY}.
         </p>
 
-        <div className="bg-[#fffdfb] rounded-lg shadow-lg p-8">
+        <div className="bg-[#fffdfb] rounded-lg shadow-lg p-4 sm:p-8">
           <div className="mb-6">
             <h2 className="text-2xl font-medium text-[#9e3f3f] mb-2">
               Your Invitation
