@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 
-export const WEDDING_DATE = new Date('2026-09-12T17:00:00');
+export const WEDDING_DATE = new Date('2026-09-12T16:00:00');
 
 // ISO date format (YYYY-MM-DD)
 export const WEDDING_DATE_ISO = format(WEDDING_DATE, 'yyyy-MM-dd');
