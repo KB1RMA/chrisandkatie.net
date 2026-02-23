@@ -8,18 +8,15 @@ import { trackNavigateToPath } from '@/lib/analytics';
 
 const baseButtonClassName = [
   'inline-block',
-  'bg-gradient-to-r',
-  'from-[#a34a4a]',
-  'to-[#cf7b78]',
-  'hover:from-[#8f3d3d]',
-  'hover:to-[#b86562]',
+  'bg-[#9e3f3f]',
+  'hover:bg-[#b76565]',
   'text-white',
   'font-semibold',
   'py-3',
   'px-8',
-  'rounded-full',
-  'shadow-lg',
-  'transition-all',
+  'rounded-md',
+  'shadow-sm',
+  'transition-colors',
   'duration-200',
 ];
 
@@ -29,6 +26,7 @@ export type ButtonProps = {
   onClick?: () => void;
   className?: string | string[];
   type?: 'button' | 'submit' | 'reset';
+  disabled?: boolean;
 };
 
 /**
@@ -44,8 +42,15 @@ export function Button({
   onClick,
   className,
   type = 'button',
+  disabled = false,
 }: ButtonProps) {
-  const combinedClassName = classNames(baseButtonClassName, className);
+  const combinedClassName = classNames(
+    baseButtonClassName,
+    {
+      'opacity-50 cursor-not-allowed': disabled,
+    },
+    className,
+  );
 
   const handleClick = () => {
     if (href) {
@@ -64,7 +69,12 @@ export function Button({
   }
 
   return (
-    <button type={type} onClick={handleClick} className={combinedClassName}>
+    <button
+      type={type}
+      onClick={handleClick}
+      className={combinedClassName}
+      disabled={disabled}
+    >
       {children}
     </button>
   );

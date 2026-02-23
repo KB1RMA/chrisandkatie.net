@@ -1,30 +1,27 @@
-const nextConfig = require('eslint-config-next');
 const prettierConfig = require('eslint-config-prettier');
 const prettierPlugin = require('eslint-plugin-prettier');
 const tseslint = require('typescript-eslint');
-const reactHooks = require('eslint-plugin-react-hooks');
 
 const eslintConfig = [
   {
     ignores: [
-      '.next/**',
-      '.open-next/**',
-      'out/**',
-      'build/**',
-      'node_modules/**',
+      '**/node_modules/**',
+      '**/.next/**',
+      '**/.open-next/**',
+      '**/out/**',
+      '**/build/**',
+      '**/prisma/generated/**',
+      '**/src/generated/**',
     ],
   },
-  ...nextConfig,
-  reactHooks.configs.flat.recommended,
   prettierConfig,
   {
+    files: ['**/*.{js,mjs,cjs}'],
     plugins: {
       prettier: prettierPlugin,
     },
     rules: {
       'prettier/prettier': 'error',
-      // Forces a blank line prior to block elements and returns. Does
-      //   a great job letting the reader breathe while reading code ;)
       'padding-line-between-statements': [
         'error',
         {
@@ -46,19 +43,50 @@ const eslintConfig = [
     },
   },
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    files: ['**/*.{ts,tsx}'],
     plugins: {
       '@typescript-eslint': tseslint.plugin,
+      prettier: prettierPlugin,
     },
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
         sourceType: 'module',
-        project: './tsconfig.json',
+        ecmaVersion: 'latest',
+        ecmaFeatures: {
+          jsx: true,
+        },
       },
     },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn',
+      'prettier/prettier': 'error',
+      'padding-line-between-statements': [
+        'error',
+        {
+          blankLine: 'always',
+          prev: '*',
+          next: 'block-like',
+        },
+        {
+          blankLine: 'always',
+          prev: 'block-like',
+          next: '*',
+        },
+        {
+          blankLine: 'always',
+          prev: '*',
+          next: 'return',
+        },
+      ],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        {
+          'ts-expect-error': 'allow-with-description',
+          'ts-ignore': 'allow-with-description',
+          minimumDescriptionLength: 10,
+        },
+      ],
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -69,10 +97,6 @@ const eslintConfig = [
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      '@typescript-eslint/prefer-optional-chain': 'error',
-      '@typescript-eslint/no-floating-promises': 'error',
-      '@typescript-eslint/await-thenable': 'error',
     },
   },
 ];

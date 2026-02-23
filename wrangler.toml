@@ -5,15 +5,6 @@ name = "chrisandkatiedotnet"
 compatibility_date = "2026-02-22"
 compatibility_flags = [ "nodejs_compat" ]
 
-[[analytics_engine_datasets]]
-binding = "ANALYTICS"
-
-[env.production]
-vars = { ANALYTICS_ENABLED = "true" }
-
-[env.staging]
-vars = { ANALYTICS_ENABLED = "false" }
-
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
@@ -22,3 +13,25 @@ binding = "ASSETS"
 [observability.logs]
 enabled = true
 invocation_logs = true
+
+[env.production]
+vars = { ANALYTICS_ENABLED = "true", NEXTAUTH_URL = "https://chrisandkatie.net" }
+
+[[env.production.analytics_engine_datasets]]
+binding = "ANALYTICS"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "prisma-demo-db"
+database_id = "73260722-51d9-4a90-961e-00d066b5dbb4"
+
+[env.staging]
+vars = { ANALYTICS_ENABLED = "false", NEXTAUTH_URL = "https://staging.chrisandkatie.net" }
+
+[[env.staging.analytics_engine_datasets]]
+binding = "ANALYTICS"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "prisma-demo-db"
+database_id = "73260722-51d9-4a90-961e-00d066b5dbb4"

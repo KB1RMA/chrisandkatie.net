@@ -1,5 +1,8 @@
 import { Marcellus } from 'next/font/google';
+import { redirect } from 'next/navigation';
 import { Button } from '@/components/Button';
+import { auth } from '@/lib/auth';
+import { getPrismaClient } from '@/lib/db';
 
 const marcellus = Marcellus({
   subsets: ['latin'],
@@ -59,9 +62,45 @@ const scheduleItems: ScheduleItem[] = [
 ];
 
 /**
- * Schedule page displaying all celebration events.
+ * Schedule page displaying celebration events filtered by guest permissions.
+ *
+ * Protected route - redirects to login if not authenticated.
+ * Filters events based on guest's visibleEvents array.
  */
-export default function SchedulePage() {
+export default async function SchedulePage() {
+  // Check authentication
+  const session = await auth();
+
+  if (!session?.user?.guestId) {
+    redirect('/login?callbackUrl=/schedule');
+  }
+
+  // Get guest data to determine visible events
+  const prisma = getPrismaClient();
+  const guest = await prisma.guest.findUnique({
+    where: {
+      id: session.user.guestId,
+    },
+  });
+
+  if (!guest) {
+    redirect('/login?callbackUrl=/schedule');
+  }
+
+  // Parse visible events from JSON string
+  let visibleEventIndices: number[] = [];
+
+  try {
+    visibleEventIndices = JSON.parse(guest.visibleEvents || '[]');
+  } catch (error) {
+    console.error('Failed to parse visibleEvents:', error);
+  }
+
+  // Filter schedule items based on guest permissions
+  const visibleScheduleItems = scheduleItems.filter((_, index) =>
+    visibleEventIndices.includes(index),
+  );
+
   return (
     <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
       <div className="w-full max-w-3xl">
@@ -72,11 +111,11 @@ export default function SchedulePage() {
         </h1>
 
         <p className="text-xl text-[#6a5555] mb-12 text-center">
-          Join us for the celebration weekend!
+          Welcome, {guest.firstName}! Here's your personalized schedule.
         </p>
 
         <div className="space-y-6 mb-12">
-          {scheduleItems.map((item, index) => (
+          {visibleScheduleItems.map((item, index) => (
             <div
               key={index}
               className="bg-[#fffdfb] rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow duration-200"

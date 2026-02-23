@@ -8,7 +8,7 @@ export type CountdownTime = {
   hours: number;
   minutes: number;
   seconds: number;
-}
+};
 
 /**
  * Calculates the remaining time until the wedding date.

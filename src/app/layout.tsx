@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Roboto } from 'next/font/google';
 import { CountdownPageTitle } from '@/components/CountdownPageTitle';
 import { PageViewTracker } from '@/components/PageViewTracker';
+import { SessionProvider } from '@/components/SessionProvider';
+import { Header } from '@/components/Header';
 import './globals.css';
 
 const roboto = Roboto({
@@ -9,7 +11,6 @@ const roboto = Roboto({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
 });
-
 
 export const metadata: Metadata = {
   title: 'Chris and Katie - Marriage Celebration',
@@ -27,9 +28,12 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
       </head>
       <body className={`${roboto.variable} antialiased`}>
-        <CountdownPageTitle />
-        <PageViewTracker />
-        {children}
+        <SessionProvider>
+          <Header />
+          <CountdownPageTitle />
+          <PageViewTracker />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

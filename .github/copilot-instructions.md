@@ -12,7 +12,7 @@ This project uses NextJS v16 and React v19 using the App router. All generated c
 - Always add code comments describing what the code does at a high-level rather than details of the implementation.
 
 ### Import and Module Patterns
-- Use path aliases with `@/` for internal imports (e.g., `@/lib/logger`, `@/types/actions-errors`)
+- Use path aliases with `@/` for internal imports (e.g., `@/lib/db`, `@/components/Button`)
 - Group imports logically: external libraries first, then internal modules
 - Use dynamic imports (`await import()`) in tests when module isolation is needed
 
@@ -38,26 +38,51 @@ This project uses NextJS v16 and React v19 using the App router. All generated c
 - **Follow the Rule of Three**: Wait until you have three similar pieces of code before extracting shared functionality. This prevents premature abstraction and ensures abstractions are based on real usage patterns rather than speculation.
 - **Use functional programming patterns**: Favor immutable operations with methods like `.map()`, `.filter()`, `.reduce()`, and `.forEach()` over imperative loops and variable mutation. This promotes safer, more predictable code.
 - **Prefer early returns to reduce nesting and improve readability**: Use guard clauses and early returns instead of deeply nested if-else blocks. For example:
-  ```typescript
-  // ✅ Good - Early return pattern
-  if (!tracer) {
-    return context;
-  }
-  
+
+```typescript
+// ✅ Good - Early return pattern
+if (!tracer) {
+  return context;
+}
+
+const span = tracer.scope().active();
+
+if (span) {
+  tracer.inject(span.context(), 'log', context);
+}
+
+return context;
+
+// ❌ Avoid - Nested pattern
+if (tracer) {
   const span = tracer.scope().active();
-  
   if (span) {
     tracer.inject(span.context(), 'log', context);
   }
-  
-  return context;
-  
-  // ❌ Avoid - Nested pattern
-  if (tracer) {
-    const span = tracer.scope().active();
-    if (span) {
-      tracer.inject(span.context(), 'log', context);
-    }
-  }
-  return context;
-  ```
+}
+return context;
+```
+
+### Authentication with Next.js Auth v5
+- Use Next.js Auth v5 for credential-based authentication with custom providers
+- User authentication is tied to Guest records in the database via `guestId` stored in JWT tokens
+- Protected routes should check for valid session via `auth()` function and validate guest access permissions
+- The Credentials provider authenticates by first/last name lookup against the Guest table
+
+### Database with Prisma
+- This project uses Prisma ORM with SQLite for local development and Cloudflare D1 for production
+- Always define database models in `prisma/schema.prisma` with appropriate relationships and field constraints
+- Run `npx prisma generate` after schema changes to regenerate Prisma client
+- Database queries should use the Prisma client instance from `@/lib/db`
+
+### Form Validation with React Hook Form & Zod
+- Use react-hook-form paired with Zod for client-side form validation
+- Define Zod schemas as `const mySchema = z.object({ ... })` and derive types via `type MyForm = z.infer<typeof mySchema>`
+- Use `useForm` hook with `resolver: zodResolver(mySchema)` for validation integration
+- Render form errors via the `formState.errors` object with conditional rendering
+- Keep validation schemas close to the forms that use them or in a shared `@/lib/schemas` directory if reused
+
+### Guest-Based Access Control
+- Pages requiring authentication should use server-side `auth()` to get the session with `guestId`
+- Query guest data and permissions server-side, then pass filtered data to client components
+- Use the guest record to determine what content/events are visible to the user

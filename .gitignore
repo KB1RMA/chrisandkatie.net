@@ -48,3 +48,14 @@ next-env.d.ts
 
 
 !.dev.vars.example
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+prisma/generated/
+
+/src/generated/prisma
+
+dev.db*
+
+seed-data/
