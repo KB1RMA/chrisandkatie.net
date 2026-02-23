@@ -14,7 +14,7 @@ import type { NextRequest } from 'next/server';
  */
 export async function GET(req: NextRequest) {
   const { env } = getCloudflareContext();
-  const { handlers } = createAuth(env);
+  const { handlers } = await createAuth(env);
 
   return handlers.GET(req);
 }
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const { env } = getCloudflareContext();
-  const { handlers } = createAuth(env);
+  const { handlers } = await createAuth(env);
 
   return handlers.POST(req);
 }

@@ -8,6 +8,7 @@ import NextAuth, { type DefaultSession } from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import Credentials from 'next-auth/providers/credentials';
 import { getPrismaClient } from '@/lib/db';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 /**
  * Extends the default session to include guest ID.
@@ -36,8 +37,8 @@ declare module '@auth/core/jwt' {
  * @param env - Optional Cloudflare environment bindings (for D1)
  * @returns NextAuth instance with auth(), signIn(), signOut() handlers
  */
-export function createAuth(env?: CloudflareEnv) {
-  const prisma = getPrismaClient(env);
+export async function createAuth(env?: CloudflareEnv) {
+  const prisma = await getPrismaClient(env);
 
   return NextAuth({
     adapter: PrismaAdapter(prisma),
@@ -149,5 +150,51 @@ export function createAuth(env?: CloudflareEnv) {
   });
 }
 
-// Default auth instance for local development
-export const { auth, signIn, signOut, handlers } = createAuth();
+/**
+ * Get auth instance with automatic environment detection.
+ * Uses Cloudflare context when available, falls back to local development.
+ */
+async function getAuthInstance() {
+  let env: CloudflareEnv | undefined;
+
+  try {
+    const context = getCloudflareContext();
+    env = context?.env;
+  } catch {
+    // Not in Cloudflare context, use local development
+    env = undefined;
+  }
+
+  return createAuth(env);
+}
+
+/**
+ * Get current session with automatic environment detection.
+ */
+export async function auth() {
+  const authInstance = await getAuthInstance();
+
+  return authInstance.auth();
+}
+
+/**
+ * Sign in function with automatic environment detection.
+ */
+export async function signIn(
+  ...args: Parameters<Awaited<ReturnType<typeof createAuth>>['signIn']>
+) {
+  const authInstance = await getAuthInstance();
+
+  return authInstance.signIn(...args);
+}
+
+/**
+ * Sign out function with automatic environment detection.
+ */
+export async function signOut(
+  ...args: Parameters<Awaited<ReturnType<typeof createAuth>>['signOut']>
+) {
+  const authInstance = await getAuthInstance();
+
+  return authInstance.signOut(...args);
+}

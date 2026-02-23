@@ -76,7 +76,7 @@ export default async function SchedulePage() {
   }
 
   // Get guest data to determine visible events
-  const prisma = getPrismaClient();
+  const prisma = await getPrismaClient();
   const guest = await prisma.guest.findUnique({
     where: {
       id: session.user.guestId,

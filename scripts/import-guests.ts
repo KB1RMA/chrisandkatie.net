@@ -92,7 +92,7 @@ async function importGuests() {
 
   console.log(`📋 Found ${rows.length} guest records in CSV\n`);
 
-  const prisma = getPrismaClient();
+  const prisma = await getPrismaClient();
 
   let imported = 0;
   let skipped = 0;
