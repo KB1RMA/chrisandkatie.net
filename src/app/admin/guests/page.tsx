@@ -58,12 +58,6 @@ export default async function AdminGuestsPage() {
       : 'Invitation';
     const invitationName =
       invitation.mailingAddress?.trim() || fallbackName || 'Invitation';
-    const attendingCount = invitation.guests.filter(
-      (guest) => guest.attending === true,
-    ).length;
-    const declinedCount = invitation.guests.filter(
-      (guest) => guest.attending === false,
-    ).length;
     const pendingCount = invitation.guests.filter(
       (guest) => guest.attending === null,
     ).length;
@@ -92,6 +86,13 @@ export default async function AdminGuestsPage() {
     });
   });
 
+  // Calculate summary statistics
+  const totalGuests = rows.length;
+  const submittedGuests = rows.filter((r) => r.status === 'submitted').length;
+  const attendingGuests = rows.filter((r) => r.attending === true).length;
+  const decliningGuests = rows.filter((r) => r.attending === false).length;
+  const notRespondedGuests = rows.filter((r) => r.attending === null).length;
+
   return (
     <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
       <div className="w-full max-w-6xl">
@@ -101,9 +102,51 @@ export default async function AdminGuestsPage() {
           Guests Admin
         </h1>
         <AdminTabs />
-        <p className="text-lg text-[#6a5555] mb-8 text-center mt-6">
+        <p className="text-lg text-[#6a5555] mb-4 text-center mt-6">
           Browse individual guest responses and RSVP details.
         </p>
+        
+        {/* Summary Statistics */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-[#9e3f3f]">
+            <p className="text-sm text-[#7a6666] font-medium">Total Guests</p>
+            <p className="text-2xl font-bold text-[#9e3f3f]">{totalGuests}</p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-green-500">
+            <p className="text-sm text-[#7a6666] font-medium">Submitted</p>
+            <p className="text-2xl font-bold text-green-700">
+              {submittedGuests}
+            </p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-green-600">
+            <p className="text-sm text-[#7a6666] font-medium">Attending</p>
+            <p className="text-2xl font-bold text-green-800">
+              {attendingGuests}
+            </p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-red-500">
+            <p className="text-sm text-[#7a6666] font-medium">Declining</p>
+            <p className="text-2xl font-bold text-red-700">{decliningGuests}</p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-yellow-500">
+            <p className="text-sm text-[#7a6666] font-medium">Not Responded</p>
+            <p className="text-2xl font-bold text-yellow-700">
+              {notRespondedGuests}
+            </p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-[#b76565]">
+            <p className="text-sm text-[#7a6666] font-medium">Response Rate</p>
+            <p className="text-2xl font-bold text-[#9e3f3f]">
+              {totalGuests > 0
+                ? Math.round(
+                    ((attendingGuests + decliningGuests) / totalGuests) * 100,
+                  )
+                : 0}
+              %
+            </p>
+          </div>
+        </div>
+
         <div className="bg-[#fffdfb] rounded-lg shadow-lg p-6">
           <GuestTable data={rows} />
         </div>

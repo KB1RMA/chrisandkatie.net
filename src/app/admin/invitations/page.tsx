@@ -105,6 +105,17 @@ export default async function AdminInvitationsPage() {
     };
   });
 
+  // Calculate summary statistics
+  const totalInvitations = rows.length;
+  const submittedInvitations = rows.filter(
+    (r) => r.status === 'submitted',
+  ).length;
+  const pendingInvitations = rows.filter((r) => r.status === 'pending').length;
+  const totalGuests = rows.reduce((sum, r) => sum + r.totalInvited, 0);
+  const totalAttending = rows.reduce((sum, r) => sum + r.attendingCount, 0);
+  const totalDeclined = rows.reduce((sum, r) => sum + r.declinedCount, 0);
+  const totalPending = rows.reduce((sum, r) => sum + r.pendingCount, 0);
+
   return (
     <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
       <div className="w-full max-w-6xl">
@@ -114,9 +125,63 @@ export default async function AdminInvitationsPage() {
           Invitations Admin
         </h1>
         <AdminTabs />
-        <p className="text-lg text-[#6a5555] mb-8 text-center mt-6">
+        <p className="text-lg text-[#6a5555] mb-4 text-center mt-6">
           Review RSVP status and expand invitations to see guest details.
         </p>
+        
+        {/* Summary Statistics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-[#9e3f3f]">
+            <p className="text-sm text-[#7a6666] font-medium">
+              Total Invitations
+            </p>
+            <p className="text-2xl font-bold text-[#9e3f3f]">
+              {totalInvitations}
+            </p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-green-500">
+            <p className="text-sm text-[#7a6666] font-medium">Submitted</p>
+            <p className="text-2xl font-bold text-green-700">
+              {submittedInvitations}
+            </p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-yellow-500">
+            <p className="text-sm text-[#7a6666] font-medium">Pending</p>
+            <p className="text-2xl font-bold text-yellow-700">
+              {pendingInvitations}
+            </p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-blue-500">
+            <p className="text-sm text-[#7a6666] font-medium">Total Guests</p>
+            <p className="text-2xl font-bold text-blue-700">{totalGuests}</p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-green-600">
+            <p className="text-sm text-[#7a6666] font-medium">Attending</p>
+            <p className="text-2xl font-bold text-green-800">
+              {totalAttending}
+            </p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-red-500">
+            <p className="text-sm text-[#7a6666] font-medium">Declined</p>
+            <p className="text-2xl font-bold text-red-700">{totalDeclined}</p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-gray-400">
+            <p className="text-sm text-[#7a6666] font-medium">Not Responded</p>
+            <p className="text-2xl font-bold text-gray-700">{totalPending}</p>
+          </div>
+          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-[#b76565]">
+            <p className="text-sm text-[#7a6666] font-medium">Response Rate</p>
+            <p className="text-2xl font-bold text-[#9e3f3f]">
+              {totalGuests > 0
+                ? Math.round(
+                    ((totalAttending + totalDeclined) / totalGuests) * 100,
+                  )
+                : 0}
+              %
+            </p>
+          </div>
+        </div>
+
         <div className="bg-[#fffdfb] rounded-lg shadow-lg p-6">
           <InvitationTable data={rows} />
         </div>
