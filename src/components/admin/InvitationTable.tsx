@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Row } from '@tanstack/react-table';
 import { DataTable } from '@/components/table/DataTable';
 import type { DataTableColumnConfig } from '@/components/table/tableTypes';
 import { MEAL_CHOICE_LABELS, type MealOption } from '@/lib/constants';
 import { EventVisibilityEditor } from '@/components/admin/EventVisibilityEditor';
+import { resetInvitationRSVP } from '@/app/admin/invitations/actions';
 
 export type InvitationGuestRow = {
   id: string;
@@ -196,6 +197,13 @@ export function InvitationTable({ data }: InvitationTableProps) {
             />
           </div>
         </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-gray-700">Actions</p>
+          <div className="rounded-md border border-gray-200 bg-white p-4">
+            <ResetRSVPButton invitationId={row.original.id} />
+          </div>
+        </div>
       </div>
     );
   };
@@ -209,5 +217,65 @@ export function InvitationTable({ data }: InvitationTableProps) {
       getRowCanExpand={(row) => row.guests.length > 0}
       renderSubComponent={renderGuestsTable}
     />
+  );
+}
+
+/**
+ * Reset RSVP button component.
+ */
+function ResetRSVPButton({ invitationId }: { invitationId: string }) {
+  const [isResetting, setIsResetting] = useState(false);
+  const [message, setMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  const handleReset = async () => {
+    if (
+      !confirm(
+        'Are you sure you want to reset this RSVP? This will clear all responses and cannot be undone.',
+      )
+    ) {
+      return;
+    }
+
+    setIsResetting(true);
+    setMessage(null);
+
+    const result = await resetInvitationRSVP(invitationId);
+
+    setIsResetting(false);
+
+    if (result.success) {
+      setMessage({ type: 'success', text: 'RSVP reset successfully' });
+      setTimeout(() => setMessage(null), 3000);
+    } else {
+      setMessage({
+        type: 'error',
+        text: result.error || 'Failed to reset RSVP',
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={handleReset}
+        disabled={isResetting}
+        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+      >
+        {isResetting ? 'Resetting...' : 'Reset RSVP'}
+      </button>
+
+      {message && (
+        <p
+          className={`text-sm ${
+            message.type === 'success' ? 'text-green-600' : 'text-red-600'
+          }`}
+        >
+          {message.text}
+        </p>
+      )}
+    </div>
   );
 }
