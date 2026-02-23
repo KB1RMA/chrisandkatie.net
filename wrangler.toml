@@ -19,6 +19,7 @@ vars = { ANALYTICS_ENABLED = "true", NEXTAUTH_URL = "https://chrisandkatie.net" 
 
 [[env.production.analytics_engine_datasets]]
 binding = "ANALYTICS"
+dataset = "ANALYTICS"
 
 [[env.production.d1_databases]]
 binding = "DB"
@@ -30,6 +31,7 @@ vars = { ANALYTICS_ENABLED = "false", NEXTAUTH_URL = "https://staging.chrisandka
 
 [[env.staging.analytics_engine_datasets]]
 binding = "ANALYTICS"
+dataset = "ANALYTICS"
 
 [[env.staging.d1_databases]]
 binding = "DB"
