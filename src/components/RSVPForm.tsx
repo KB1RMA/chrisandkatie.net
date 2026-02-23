@@ -7,10 +7,11 @@
  * Uses react-hook-form for state management and server action for submission.
  * Validates with Zod schemas shared with server action.
  */
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import confetti from 'canvas-confetti';
 import { submitRsvp } from '@/app/rsvp/actions';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
 import {
@@ -47,6 +48,8 @@ export function RSVPForm({
   submittedAt,
 }: RSVPFormProps) {
   const router = useRouter();
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -88,6 +91,52 @@ export function RSVPForm({
   }, [watchedAttending]);
 
   /**
+   * Trigger confetti animation.
+   */
+  const triggerConfetti = useCallback(() => {
+    const count = 200;
+    const defaults = {
+      origin: { y: 0.7 },
+      zIndex: 9999,
+    };
+
+    function fire(particleRatio: number, opts: confetti.Options) {
+      confetti({
+        ...defaults,
+        ...opts,
+        particleCount: Math.floor(count * particleRatio),
+      });
+    }
+
+    fire(0.25, {
+      spread: 26,
+      startVelocity: 55,
+    });
+
+    fire(0.2, {
+      spread: 60,
+    });
+
+    fire(0.35, {
+      spread: 100,
+      decay: 0.91,
+      scalar: 0.8,
+    });
+
+    fire(0.1, {
+      spread: 120,
+      startVelocity: 25,
+      decay: 0.92,
+      scalar: 1.2,
+    });
+
+    fire(0.1, {
+      spread: 120,
+      startVelocity: 45,
+    });
+  }, []);
+
+  /**
    * Handle form submission with server action.
    */
   const onSubmit = useCallback(
@@ -95,16 +144,24 @@ export function RSVPForm({
       try {
         await submitRsvp(data);
 
+        // Show success message
+        setShowSuccessMessage(true);
+
+        // Trigger confetti
+        triggerConfetti();
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
         // Refresh the page to show updated data
         router.refresh();
-        alert('RSVP submitted successfully!');
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Failed to submit RSVP';
         setError('root', { message: errorMessage });
       }
     },
-    [router, setError],
+    [router, setError, triggerConfetti],
   );
 
   return (
@@ -112,6 +169,16 @@ export function RSVPForm({
       onSubmit={handleSubmit(onSubmit)}
       className={`space-y-6 ${isSubmitted ? 'opacity-60' : ''}`}
     >
+      {showSuccessMessage && (
+        <div className="bg-green-50 border border-green-400 text-green-800 px-4 py-4 rounded animate-in fade-in slide-in-from-top-4 duration-500">
+          <p className="font-medium mb-1">🎉 RSVP Submitted Successfully!</p>
+          <p className="text-sm">
+            Thank you for your response! We&#39;re excited to celebrate with
+            you.
+          </p>
+        </div>
+      )}
+
       {isSubmitted && submittedBy && submittedAt && (
         <div className="bg-blue-50 border border-blue-400 text-blue-800 px-4 py-4 rounded">
           <p className="font-medium mb-1">✓ RSVP Submitted</p>
