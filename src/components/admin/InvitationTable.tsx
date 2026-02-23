@@ -159,8 +159,7 @@ export function InvitationTable({ data }: InvitationTableProps) {
                     guest.attending,
                   );
                   const mealChoice = guest.mealChoice
-                    ? (MEAL_CHOICE_LABELS[guest.mealChoice] ??
-                      guest.mealChoice)
+                    ? (MEAL_CHOICE_LABELS[guest.mealChoice] ?? guest.mealChoice)
                     : '-';
                   const dietaryRestrictions =
                     guest.dietaryRestrictions?.trim() || '-';

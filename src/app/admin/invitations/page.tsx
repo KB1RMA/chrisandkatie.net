@@ -117,7 +117,7 @@ export default async function AdminInvitationsPage() {
   const totalPending = rows.reduce((sum, r) => sum + r.pendingCount, 0);
 
   return (
-    <div className="font-roboto flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
+    <div className="font-roboto flex flex-col items-center justify-start sm:justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8">
       <div className="w-full max-w-6xl">
         <h1
           className={`${marcellus.className} text-4xl sm:text-5xl font-bold text-[#9e3f3f] mb-4 text-center`}
@@ -128,7 +128,7 @@ export default async function AdminInvitationsPage() {
         <p className="text-lg text-[#6a5555] mb-4 text-center mt-6">
           Review RSVP status and expand invitations to see guest details.
         </p>
-        
+
         {/* Summary Statistics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-[#9e3f3f]">

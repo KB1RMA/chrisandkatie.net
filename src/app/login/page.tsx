@@ -32,7 +32,7 @@ export default async function LoginPage(props: {
   }
 
   return (
-    <div className="font-roboto flex min-h-screen items-center justify-center bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] px-4 py-12 sm:px-6 lg:px-8">
+    <div className="font-roboto flex min-h-screen items-center justify-start sm:justify-center bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
         <Suspense>
           <LoginForm marcellusClassName={marcellus.className} />
