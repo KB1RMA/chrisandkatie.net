@@ -19,23 +19,26 @@ import {
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 /**
- * Extends the default session to include guest ID.
+ * Extends the default session to include guest ID and first name.
  */
 declare module 'next-auth' {
   interface Session {
     user: {
       guestId?: string;
+      firstName?: string;
     } & DefaultSession['user'];
   }
 
   interface User {
     guestId?: string;
+    firstName?: string;
   }
 }
 
 declare module '@auth/core/jwt' {
   interface JWT {
     guestId?: string;
+    firstName?: string;
   }
 }
 
@@ -140,6 +143,7 @@ export function createAuth(env?: CloudflareEnv) {
             name: userName,
             email: userEmail,
             guestId: guest.id,
+            firstName: guest.firstName,
           };
         },
       }),
@@ -147,22 +151,30 @@ export function createAuth(env?: CloudflareEnv) {
 
     callbacks: {
       /**
-       * Adds guestId to JWT token when user signs in.
+       * Adds guestId and firstName to JWT token when user signs in.
        */
       async jwt({ token, user }) {
         if (user?.guestId) {
           token.guestId = user.guestId;
         }
 
+        if (user?.firstName) {
+          token.firstName = user.firstName;
+        }
+
         return token;
       },
 
       /**
-       * Adds guestId to session object from JWT token.
+       * Adds guestId and firstName to session object from JWT token.
        */
       async session({ session, token }) {
         if (token.guestId && session.user) {
           session.user.guestId = token.guestId as string;
+        }
+
+        if (token.firstName && session.user) {
+          session.user.firstName = token.firstName as string;
         }
 
         return session;

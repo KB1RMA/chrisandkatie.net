@@ -48,7 +48,8 @@ export function Header() {
             ) : session?.user ? (
               <>
                 <span className="text-sm text-[#6a5555]">
-                  Hello, {session.user.name?.split(' ')[0]}!
+                  Hello,{' '}
+                  {session.user.firstName || session.user.name?.split(' ')[0]}!
                 </span>
                 <button
                   onClick={() => signOut({ callbackUrl: '/' })}
