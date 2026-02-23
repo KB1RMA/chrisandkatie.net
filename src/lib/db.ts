@@ -1,8 +1,8 @@
-import { PrismaClient } from '../../prisma/generated/client';
 import { PrismaD1 } from '@prisma/adapter-d1';
+import type { PrismaClient as PrismaClientType } from '../../prisma/generated/client';
 
 // Global singleton for local development to avoid connection exhaustion
-let prismaClientSingleton: PrismaClient | undefined;
+let prismaClientSingleton: PrismaClientType | undefined;
 
 /**
  * Get Prisma client with conditional adapter for local SQLite or Cloudflare D1.
@@ -12,17 +12,19 @@ let prismaClientSingleton: PrismaClient | undefined;
  */
 export async function getPrismaClient(
   env?: CloudflareEnv,
-): Promise<PrismaClient> {
+): Promise<PrismaClientType> {
   // If D1 binding is available (Cloudflare Workers), use D1 adapter
   if (env?.DB) {
     const adapter = new PrismaD1(env.DB);
+    const { default: PrismaClient } = await import('@prisma/client/edge');
 
-    return new PrismaClient({ adapter });
+    return new PrismaClient({ adapter }) as PrismaClientType;
   }
 
   // Otherwise, use local SQLite (development) with LibSQL adapter
   // Dynamic import to prevent bundling @libsql/client in Cloudflare Workers
   if (!prismaClientSingleton) {
+    const { PrismaClient } = await import('../../prisma/generated/client');
     const { PrismaLibSql } = await import('@prisma/adapter-libsql');
     const databaseUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db';
     const adapter = new PrismaLibSql({ url: databaseUrl });
