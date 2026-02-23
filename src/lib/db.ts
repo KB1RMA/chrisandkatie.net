@@ -16,7 +16,7 @@ export async function getPrismaClient(
   // If D1 binding is available (Cloudflare Workers), use D1 adapter
   if (env?.DB) {
     const adapter = new PrismaD1(env.DB);
-    const { default: PrismaClient } = await import('@prisma/client/edge');
+    const { PrismaClient } = await import('@prisma/client/edge');
 
     return new PrismaClient({ adapter }) as PrismaClientType;
   }

@@ -52,6 +52,7 @@ export async function createAuth(env?: CloudflareEnv) {
 
   return NextAuth({
     trustHost: true, // Required for Cloudflare Workers with custom domains
+    // @ts-expect-error - PrismaAdapter not working with prisma v7
     adapter: PrismaAdapter(prisma),
 
     providers: [
