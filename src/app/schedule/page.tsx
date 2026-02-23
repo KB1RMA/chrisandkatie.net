@@ -4,6 +4,8 @@ import { Button } from '@/components/Button';
 import { auth } from '@/lib/auth';
 import { getPrismaClient } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 const marcellus = Marcellus({
   subsets: ['latin'],
   weight: '400',

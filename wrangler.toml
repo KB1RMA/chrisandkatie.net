@@ -14,6 +14,11 @@ binding = "ASSETS"
 enabled = true
 invocation_logs = true
 
+[[d1_databases]]
+binding = "DB"
+database_name = "prisma-demo-db"
+database_id = "73260722-51d9-4a90-961e-00d066b5dbb4"
+
 [env.production]
 vars = { ANALYTICS_ENABLED = "true", NEXTAUTH_URL = "https://chrisandkatie.net" }
 
