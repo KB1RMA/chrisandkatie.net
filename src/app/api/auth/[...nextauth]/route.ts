@@ -5,6 +5,7 @@
  * Uses Cloudflare environment bindings when deployed as a Worker.
  */
 import { createAuth } from '@/lib/auth';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { NextRequest } from 'next/server';
 
 /**
@@ -12,7 +13,7 @@ import type { NextRequest } from 'next/server';
  * Creates auth instance with Cloudflare D1 binding if available.
  */
 export async function GET(req: NextRequest) {
-  const env = (req as typeof req & { env?: CloudflareEnv }).env;
+  const { env } = getCloudflareContext();
   const { handlers } = createAuth(env);
 
   return handlers.GET(req);
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
  * Creates auth instance with Cloudflare D1 binding if available.
  */
 export async function POST(req: NextRequest) {
-  const env = (req as typeof req & { env?: CloudflareEnv }).env;
+  const { env } = getCloudflareContext();
   const { handlers } = createAuth(env);
 
   return handlers.POST(req);
