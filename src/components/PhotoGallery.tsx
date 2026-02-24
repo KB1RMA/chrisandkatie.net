@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import {
+  MasonryPhotoAlbum,
   type RenderImageContext,
   type RenderImageProps,
 } from 'react-photo-album';
-import ServerPhotoAlbum from 'react-photo-album/server';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
-import 'react-photo-album/rows.css';
+import 'react-photo-album/masonry.css';
 
 /**
  * Photo type for the gallery.
@@ -63,22 +63,9 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
 
   return (
     <>
-      <ServerPhotoAlbum
-        unstyled
-        layout="rows"
+      <MasonryPhotoAlbum
         photos={photos}
         render={{ image: renderNextImage }}
-        breakpoints={[300, 600, 900]}
-        classNames={{
-          container: '@container',
-          breakpoints: {
-            150: 'block @[300px]:hidden',
-            300: 'hidden @[300px]:block @[600px]:hidden',
-            600: 'hidden @[600px]:block @[900px]:hidden',
-            900: 'hidden @[900px]:block',
-          },
-        }}
-        // @ts-expect-error - This apperas to work
         onClick={({ index: current }) => setIndex(current)}
       />
 
