@@ -69,25 +69,25 @@ export default async function RSVPPage() {
   const submittedAt = loggedInGuest.updatedAt;
 
   return (
-    <div className="font-roboto flex flex-col items-center justify-start sm:justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8">
+    <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:justify-center sm:p-8">
       <div className="w-full max-w-3xl">
         <h1
-          className={`${marcellus.className} text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center`}
+          className={`${marcellus.className} mb-4 text-center text-5xl font-bold text-[#9e3f3f] sm:text-6xl`}
         >
           RSVP
         </h1>
 
-        <p className="text-lg sm:text-xl text-[#6a5555] mb-6 sm:mb-8 text-center px-2">
+        <p className="mb-6 px-2 text-center text-lg text-[#6a5555] sm:mb-8 sm:text-xl">
           We can&#39;t wait to celebrate with you! Please let us know if
           you&#39;ll be joining us on {WEDDING_DATE_DISPLAY}.
         </p>
 
-        <div className="bg-[#fffdfb] rounded-lg shadow-lg p-4 sm:p-8">
+        <div className="rounded-lg bg-[#fffdfb] p-4 shadow-lg sm:p-8">
           <div className="mb-6">
-            <h2 className="text-2xl font-medium text-[#9e3f3f] mb-2">
+            <h2 className="mb-2 text-2xl font-medium text-[#9e3f3f]">
               Your Invitation
             </h2>
-            <div className="text-sm text-gray-600 space-y-0">
+            <div className="space-y-0 text-sm text-gray-600">
               {invitation.mailingAddress && (
                 <p className="font-medium">{invitation.mailingAddress}</p>
               )}
@@ -98,7 +98,7 @@ export default async function RSVPPage() {
                   {invitation.city}, {invitation.state} {invitation.zipCode}
                 </p>
               )}
-              <p className="text-xs text-gray-500 pt-3">
+              <p className="pt-3 text-xs text-gray-500">
                 {invitation.guests.length}{' '}
                 {invitation.guests.length === 1 ? 'guest' : 'guests'} invited
               </p>

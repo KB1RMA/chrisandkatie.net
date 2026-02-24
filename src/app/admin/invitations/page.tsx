@@ -117,60 +117,60 @@ export default async function AdminInvitationsPage() {
   const totalPending = rows.reduce((sum, r) => sum + r.pendingCount, 0);
 
   return (
-    <div className="font-roboto flex flex-col items-center justify-start sm:justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8">
+    <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:justify-center sm:p-8">
       <div className="w-full max-w-6xl">
         <h1
-          className={`${marcellus.className} text-4xl sm:text-5xl font-bold text-[#9e3f3f] mb-4 text-center`}
+          className={`${marcellus.className} mb-4 text-center text-4xl font-bold text-[#9e3f3f] sm:text-5xl`}
         >
           Invitations Admin
         </h1>
         <AdminTabs />
-        <p className="text-lg text-[#6a5555] mb-4 text-center mt-6">
+        <p className="mt-6 mb-4 text-center text-lg text-[#6a5555]">
           Review RSVP status and expand invitations to see guest details.
         </p>
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-[#9e3f3f]">
-            <p className="text-sm text-[#7a6666] font-medium">
+        <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-lg border-l-4 border-[#9e3f3f] bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">
               Total Invitations
             </p>
             <p className="text-2xl font-bold text-[#9e3f3f]">
               {totalInvitations}
             </p>
           </div>
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-green-500">
-            <p className="text-sm text-[#7a6666] font-medium">Submitted</p>
+          <div className="rounded-lg border-l-4 border-green-500 bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">Submitted</p>
             <p className="text-2xl font-bold text-green-700">
               {submittedInvitations}
             </p>
           </div>
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-yellow-500">
-            <p className="text-sm text-[#7a6666] font-medium">Pending</p>
+          <div className="rounded-lg border-l-4 border-yellow-500 bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">Pending</p>
             <p className="text-2xl font-bold text-yellow-700">
               {pendingInvitations}
             </p>
           </div>
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-blue-500">
-            <p className="text-sm text-[#7a6666] font-medium">Total Guests</p>
+          <div className="rounded-lg border-l-4 border-blue-500 bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">Total Guests</p>
             <p className="text-2xl font-bold text-blue-700">{totalGuests}</p>
           </div>
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-green-600">
-            <p className="text-sm text-[#7a6666] font-medium">Attending</p>
+          <div className="rounded-lg border-l-4 border-green-600 bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">Attending</p>
             <p className="text-2xl font-bold text-green-800">
               {totalAttending}
             </p>
           </div>
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-red-500">
-            <p className="text-sm text-[#7a6666] font-medium">Declined</p>
+          <div className="rounded-lg border-l-4 border-red-500 bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">Declined</p>
             <p className="text-2xl font-bold text-red-700">{totalDeclined}</p>
           </div>
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-gray-400">
-            <p className="text-sm text-[#7a6666] font-medium">Not Responded</p>
+          <div className="rounded-lg border-l-4 border-gray-400 bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">Not Responded</p>
             <p className="text-2xl font-bold text-gray-700">{totalPending}</p>
           </div>
-          <div className="bg-[#fffdfb] rounded-lg shadow p-4 border-l-4 border-[#b76565]">
-            <p className="text-sm text-[#7a6666] font-medium">Response Rate</p>
+          <div className="rounded-lg border-l-4 border-[#b76565] bg-[#fffdfb] p-4 shadow">
+            <p className="text-sm font-medium text-[#7a6666]">Response Rate</p>
             <p className="text-2xl font-bold text-[#9e3f3f]">
               {totalGuests > 0
                 ? Math.round(
@@ -182,7 +182,7 @@ export default async function AdminInvitationsPage() {
           </div>
         </div>
 
-        <div className="bg-[#fffdfb] rounded-lg shadow-lg p-6">
+        <div className="rounded-lg bg-[#fffdfb] p-6 shadow-lg">
           <InvitationTable data={rows} />
         </div>
       </div>

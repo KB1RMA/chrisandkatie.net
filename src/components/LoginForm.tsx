@@ -76,8 +76,8 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
   };
 
   return (
-    <div className="bg-[#fffdfb] rounded-lg shadow-xl p-8">
-      <div className="space-y-2 mb-8">
+    <div className="rounded-lg bg-[#fffdfb] p-8 shadow-xl">
+      <div className="mb-8 space-y-2">
         <h2
           className={`${marcellusClassName} text-center text-4xl font-bold text-[#9e3f3f]`}
         >
@@ -90,7 +90,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
 
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         {authError && (
-          <div className="rounded-md bg-[#fee] border border-[#fcc] p-4 text-sm text-[#c33]">
+          <div className="rounded-md border border-[#fcc] bg-[#fee] p-4 text-sm text-[#c33]">
             {authError}
           </div>
         )}
@@ -99,7 +99,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
           <div>
             <label
               htmlFor="firstName"
-              className="block text-sm font-medium text-[#6a5555] mb-2"
+              className="mb-2 block text-sm font-medium text-[#6a5555]"
             >
               First Name
             </label>
@@ -108,7 +108,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
               type="text"
               autoComplete="given-name"
               {...register('firstName')}
-              className="block w-full rounded-md border-0 px-4 py-3 text-[#6a5555] bg-white shadow-sm ring-1 ring-inset ring-[#f3dedb] placeholder:text-[#b5a0a0] focus:ring-2 focus:ring-inset focus:ring-[#9e3f3f] sm:text-sm sm:leading-6"
+              className="block w-full rounded-md border-0 bg-white px-4 py-3 text-[#6a5555] shadow-sm ring-1 ring-[#f3dedb] ring-inset placeholder:text-[#b5a0a0] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-inset sm:text-sm sm:leading-6"
               placeholder="Enter your first name"
               disabled={isSubmitting}
             />
@@ -122,7 +122,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
           <div>
             <label
               htmlFor="lastName"
-              className="block text-sm font-medium text-[#6a5555] mb-2"
+              className="mb-2 block text-sm font-medium text-[#6a5555]"
             >
               Last Name
             </label>
@@ -131,7 +131,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
               type="text"
               autoComplete="family-name"
               {...register('lastName')}
-              className="block w-full rounded-md border-0 px-4 py-3 text-[#6a5555] bg-white shadow-sm ring-1 ring-inset ring-[#f3dedb] placeholder:text-[#b5a0a0] focus:ring-2 focus:ring-inset focus:ring-[#9e3f3f] sm:text-sm sm:leading-6"
+              className="block w-full rounded-md border-0 bg-white px-4 py-3 text-[#6a5555] shadow-sm ring-1 ring-[#f3dedb] ring-inset placeholder:text-[#b5a0a0] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-inset sm:text-sm sm:leading-6"
               placeholder="Enter your last name"
               disabled={isSubmitting}
             />

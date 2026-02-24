@@ -23,7 +23,7 @@ export default function Home() {
         fill
         priority
         sizes="(max-width: 640px) 100vw, 0px"
-        className="absolute inset-0 sm:hidden object-cover object-center"
+        className="absolute inset-0 object-cover object-center sm:hidden"
       />
       <Image
         src="/IMG_8940-2.jpg"
@@ -31,23 +31,23 @@ export default function Home() {
         fill
         priority
         sizes="(min-width: 641px) 100vw, 0px"
-        className="absolute inset-0 hidden sm:block object-cover object-center"
+        className="absolute inset-0 hidden object-cover object-center sm:block"
       />
       <div className="absolute inset-0 bg-[#fff7f4]/80"></div>
-      <div className="relative z-10 text-center max-w-2xl">
+      <div className="relative z-10 max-w-2xl text-center">
         <h1
-          className={`${greatVibes.className} text-5xl sm:text-6xl font-normal text-[#9e3f3f] mb-4`}
+          className={`${greatVibes.className} mb-4 text-5xl font-normal text-[#9e3f3f] sm:text-6xl`}
         >
           Chris & Katie
         </h1>
 
         <p
-          className={`${marcellus.className} text-xl sm:text-2xl text-[#6a5555] mb-12`}
+          className={`${marcellus.className} mb-12 text-xl text-[#6a5555] sm:text-2xl`}
         >
           {WEDDING_DISPLAY_TEXT}
         </p>
 
-        <p className="text-lg text-[#6a5555] mb-10">
+        <p className="mb-10 text-lg text-[#6a5555]">
           <span className="block">
             We&#39;re exchanging vows in a private ceremony this summer.
           </span>
@@ -58,13 +58,13 @@ export default function Home() {
 
         <CountdownTimer />
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+        <div className="mb-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button href="/rsvp">RSVP Now</Button>
 
           <Button href="/schedule">Schedule</Button>
         </div>
 
-        <p className="text-lg text-[#7a6666] mt-8">
+        <p className="mt-8 text-lg text-[#7a6666]">
           We can&#39;t wait to celebrate with you!
         </p>
       </div>

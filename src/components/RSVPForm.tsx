@@ -170,8 +170,8 @@ export function RSVPForm({
       className={`space-y-6 ${isSubmitted ? 'opacity-60' : ''}`}
     >
       {showSuccessMessage && (
-        <div className="bg-green-50 border border-green-400 text-green-800 px-4 py-4 rounded animate-in fade-in slide-in-from-top-4 duration-500">
-          <p className="font-medium mb-1">🎉 RSVP Submitted Successfully!</p>
+        <div className="animate-in fade-in slide-in-from-top-4 rounded border border-green-400 bg-green-50 px-4 py-4 text-green-800 duration-500">
+          <p className="mb-1 font-medium">🎉 RSVP Submitted Successfully!</p>
           <p className="text-sm">
             Thank you for your response! We&#39;re excited to celebrate with
             you.
@@ -180,8 +180,8 @@ export function RSVPForm({
       )}
 
       {isSubmitted && submittedBy && submittedAt && (
-        <div className="bg-blue-50 border border-blue-400 text-blue-800 px-4 py-4 rounded">
-          <p className="font-medium mb-1">✓ RSVP Submitted</p>
+        <div className="rounded border border-blue-400 bg-blue-50 px-4 py-4 text-blue-800">
+          <p className="mb-1 font-medium">✓ RSVP Submitted</p>
           <p className="text-sm">
             Submitted by <strong>{submittedBy}</strong> on{' '}
             <strong>
@@ -194,14 +194,14 @@ export function RSVPForm({
               })}
             </strong>
           </p>
-          <p className="text-xs text-blue-600 mt-2">
+          <p className="mt-2 text-xs text-blue-600">
             To make changes, please contact us.
           </p>
         </div>
       )}
 
       {errors.root && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
           {errors.root.message}
         </div>
       )}
@@ -213,24 +213,24 @@ export function RSVPForm({
           return (
             <div
               key={guest.id}
-              className="bg-white rounded-lg p-4 sm:p-6 shadow-sm border border-gray-200"
+              className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6"
             >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div>
                   {guest.firstName.toLowerCase() === 'guest' ? (
-                    <div className="space-y-2 w-full">
-                      <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="w-full space-y-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <input
                           type="text"
                           placeholder="First Name"
                           {...register(`guests.${index}.firstName`)}
-                          className="flex-1 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
+                          className="flex-1 rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
                         />
                         <input
                           type="text"
                           placeholder="Last Name"
                           {...register(`guests.${index}.lastName`)}
-                          className="flex-1 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
+                          className="flex-1 rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
                         />
                       </div>
                       <p className="text-xs text-gray-500">
@@ -239,7 +239,7 @@ export function RSVPForm({
                     </div>
                   ) : (
                     <>
-                      <h3 className="font-medium text-lg text-gray-900">
+                      <h3 className="text-lg font-medium text-gray-900">
                         {guest.firstName} {guest.lastName}
                       </h3>
                       <p className="text-sm text-gray-500 capitalize">
@@ -250,7 +250,7 @@ export function RSVPForm({
                 </div>
 
                 <div
-                  className={`flex flex-col gap-2 w-full sm:w-auto ${
+                  className={`flex w-full flex-col gap-2 sm:w-auto ${
                     errors.guests?.[index]?.attending
                       ? 'border-l-2 border-red-500 pl-2'
                       : ''
@@ -260,27 +260,27 @@ export function RSVPForm({
                     name={`guests.${index}.attending`}
                     control={control}
                     render={({ field }) => (
-                      <div className="flex flex-row sm:flex-row items-start sm:items-center gap-3 sm:gap-2">
-                        <label className="inline-flex items-center cursor-pointer">
+                      <div className="flex flex-row items-start gap-3 sm:flex-row sm:items-center sm:gap-2">
+                        <label className="inline-flex cursor-pointer items-center">
                           <input
                             type="radio"
                             checked={field.value === true}
                             onChange={() => field.onChange(true)}
                             className="form-radio h-5 w-5 text-[#9e3f3f]"
                           />
-                          <span className="ml-2 text-base sm:text-sm text-gray-700 whitespace-nowrap">
+                          <span className="ml-2 text-base whitespace-nowrap text-gray-700 sm:text-sm">
                             Attending
                           </span>
                         </label>
 
-                        <label className="inline-flex items-center cursor-pointer">
+                        <label className="inline-flex cursor-pointer items-center">
                           <input
                             type="radio"
                             checked={field.value === false}
                             onChange={() => field.onChange(false)}
                             className="form-radio h-5 w-5 text-gray-400"
                           />
-                          <span className="ml-2 text-base sm:text-sm text-gray-700 whitespace-nowrap">
+                          <span className="ml-2 text-base whitespace-nowrap text-gray-700 sm:text-sm">
                             Declining
                           </span>
                         </label>
@@ -299,7 +299,7 @@ export function RSVPForm({
               {isAttending && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-base sm:text-sm font-medium text-gray-700 mb-3">
+                    <label className="mb-3 block text-base font-medium text-gray-700 sm:text-sm">
                       Meal Choice *
                     </label>
                     <Controller
@@ -309,22 +309,22 @@ export function RSVPForm({
                         <div
                           className={`space-y-2 sm:space-y-3 ${
                             errors.guests?.[index]?.mealChoice
-                              ? 'p-3 border-2 border-red-300 rounded-md bg-red-50'
+                              ? 'rounded-md border-2 border-red-300 bg-red-50 p-3'
                               : ''
                           }`}
                         >
                           {Object.entries(MEAL_OPTIONS).map(([, value]) => (
                             <label
                               key={value}
-                              className="flex items-center cursor-pointer p-3 sm:p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200"
+                              className="flex cursor-pointer items-center rounded border border-transparent p-3 hover:border-gray-200 hover:bg-gray-50 sm:p-2"
                             >
                               <input
                                 type="radio"
                                 checked={field.value === value}
                                 onChange={() => field.onChange(value)}
-                                className="form-radio h-5 w-5 text-[#9e3f3f] flex-shrink-0"
+                                className="form-radio h-5 w-5 flex-shrink-0 text-[#9e3f3f]"
                               />
-                              <span className="ml-3 text-base sm:text-sm text-gray-900 font-medium">
+                              <span className="ml-3 text-base font-medium text-gray-900 sm:text-sm">
                                 {MEAL_CHOICE_LABELS[value]}
                               </span>
                             </label>
@@ -333,7 +333,7 @@ export function RSVPForm({
                       )}
                     />
                     {errors.guests?.[index]?.mealChoice && (
-                      <p className="text-sm text-red-600 mt-1">
+                      <p className="mt-1 text-sm text-red-600">
                         {errors.guests[index]?.mealChoice?.message}
                       </p>
                     )}
@@ -342,7 +342,7 @@ export function RSVPForm({
                   <div>
                     <label
                       htmlFor={`dietary-${guest.id}`}
-                      className="block text-base sm:text-sm font-medium text-gray-700 mb-2"
+                      className="mb-2 block text-base font-medium text-gray-700 sm:text-sm"
                     >
                       Dietary Restrictions (optional)
                     </label>
@@ -351,10 +351,10 @@ export function RSVPForm({
                       type="text"
                       placeholder="e.g., Gluten-free, Nut allergy, Vegan"
                       {...register(`guests.${index}.dietaryRestrictions`)}
-                      className="w-full px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
+                      className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
                     />
                     {errors.guests?.[index]?.dietaryRestrictions && (
-                      <p className="text-sm text-red-600 mt-1">
+                      <p className="mt-1 text-sm text-red-600">
                         {errors.guests[index]?.dietaryRestrictions?.message}
                       </p>
                     )}
@@ -363,7 +363,7 @@ export function RSVPForm({
                   <div>
                     <label
                       htmlFor={`notes-${guest.id}`}
-                      className="block text-base sm:text-sm font-medium text-gray-700 mb-2"
+                      className="mb-2 block text-base font-medium text-gray-700 sm:text-sm"
                     >
                       Additional Notes (optional)
                     </label>
@@ -372,10 +372,10 @@ export function RSVPForm({
                       placeholder="Any special requests or information"
                       rows={3}
                       {...register(`guests.${index}.notes`)}
-                      className="w-full px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#9e3f3f] focus:border-[#9e3f3f]"
+                      className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
                     />
                     {errors.guests?.[index]?.notes && (
-                      <p className="text-sm text-red-600 mt-1">
+                      <p className="mt-1 text-sm text-red-600">
                         {errors.guests[index]?.notes?.message}
                       </p>
                     )}
@@ -387,9 +387,9 @@ export function RSVPForm({
         })}
       </div>
 
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h4 className="font-medium text-gray-900 mb-2">Summary</h4>
-        <div className="text-sm text-gray-700 space-y-1">
+      <div className="rounded-lg bg-gray-50 p-4">
+        <h4 className="mb-2 font-medium text-gray-900">Summary</h4>
+        <div className="space-y-1 text-sm text-gray-700">
           <p>
             <span className="font-medium">{summary.attending}</span> attending
           </p>

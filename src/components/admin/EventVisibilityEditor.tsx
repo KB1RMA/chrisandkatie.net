@@ -67,7 +67,7 @@ export function EventVisibilityEditor({
         {SCHEDULE_EVENTS.map((event) => (
           <label
             key={event.id}
-            className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 p-3 rounded border border-gray-200"
+            className="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-3 hover:bg-gray-50"
           >
             <input
               type="checkbox"
@@ -79,7 +79,7 @@ export function EventVisibilityEditor({
               <div className="font-semibold text-gray-900">
                 {event.day} {event.time} - {event.event}
               </div>
-              <div className="text-gray-600 text-sm mt-0.5">
+              <div className="mt-0.5 text-sm text-gray-600">
                 {event.location}
               </div>
             </div>
@@ -89,7 +89,7 @@ export function EventVisibilityEditor({
 
       {message && (
         <div
-          className={`text-sm px-3 py-2 rounded ${
+          className={`rounded px-3 py-2 text-sm ${
             message.type === 'success'
               ? 'bg-green-50 text-green-800'
               : 'bg-red-50 text-red-800'

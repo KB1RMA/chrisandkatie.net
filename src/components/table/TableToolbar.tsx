@@ -33,10 +33,10 @@ export function TableToolbar<TData>({
   };
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
+          <label className="mb-1 block text-xs font-medium text-gray-500">
             Search
           </label>
           <input
@@ -44,7 +44,7 @@ export function TableToolbar<TData>({
             value={globalFilterValue}
             onChange={handleSearchChange}
             placeholder={searchPlaceholder}
-            className="w-full sm:w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none sm:w-64"
           />
         </div>
         {visibleFilters.map((filter) => {
@@ -72,13 +72,13 @@ export function TableToolbar<TData>({
 
           return (
             <div key={filter.id}>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="mb-1 block text-xs font-medium text-gray-500">
                 {filter.label}
               </label>
               <select
                 value={selectedValue}
                 onChange={handleFilterChange}
-                className="w-full sm:w-48 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#9e3f3f]"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none sm:w-48"
               >
                 <option value="">All</option>
                 {filter.options.map((option) => (

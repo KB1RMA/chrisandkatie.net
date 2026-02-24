@@ -143,7 +143,7 @@ export function InvitationTable({ data }: InvitationTableProps) {
           <p className="text-sm font-semibold text-gray-700">Guests</p>
           <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <thead className="bg-gray-50 text-left text-xs font-semibold tracking-wide text-gray-500 uppercase">
                 <tr>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Type</th>
@@ -262,7 +262,7 @@ function ResetRSVPButton({ invitationId }: { invitationId: string }) {
       <button
         onClick={handleReset}
         disabled={isResetting}
-        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+        className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
       >
         {isResetting ? 'Resetting...' : 'Reset RSVP'}
       </button>

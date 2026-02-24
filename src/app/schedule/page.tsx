@@ -54,25 +54,25 @@ export default async function SchedulePage() {
   );
 
   return (
-    <div className="font-roboto flex flex-col items-center justify-start sm:justify-center min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8">
+    <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:justify-center sm:p-8">
       <div className="w-full max-w-3xl">
         <h1
-          className={`${marcellus.className} text-5xl sm:text-6xl font-bold text-[#9e3f3f] mb-4 text-center`}
+          className={`${marcellus.className} mb-4 text-center text-5xl font-bold text-[#9e3f3f] sm:text-6xl`}
         >
           Schedule
         </h1>
 
-        <p className="text-xl text-[#6a5555] mb-12 text-center">
+        <p className="mb-12 text-center text-xl text-[#6a5555]">
           Welcome, {guest.firstName}! Here's your personalized schedule.
         </p>
 
-        <div className="space-y-6 mb-12">
+        <div className="mb-12 space-y-6">
           {visibleScheduleItems.map((item) => (
             <div
               key={item.id}
-              className="bg-[#fffdfb] rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow duration-200"
+              className="rounded-lg bg-[#fffdfb] p-8 shadow-lg transition-shadow duration-200 hover:shadow-xl"
             >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2
                     className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f]`}

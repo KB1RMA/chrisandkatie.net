@@ -27,14 +27,14 @@ export function Header() {
   const isHomepage = pathname === '/';
 
   return (
-    <header className="w-full bg-white/80 backdrop-blur-sm border-b border-[#f3dedb] sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="sticky top-0 z-10 w-full border-b border-[#f3dedb] bg-white/80 backdrop-blur-sm">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
           {/* Logo/Brand */}
           {!isHomepage && (
             <Link
               href="/"
-              className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f] hover:text-[#b76565] transition-colors`}
+              className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f] transition-colors hover:text-[#b76565]`}
             >
               Chris & Katie
             </Link>
@@ -53,7 +53,7 @@ export function Header() {
                 </span>
                 <button
                   onClick={() => signOut({ callbackUrl: '/' })}
-                  className="px-4 py-2 text-sm font-medium text-white bg-[#9e3f3f] rounded-md hover:bg-[#b76565] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9e3f3f]"
+                  className="rounded-md bg-[#9e3f3f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#b76565] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-offset-2 focus:outline-none"
                 >
                   Sign Out
                 </button>
@@ -61,7 +61,7 @@ export function Header() {
             ) : (
               <Link
                 href="/login"
-                className="px-4 py-2 text-sm font-medium text-white bg-[#9e3f3f] rounded-md hover:bg-[#b76565] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9e3f3f]"
+                className="rounded-md bg-[#9e3f3f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#b76565] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-offset-2 focus:outline-none"
               >
                 Sign In
               </Link>
