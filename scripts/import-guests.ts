@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * Generate SQL seed file from Zola CSV data and optionally import into D1.
+ * Import guest list from CSV into D1 database using Drizzle ORM.
  *
  * Usage:
  *   npm run db:seed
@@ -13,31 +13,12 @@ import { execFileSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import type { InferInsertModel } from 'drizzle-orm';
+import { invitations, guests } from '@/lib/db/schema';
 
-interface CSVRow {
-  'Total Definitely Invited': string;
-  'First Name': string;
-  'Last Name': string;
-  'Partner First Name': string;
-  'Partner Last Name': string;
-  'Relationship To Couple': string;
-  'Street Address': string;
-  'Street Address (line 2)': string;
-  City: string;
-  'State / Region': string;
-  'Zip / Postal Code': string;
-  Country: string;
-  'Child 1 First Name': string;
-  'Child 1 Last Name': string;
-  'Child 2 First Name': string;
-  'Child 2 Last Name': string;
-  'Child 3 First Name': string;
-  'Child 3 Last Name': string;
-  'Child 4 First Name': string;
-  'Child 4 Last Name': string;
-  'Child 5 First Name': string;
-  'Child 5 Last Name': string;
-}
+type CSVRow = Record<string, string>;
+type InvitationInsert = InferInsertModel<typeof invitations>;
+type GuestInsert = InferInsertModel<typeof guests>;
 
 /**
  * Generate invitation address based on guest composition.
@@ -80,6 +61,49 @@ function generateInvitationAddress(
 }
 
 /**
+ * Parse a single CSV line respecting quoted values.
+ *
+ * @param line - CSV line to parse
+ * @returns Array of parsed values
+ */
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let currentValue = '';
+  let insideQuotes = false;
+
+  for (const char of line) {
+    if (char === '"') {
+      insideQuotes = !insideQuotes;
+    } else if (char === ',' && !insideQuotes) {
+      values.push(currentValue.trim());
+      currentValue = '';
+    } else {
+      currentValue += char;
+    }
+  }
+
+  values.push(currentValue.trim());
+
+  return values;
+}
+
+/**
+ * Map CSV values to header keys.
+ *
+ * @param headers - Array of header names
+ * @param values - Array of values to map
+ * @returns Object mapping headers to values
+ */
+const mapValuesToHeaders = (headers: string[]) => (values: string[]) =>
+  headers.reduce(
+    (acc, header, index) => ({
+      ...acc,
+      [header]: values[index] || '',
+    }),
+    {} as Record<string, string>,
+  );
+
+/**
  * Parse CSV file into array of objects.
  *
  * @param csvContent - Raw CSV file content
@@ -88,196 +112,307 @@ function generateInvitationAddress(
 function parseCSV(csvContent: string): CSVRow[] {
   const lines = csvContent.split('\n').filter((line) => line.trim());
   const headers = lines[0].split(',');
+  const mapper = mapValuesToHeaders(headers);
 
-  const rows: CSVRow[] = [];
+  return lines
+    .slice(1)
+    .map(parseCSVLine)
+    .map(mapper)
+    .map((row) => row as unknown as CSVRow);
+}
 
-  for (let i = 1; i < lines.length; i++) {
-    const values: string[] = [];
-    let currentValue = '';
-    let insideQuotes = false;
+/**
+ * Extract all guests (adults and children) from a CSV row.
+ *
+ * @param row - CSV row object
+ * @returns Array of guest objects
+ */
+const extractGuests = (row: CSVRow) => {
+  const adults = [
+    { firstName: row['First Name'], lastName: row['Last Name'] },
+    ...(row['Partner First Name']
+      ? [
+          {
+            firstName: row['Partner First Name'],
+            lastName: row['Partner Last Name'] || '',
+          },
+        ]
+      : []),
+  ];
 
-    // Parse CSV line respecting quoted values
-    for (const char of lines[i]) {
-      if (char === '"') {
-        insideQuotes = !insideQuotes;
-      } else if (char === ',' && !insideQuotes) {
-        values.push(currentValue.trim());
-        currentValue = '';
-      } else {
-        currentValue += char;
-      }
-    }
+  const childKeys = [1, 2, 3, 4, 5] as const;
+  const children = childKeys
+    .map((num) => ({
+      firstName: row[`Child ${num} First Name` as keyof CSVRow],
+      lastName: row[`Child ${num} Last Name` as keyof CSVRow],
+    }))
+    .filter((child) => child.firstName);
 
-    values.push(currentValue.trim());
+  return [
+    ...adults.map((guest) => ({
+      ...guest,
+      type: 'adult' as const,
+    })),
+    ...children.map((child) => ({
+      ...child,
+      type: 'child' as const,
+    })),
+  ];
+};
 
-    // Map values to headers
-    const row: Record<string, string> = {};
-
-    for (let j = 0; j < headers.length; j++) {
-      row[headers[j]] = values[j] || '';
-    }
-
-    rows.push(row as unknown as CSVRow);
+/**
+ * Format SQL value for INSERT statement.
+ *
+ * @param value - Value to format
+ * @returns SQL-formatted value
+ */
+const formatSQLValue = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return 'NULL';
   }
 
-  return rows;
-}
+  if (typeof value === 'number') {
+    return value.toString();
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? '1' : '0';
+  }
+
+  return `'${String(value).replace(/'/g, "''")}'`;
+};
+
+/**
+ * Build INSERT statement for Drizzle model.
+ *
+ * @param tableName - Database table name
+ * @param columns - Column names
+ * @param values - Values to insert
+ * @returns SQL INSERT statement
+ */
+const buildInsertStatement = (
+  tableName: string,
+  columns: string[],
+  values: unknown[],
+): string => {
+  const sqlValues = values.map(formatSQLValue).join(', ');
+  const columnList = columns.map((col) => `"${col}"`).join(', ');
+
+  return `INSERT INTO "${tableName}" (${columnList}) VALUES (${sqlValues});`;
+};
+
+/**
+ * Create invitation and guest insert statements from CSV row.
+ *
+ * @param row - CSV row object
+ * @param now - Current timestamp as ISO string
+ * @returns Object with invitation and guest insert statements
+ */
+const createRowInsertStatements = (row: CSVRow, now: string) => {
+  const invitationId = randomUUID();
+  const guestList = extractGuests(row);
+  const hasChildren = guestList.some((g) => g.type === 'child');
+  const adults = guestList.filter(
+    (g) => g.type === 'adult' && g.firstName.toLowerCase() !== 'guest',
+  );
+  const mailingAddress = generateInvitationAddress(adults, hasChildren);
+  const totalInvited = parseInt(row['Total Definitely Invited']) || 1;
+
+  // Build invitation insert
+  const invitationData: InvitationInsert = {
+    id: invitationId,
+    relationshipToCouple: row['Relationship To Couple'] || null,
+    totalInvited,
+    address: row['Street Address'] || null,
+    addressLine2: row['Street Address (line 2)'] || null,
+    city: row['City'] || null,
+    state: row['State / Region'] || null,
+    zipCode: row['Zip / Postal Code'] || null,
+    country: row['Country'] || null,
+    mailingAddress,
+    visibleEvents: '[0,1,2,3]',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const invitationColumns = Object.keys(invitationData) as Array<
+    keyof typeof invitationData
+  >;
+  const invitationValues = invitationColumns.map((col) => invitationData[col]);
+  const invitationStatement = buildInsertStatement(
+    'Invitation',
+    invitationColumns,
+    invitationValues,
+  );
+
+  // Build guest inserts
+  const guestStatements = guestList.map((guest) => {
+    const guestData: GuestInsert = {
+      id: randomUUID(),
+      invitationId,
+      firstName: guest.firstName,
+      lastName: guest.lastName,
+      type: guest.type,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const guestColumns = Object.keys(guestData) as Array<
+      keyof typeof guestData
+    >;
+    const guestValues = guestColumns.map((col) => guestData[col]);
+
+    return buildInsertStatement('Guest', guestColumns, guestValues);
+  });
+
+  return {
+    invitationId,
+    statements: [invitationStatement, ...guestStatements],
+    guestCount: guestList.length,
+  };
+};
+
+/**
+ * Process a single CSV row into insert statements.
+ *
+ * @param now - Current timestamp as ISO string
+ * @param row - CSV row object
+ * @returns Object with statements array and row metadata
+ */
+const processRow = (now: string) => (row: CSVRow) => {
+  const firstName = row['First Name'];
+  const lastName = row['Last Name'];
+
+  if (!firstName || !lastName) {
+    return {
+      success: false,
+      invitationName: undefined,
+      statements: [],
+      guestCount: 0,
+    };
+  }
+
+  const { statements, guestCount } = createRowInsertStatements(row, now);
+
+  return {
+    success: true,
+    invitationName: `${firstName} ${lastName}`,
+    statements,
+    guestCount,
+  };
+};
+
+/**
+ * Aggregate results from processing rows.
+ *
+ * @param acc - Accumulator with running totals and statements
+ * @param result - Result from processing a row
+ * @returns Updated accumulator
+ */
+const aggregateResults = (
+  acc: {
+    statements: string[];
+    invitationsCreated: number;
+    guestsCreated: number;
+    skipped: number;
+    logs: string[];
+  },
+  result: ReturnType<ReturnType<typeof processRow>>,
+) => {
+  if (!result.success) {
+    return {
+      ...acc,
+      skipped: acc.skipped + 1,
+      logs: [...acc.logs, '⚠️  Skipping row with missing primary guest name'],
+    };
+  }
+
+  return {
+    statements: [...acc.statements, ...result.statements],
+    invitationsCreated: acc.invitationsCreated + 1,
+    guestsCreated: acc.guestsCreated + result.guestCount,
+    skipped: acc.skipped,
+    logs: [
+      ...acc.logs,
+      `✅ Invitation for ${result.invitationName} (${result.guestCount} guests)`,
+    ],
+  };
+};
+
+/**
+ * Parse arguments to extract configuration.
+ *
+ * @returns Configuration object
+ */
+const parseArgs = () => ({
+  shouldExecute:
+    process.argv.includes('--remote') || process.argv.includes('--local'),
+  isLocal: process.argv.includes('--local'),
+  environment: process.argv[process.argv.indexOf('--env') + 1] ?? 'production',
+});
+
+/**
+ * Build wrangler arguments for database execution.
+ *
+ * @param isLocal - Whether to execute locally
+ * @param environment - Environment name
+ * @param seedFilePath - Path to seed SQL file
+ * @returns Array of wrangler command arguments
+ */
+const buildWranglerArgs = (
+  isLocal: boolean,
+  environment: string,
+  seedFilePath: string,
+) => {
+  const baseArgs = [
+    'd1',
+    'execute',
+    isLocal ? 'prisma-demo-db-local' : 'prisma-demo-db',
+    '--file',
+    seedFilePath,
+  ];
+
+  return isLocal
+    ? [...baseArgs, '--local']
+    : [...baseArgs, '--env', environment, '--remote'];
+};
 
 /**
  * Import guests from CSV file into database.
  */
 async function importGuests() {
-  const shouldExecute =
-    process.argv.includes('--remote') || process.argv.includes('--local');
-  const isLocal = process.argv.includes('--local');
-  const envIndex = process.argv.indexOf('--env');
-  const environment =
-    envIndex !== -1 ? process.argv[envIndex + 1] : 'production';
-  const now = Date.now();
-
   console.log('🎉 Generating guest seed SQL...\n');
 
-  // Read CSV file (use guest-list.csv which includes children)
+  const { shouldExecute, isLocal, environment } = parseArgs();
+  const now = new Date().toISOString();
+
+  // Read and parse CSV
   const csvPath = join(process.cwd(), 'seed-data', 'guest-list.csv');
   const csvContent = readFileSync(csvPath, 'utf-8');
   const rows = parseCSV(csvContent);
 
   console.log(`📋 Found ${rows.length} invitation records in CSV\n`);
 
-  let invitationsCreated = 0;
-  let guestsCreated = 0;
-  let skipped = 0;
-  const insertStatements: string[] = [];
+  // Process all rows functionally
+  const rowProcessor = processRow(now);
+  const {
+    statements: insertStatements,
+    invitationsCreated,
+    guestsCreated,
+    skipped,
+    logs,
+  } = rows.reduce((acc, row) => aggregateResults(acc, rowProcessor(row)), {
+    statements: [] as string[],
+    invitationsCreated: 0,
+    guestsCreated: 0,
+    skipped: 0,
+    logs: [] as string[],
+  });
 
-  for (const row of rows) {
-    const firstName = row['First Name'];
-    const lastName = row['Last Name'];
+  // Log processing results
+  logs.forEach((log) => console.log(log));
 
-    if (!firstName || !lastName) {
-      console.log(`⚠️  Skipping row with missing primary guest name`);
-      skipped++;
-      continue;
-    }
-
-    const invitationId = randomUUID();
-    const totalInvited = parseInt(row['Total Definitely Invited']) || 1;
-
-    // Create Guest records for this invitation
-    const guests: Array<{
-      firstName: string;
-      lastName: string;
-      type: 'adult' | 'child';
-    }> = [];
-
-    // Primary guest (adult)
-    guests.push({ firstName, lastName, type: 'adult' });
-
-    // Partner (adult, if present)
-    if (row['Partner First Name']) {
-      guests.push({
-        firstName: row['Partner First Name'],
-        lastName: row['Partner Last Name'] || '',
-        type: 'adult',
-      });
-    }
-
-    // Children (if present)
-    let hasChildren = false;
-
-    for (let i = 1; i <= 5; i++) {
-      const childFirstName = row[`Child ${i} First Name` as keyof CSVRow];
-      const childLastName = row[`Child ${i} Last Name` as keyof CSVRow];
-
-      if (childFirstName) {
-        guests.push({
-          firstName: childFirstName,
-          lastName: childLastName || '',
-          type: 'child',
-        });
-        hasChildren = true;
-      }
-    }
-
-    // Generate invitation address based on guest composition
-    const adults = guests.filter(
-      (g) => g.type === 'adult' && g.firstName.toLowerCase() !== 'guest',
-    );
-    const mailingAddress = generateInvitationAddress(adults, hasChildren);
-
-    // Create Invitation record
-    const invitationValues = [
-      invitationId,
-      row['Relationship To Couple'] || null,
-      totalInvited,
-      row['Street Address'] || null,
-      row['Street Address (line 2)'] || null,
-      row['City'] || null,
-      row['State / Region'] || null,
-      row['Zip / Postal Code'] || null,
-      row['Country'] || null,
-      mailingAddress,
-      '[0,1,2,3]',
-      now,
-      now,
-    ];
-
-    const invitationSqlValues = invitationValues
-      .map((value) => {
-        if (value === null) {
-          return 'NULL';
-        }
-
-        if (typeof value === 'number') {
-          return value.toString();
-        }
-
-        return `'${String(value).replace(/'/g, "''")}'`;
-      })
-      .join(', ');
-
-    insertStatements.push(
-      `INSERT INTO "Invitation" ("id", "relationshipToCouple", "totalInvited", "address", "addressLine2", "city", "state", "zipCode", "country", "mailingAddress", "visibleEvents", "createdAt", "updatedAt") VALUES (${invitationSqlValues});`,
-    );
-    invitationsCreated++;
-
-    // Insert all guests for this invitation
-    for (const guest of guests) {
-      const guestValues = [
-        randomUUID(),
-        invitationId,
-        null, // userId (will be set on first login)
-        guest.firstName,
-        guest.lastName,
-        guest.type,
-        now,
-        now,
-      ];
-
-      const guestSqlValues = guestValues
-        .map((value) => {
-          if (value === null) {
-            return 'NULL';
-          }
-
-          if (typeof value === 'number') {
-            return value.toString();
-          }
-
-          return `'${String(value).replace(/'/g, "''")}'`;
-        })
-        .join(', ');
-
-      insertStatements.push(
-        `INSERT INTO "Guest" ("id", "invitationId", "userId", "firstName", "lastName", "type", "createdAt", "updatedAt") VALUES (${guestSqlValues});`,
-      );
-      guestsCreated++;
-    }
-
-    console.log(
-      `✅ Invitation for ${firstName} ${lastName} (${guests.length} guests)`,
-    );
-  }
-
+  // Write seed file
   const seedFilePath = join(process.cwd(), 'seed-data', 'guests-import.sql');
   const sqlFileContents = [
     'PRAGMA foreign_keys=OFF;',
@@ -302,13 +437,7 @@ async function importGuests() {
   const execMode = isLocal ? 'local' : `remote (${environment})`;
 
   console.log(`\n🚀 Importing into D1 ${dbName} (${execMode})...`);
-  const wranglerArgs = ['d1', 'execute', dbName, '--file', seedFilePath];
-
-  if (isLocal) {
-    wranglerArgs.push('--local');
-  } else {
-    wranglerArgs.push('--env', environment, '--remote');
-  }
+  const wranglerArgs = buildWranglerArgs(isLocal, environment, seedFilePath);
 
   execFileSync('wrangler', wranglerArgs, { stdio: 'inherit' });
 }
