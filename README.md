@@ -5,19 +5,43 @@
 
 ## Setup
 
-Install dependencies (this will automatically generate the Prisma client):
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-Set up the local database:
+### Local Database
+
+Set up the local SQLite database with migrations and seed data:
 
 ```bash
-npm run db:setup
+npm run db:migrate:local  # Apply database migrations
+npm run db:seed:local    # Seed guest and invitation data
 ```
 
-This will create the SQLite database, apply migrations, and seed data.
+### Production Database
+
+To seed guest data to the production D1 database (after tables have been created):
+
+```bash
+npm run db:seed:d1
+```
+
+### Schema Changes
+
+After modifying the database schema in `src/lib/db/schema.ts`, generate a new migration:
+
+```bash
+npm run db:generate
+```
+
+This creates a new SQL migration file in `migrations/`. Apply it with:
+
+```bash
+npm run db:migrate:local   # Local
+npm run db:migrate:d1      # Production (requires --remote flag)
+```
 
 ## Develop
 
