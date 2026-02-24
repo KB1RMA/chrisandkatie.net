@@ -41,6 +41,30 @@ export function Header() {
           )}
           {isHomepage && <div />}
 
+          {/* Navigation Menu */}
+          {session?.user && (
+            <nav className="hidden items-center gap-6 sm:flex">
+              <Link
+                href="/schedule"
+                className="text-sm font-medium text-[#6a5555] transition-colors hover:text-[#9e3f3f]"
+              >
+                Schedule
+              </Link>
+              <Link
+                href="/rsvp"
+                className="text-sm font-medium text-[#6a5555] transition-colors hover:text-[#9e3f3f]"
+              >
+                RSVP
+              </Link>
+              <Link
+                href="/gallery"
+                className="text-sm font-medium text-[#6a5555] transition-colors hover:text-[#9e3f3f]"
+              >
+                Gallery
+              </Link>
+            </nav>
+          )}
+
           {/* Auth Controls */}
           <div className="flex items-center gap-4">
             {status === 'loading' ? (

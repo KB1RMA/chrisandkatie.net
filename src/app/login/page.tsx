@@ -27,7 +27,6 @@ export default async function LoginPage(props: {
   if (session?.user?.guestId) {
     // User is already logged in, redirect to callback or default page
     const callbackUrl = searchParams.callbackUrl || '/schedule';
-    // @ts-expect-error - We can't validate that this is a valid route
     redirect(callbackUrl);
   }
 

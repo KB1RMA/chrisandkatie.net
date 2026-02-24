@@ -18,7 +18,7 @@ export default function Home() {
   return (
     <div className="font-roboto relative flex min-h-screen items-center justify-center p-8">
       <Image
-        src="/IMG_8943.jpg"
+        src="/images/bw-background/IMG_8943.jpg"
         alt="Chris and Katie"
         fill
         priority
@@ -26,7 +26,7 @@ export default function Home() {
         className="absolute inset-0 object-cover object-center sm:hidden"
       />
       <Image
-        src="/IMG_8940-2.jpg"
+        src="/images/bw-background/IMG_8940-2.jpg"
         alt="Chris and Katie"
         fill
         priority
@@ -62,6 +62,10 @@ export default function Home() {
           <Button href="/rsvp">RSVP Now</Button>
 
           <Button href="/schedule">Schedule</Button>
+
+          <Button href="/gallery" variant="secondary">
+            Gallery
+          </Button>
         </div>
 
         <p className="mt-8 text-lg text-[#7a6666]">

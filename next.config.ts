@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  images: {
+    loader: 'custom',
+    loaderFile: './src/image-loader.ts',
+  },
   // turbopack: {
   //   root: '.',
   // },

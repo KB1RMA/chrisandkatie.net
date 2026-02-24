@@ -41,6 +41,9 @@ export default function NotFound() {
           <Button href="/schedule" variant="secondary">
             View Schedule
           </Button>
+          <Button href="/gallery" variant="secondary">
+            Gallery
+          </Button>
         </div>
 
         <div className="mt-12 text-4xl">
