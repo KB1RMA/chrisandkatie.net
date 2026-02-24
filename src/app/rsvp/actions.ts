@@ -5,9 +5,9 @@
  */
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guests } from '@/lib/db/schema';
+import { guests, users } from '@/lib/db/schema';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
-import { eq } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import { z } from 'zod';
 
 /**
@@ -78,6 +78,27 @@ export async function submitRsvp(input: SubmitRsvpInput) {
         .update(guests)
         .set(updateData)
         .where(eq(guests.id, guestUpdate.id));
+    }
+
+    // Save email if provided and user exists
+    if (validatedData.email && loggedInGuest.userId) {
+      const existingUserWithEmail = await db.query.users.findFirst({
+        where: and(
+          eq(users.email, validatedData.email),
+          ne(users.id, loggedInGuest.userId),
+        ),
+      });
+
+      // Only update if email is not already used by another user
+      if (!existingUserWithEmail) {
+        await db
+          .update(users)
+          .set({
+            email: validatedData.email,
+            updatedAt: now,
+          })
+          .where(eq(users.id, loggedInGuest.userId));
+      }
     }
 
     return { success: true };

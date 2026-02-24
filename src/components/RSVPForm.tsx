@@ -70,6 +70,7 @@ export function RSVPForm({
         dietaryRestrictions: g.dietaryRestrictions || null,
         notes: g.notes,
       })),
+      email: undefined,
     },
     disabled: isSubmitted,
   });
@@ -385,6 +386,28 @@ export function RSVPForm({
             </div>
           );
         })}
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+        <label
+          htmlFor="email"
+          className="mb-2 block text-base font-medium text-gray-700 sm:text-sm"
+        >
+          Email Address (optional)
+        </label>
+        <input
+          id="email"
+          type="email"
+          placeholder="your.email@example.com"
+          {...register('email')}
+          className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
+        />
+        <p className="mt-2 text-sm text-gray-600">
+          We'll use this to send any scheduling or lodging updates.
+        </p>
+        {errors.email && (
+          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+        )}
       </div>
 
       <div className="rounded-lg bg-gray-50 p-4">
