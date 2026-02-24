@@ -2,7 +2,6 @@ const prettierConfig = require('eslint-config-prettier');
 const prettierPlugin = require('eslint-plugin-prettier');
 const tseslint = require('typescript-eslint');
 const testingLibraryPlugin = require('eslint-plugin-testing-library');
-const jestDomPlugin = require('eslint-plugin-jest-dom');
 const vitestPlugin = require('@vitest/eslint-plugin');
 
 const eslintConfig = [
@@ -107,7 +106,6 @@ const eslintConfig = [
     plugins: {
       '@typescript-eslint': tseslint.plugin,
       'testing-library': testingLibraryPlugin,
-      'jest-dom': jestDomPlugin,
       vitest: vitestPlugin,
       prettier: prettierPlugin,
     },
@@ -127,7 +125,6 @@ const eslintConfig = [
     rules: {
       'prettier/prettier': 'error',
       ...testingLibraryPlugin.configs['flat/react'].rules,
-      ...jestDomPlugin.configs['flat/recommended'].rules,
       ...vitestPlugin.configs.recommended.rules,
       'testing-library/prefer-screen-queries': 'error',
       'testing-library/no-wait-for-multiple-assertions': 'error',
