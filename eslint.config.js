@@ -1,6 +1,9 @@
 const prettierConfig = require('eslint-config-prettier');
 const prettierPlugin = require('eslint-plugin-prettier');
 const tseslint = require('typescript-eslint');
+const testingLibraryPlugin = require('eslint-plugin-testing-library');
+const jestDomPlugin = require('eslint-plugin-jest-dom');
+const vitestPlugin = require('@vitest/eslint-plugin');
 
 const eslintConfig = [
   {
@@ -97,6 +100,42 @@ const eslintConfig = [
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
+    },
+  },
+  {
+    files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
+    plugins: {
+      '@typescript-eslint': tseslint.plugin,
+      'testing-library': testingLibraryPlugin,
+      'jest-dom': jestDomPlugin,
+      vitest: vitestPlugin,
+      prettier: prettierPlugin,
+    },
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 'latest',
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
+      globals: {
+        ...vitestPlugin.environments.env.globals,
+      },
+    },
+    rules: {
+      'prettier/prettier': 'error',
+      ...testingLibraryPlugin.configs['flat/react'].rules,
+      ...jestDomPlugin.configs['flat/recommended'].rules,
+      ...vitestPlugin.configs.recommended.rules,
+      'testing-library/prefer-screen-queries': 'error',
+      'testing-library/no-wait-for-multiple-assertions': 'error',
+      'vitest/expect-expect': 'error',
+      'vitest/no-disabled-tests': 'warn',
+      'vitest/no-focused-tests': 'error',
+      'vitest/prefer-to-be': 'error',
+      'vitest/prefer-to-have-length': 'error',
     },
   },
 ];

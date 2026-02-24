@@ -6,29 +6,29 @@
       <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
     </linearGradient>
   </defs>
-  
+
   <rect width="1200" height="630" fill="url(#bgGradient)"/>
-  
+
   <!-- Semi-transparent overlay -->
   <rect width="1200" height="630" fill="rgba(255, 247, 244, 0.5)"/>
-  
+
   <!-- Left heart circle (C) -->
   <circle cx="450" cy="220" r="50" fill="#d81b60"/>
   <text x="450" y="240" font-family="serif" font-size="54" font-weight="bold" fill="white" text-anchor="middle">C</text>
-  
+
   <!-- Ampersand -->
   <text x="600" y="240" font-family="serif" font-size="70" font-weight="bold" fill="#ffd700" text-anchor="middle">&amp;</text>
-  
+
   <!-- Right heart circle (K) -->
   <circle cx="750" cy="220" r="50" fill="#c2185b"/>
   <text x="750" y="240" font-family="serif" font-size="54" font-weight="bold" fill="white" text-anchor="middle">K</text>
-  
+
   <!-- Main text "Chris & Katie" -->
   <text x="600" y="380" font-family="'Brush Script MT', cursive" font-size="110" font-weight="normal" fill="#9e3f3f" text-anchor="middle" style="filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.2));">Chris &amp; Katie</text>
-  
+
   <!-- Celebration date -->
   <text x="600" y="460" font-family="serif" font-size="36" font-weight="normal" fill="#6a5555" text-anchor="middle">Celebrating September 12th, 2026</text>
-  
+
   <!-- Ring decoration -->
   <circle cx="600" cy="540" r="25" fill="none" stroke="#ffd700" stroke-width="4"/>
   <circle cx="600" cy="540" r="4" fill="#ffd700"/>
