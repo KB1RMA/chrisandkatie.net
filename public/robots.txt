@@ -1,0 +1,6 @@
+# Prevent search engines from crawling admin endpoints
+User-agent: *
+Disallow: /admin
+
+# Allow crawling of all other public pages
+Allow: /
