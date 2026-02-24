@@ -18,7 +18,7 @@ export default function Home() {
   return (
     <div className="font-roboto relative flex min-h-screen items-center justify-center p-8">
       <Image
-        src="/images/bw-background/IMG_8943.jpg"
+        src="/images/bw-backgrounds/IMG_8943.jpg"
         alt="Chris and Katie"
         fill
         priority
@@ -26,7 +26,7 @@ export default function Home() {
         className="absolute inset-0 object-cover object-center sm:hidden"
       />
       <Image
-        src="/images/bw-background/IMG_8940-2.jpg"
+        src="/images/bw-backgrounds/IMG_8940-2.jpg"
         alt="Chris and Katie"
         fill
         priority
