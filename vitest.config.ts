@@ -15,8 +15,11 @@ export default defineConfig({
     setupFiles: './vitest.setup.ts',
     css: false,
     reporters: process.env.GITHUB_ACTIONS
-      ? ['default', 'github-actions']
-      : ['default'],
+      ? ['default', 'github-actions', 'junit']
+      : ['default', 'junit'],
+    outputFile: {
+      junit: './test-reports/junit.xml',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
