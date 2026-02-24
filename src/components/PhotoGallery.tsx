@@ -8,6 +8,8 @@ import {
   type RenderImageProps,
 } from 'react-photo-album';
 import Lightbox from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+
 import 'yet-another-react-lightbox/styles.css';
 import 'react-photo-album/masonry.css';
 
@@ -67,6 +69,7 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
         photos={photos}
         render={{ image: renderNextImage }}
         onClick={({ index: current }) => setIndex(current)}
+        spacing={3}
       />
 
       <Lightbox
@@ -74,6 +77,7 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
         open={index >= 0}
         index={index}
         close={() => setIndex(-1)}
+        plugins={[Zoom]}
         render={{
           slide: ({ slide }) =>
             slide.src ? (
