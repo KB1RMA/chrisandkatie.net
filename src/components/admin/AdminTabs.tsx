@@ -3,7 +3,7 @@
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import classNames from 'classnames';
+import { cn } from '@/lib/cn';
 
 export type AdminTab = {
   href: Route;
@@ -36,7 +36,7 @@ export function AdminTabs() {
           <Link
             key={tab.href}
             href={tab.href}
-            className={classNames(
+            className={cn(
               baseTabClassName,
               isActive
                 ? 'bg-[#9e3f3f] text-white'
