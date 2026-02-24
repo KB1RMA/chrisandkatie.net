@@ -66,6 +66,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
       if (result?.error) {
         setAuthError('Guest not found. Please check your name and try again.');
       } else if (result?.ok) {
+        // @ts-expect-error - We know this is a string, but the routes are explicitly typed and there's not typeguard
         router.push(callbackUrl);
       }
     } catch {
