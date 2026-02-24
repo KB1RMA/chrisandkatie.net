@@ -19,7 +19,8 @@ export default defineConfig({
       : ['default'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
+      outputDir: 'coverage',
       exclude: [
         'node_modules/',
         '.next/',
