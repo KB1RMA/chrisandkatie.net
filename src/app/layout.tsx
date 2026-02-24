@@ -4,6 +4,7 @@ import { CountdownPageTitle } from '@/components/CountdownPageTitle';
 import { PageViewTracker } from '@/components/PageViewTracker';
 import { SessionProvider } from '@/components/SessionProvider';
 import { Header } from '@/components/Header';
+import { baseMetadata } from '@/lib/metadata';
 import './globals.css';
 
 const roboto = Roboto({
@@ -12,10 +13,7 @@ const roboto = Roboto({
   weight: ['400', '500', '700'],
 });
 
-export const metadata: Metadata = {
-  title: 'Chris and Katie - Marriage Celebration',
-  description: 'Celebration website for Chris and Katie',
-};
+export const metadata: Metadata = baseMetadata;
 
 export default function RootLayout({
   children,

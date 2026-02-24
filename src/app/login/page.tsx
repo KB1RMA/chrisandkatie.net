@@ -6,8 +6,14 @@
  */
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 import { LoginForm } from '@/components/LoginForm';
 import { Marcellus } from 'next/font/google';
+
+export const metadata: Metadata = {
+  title: 'Login',
+  description: 'Login to access your wedding celebration details',
+};
 import { auth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';

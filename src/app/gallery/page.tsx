@@ -1,12 +1,12 @@
-import { Marcellus } from 'next/font/google';
+import type { Metadata } from 'next';
 import { PhotoGallery, type Photo } from '@/components/PhotoGallery';
 
 export const dynamic = 'force-dynamic';
 
-const marcellus = Marcellus({
-  subsets: ['latin'],
-  weight: '400',
-});
+export const metadata: Metadata = {
+  title: 'Gallery',
+  description: 'Wedding photos from Chris and Katie',
+};
 
 /**
  * Wedding celebration photos.

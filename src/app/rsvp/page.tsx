@@ -14,7 +14,7 @@ const marcellus = Marcellus({
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'RSVP - Chris & Katie',
+  title: 'RSVP',
   description: `RSVP for Chris and Katie's celebration on ${WEDDING_DATE_DISPLAY}`,
 };
 

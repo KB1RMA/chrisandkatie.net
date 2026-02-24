@@ -18,7 +18,7 @@ const marcellus = Marcellus({
 });
 
 export const metadata: Metadata = {
-  title: 'Invitation Admin - Chris & Katie',
+  title: 'Invitations',
   description: 'Admin view of invitations and RSVP status.',
 };
 

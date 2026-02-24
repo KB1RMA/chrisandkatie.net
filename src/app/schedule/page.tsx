@@ -1,11 +1,17 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 import { Button } from '@/components/Button';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { SCHEDULE_EVENTS } from '@/lib/events';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Schedule',
+  description: 'Wedding celebration schedule and event details',
+};
 
 const marcellus = Marcellus({
   subsets: ['latin'],
