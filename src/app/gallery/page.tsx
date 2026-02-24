@@ -107,18 +107,6 @@ const photos: Photo[] = [
 export default async function GalleryPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-start">
-      <div className="w-full bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8">
-        <div className="mx-auto w-full max-w-7xl">
-          <div className="rounded-lg bg-white/80 p-6 shadow-sm backdrop-blur-sm sm:p-8">
-            <h1
-              className={`${marcellus.className} text-center text-4xl font-bold text-[#9e3f3f] sm:text-5xl`}
-            >
-              Our Gallery
-            </h1>
-          </div>
-        </div>
-      </div>
-
       <div className="w-full bg-black p-4 sm:p-8">
         <div className="mx-auto w-full max-w-7xl">
           <PhotoGallery photos={photos} />
