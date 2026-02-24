@@ -22,7 +22,7 @@ export const baseMetadata: Metadata = {
     siteName: 'Chris and Katie',
     images: [
       {
-        url: '/api/og',
+        url: '/og-image.svg',
         width: 1200,
         height: 630,
         alt: 'Chris and Katie',
@@ -35,7 +35,7 @@ export const baseMetadata: Metadata = {
     card: 'summary_large_image',
     title: siteTitle,
     description: siteDescription,
-    images: ['/api/og'],
+    images: ['/og-image.svg'],
   },
   appleWebApp: {
     capable: true,
