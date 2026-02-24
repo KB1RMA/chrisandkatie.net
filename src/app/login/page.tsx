@@ -33,7 +33,7 @@ export default async function LoginPage(props: {
   if (session?.user?.guestId) {
     // User is already logged in, redirect to callback or default page
     const callbackUrl = searchParams.callbackUrl || '/schedule';
-    // @ts-expect-error - We know this is a string, but the routes are explicitly typed and there's not typeguard
+    // @ts-expect-error - callbackUrl is a dynamic route from query params, not a literal type
     redirect(callbackUrl);
   }
 
