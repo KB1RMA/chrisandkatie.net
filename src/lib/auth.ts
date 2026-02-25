@@ -76,10 +76,13 @@ export function createAuth(env?: CloudflareEnv) {
         credentials: {
           firstName: { label: 'First Name', type: 'text' },
           lastName: { label: 'Last Name', type: 'text' },
+          guestId: { label: 'Guest ID', type: 'text' },
         },
 
         /**
          * Authenticates a guest by looking up their name in the database.
+         * When guestId is provided (duplicate name disambiguation), looks up by ID
+         * and verifies the name matches for security.
          * Creates a User record if guest exists but has no linked user.
          */
         async authorize(credentials) {
@@ -91,10 +94,19 @@ export function createAuth(env?: CloudflareEnv) {
           const firstName = (credentials.firstName as string).trim();
           const lastName = (credentials.lastName as string).trim();
 
-          const guest = await db.query.guests.findFirst({
-            where: (table) =>
-              sql`LOWER(${table.firstName}) = LOWER(${firstName}) AND LOWER(${table.lastName}) = LOWER(${lastName})`,
-          });
+          const guestId = credentials.guestId as string | undefined;
+
+          // When a specific guestId is provided (disambiguation), look up by ID
+          // and verify the name matches to prevent unauthorized access.
+          const guest = guestId
+            ? await db.query.guests.findFirst({
+                where: (table) =>
+                  sql`${table.id} = ${guestId} AND LOWER(${table.firstName}) = LOWER(${firstName}) AND LOWER(${table.lastName}) = LOWER(${lastName})`,
+              })
+            : await db.query.guests.findFirst({
+                where: (table) =>
+                  sql`LOWER(${table.firstName}) = LOWER(${firstName}) AND LOWER(${table.lastName}) = LOWER(${lastName})`,
+              });
 
           if (!guest) {
             return null;

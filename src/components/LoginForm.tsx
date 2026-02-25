@@ -6,6 +6,7 @@
  * Allows guests to sign in using their first and last name.
  * Uses Auth.js credentials provider for authentication.
  * Uses react-hook-form with Zod validation.
+ * When multiple guests share the same name, presents an address disambiguation step.
  */
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
@@ -14,6 +15,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/Button';
+import { findDuplicateGuests, type DuplicateGuest } from '@/app/login/actions';
 
 /**
  * Zod schema for login form validation.
@@ -41,6 +43,12 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authError, setAuthError] = useState('');
+  const [duplicateGuests, setDuplicateGuests] = useState<
+    DuplicateGuest[] | null
+  >(null);
+  const [pendingCredentials, setPendingCredentials] =
+    useState<LoginFormData | null>(null);
+  const [isSelectingGuest, setIsSelectingGuest] = useState(false);
 
   const callbackUrl = searchParams.get('callbackUrl') || '/schedule';
 
@@ -52,27 +60,129 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
     resolver: zodResolver(loginSchema),
   });
 
+  /**
+   * Performs the actual sign-in with optional guestId for disambiguation.
+   */
+  const performSignIn = async (
+    firstName: string,
+    lastName: string,
+    guestId?: string,
+  ) => {
+    const result = await signIn('credentials', {
+      firstName,
+      lastName,
+      ...(guestId && { guestId }),
+      redirect: false,
+      callbackUrl,
+    });
+
+    if (result?.error) {
+      setAuthError('Guest not found. Please check your name and try again.');
+      setDuplicateGuests(null);
+      setPendingCredentials(null);
+    } else if (result?.ok) {
+      router.push(callbackUrl);
+    }
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     setAuthError('');
 
     try {
-      const result = await signIn('credentials', {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        redirect: false,
-        callbackUrl,
-      });
+      const duplicates = await findDuplicateGuests(
+        data.firstName,
+        data.lastName,
+      );
 
-      if (result?.error) {
-        setAuthError('Guest not found. Please check your name and try again.');
-      } else if (result?.ok) {
-        // @ts-expect-error - callbackUrl is a dynamic route from query params, not a literal type
-        router.push(callbackUrl);
+      if (duplicates) {
+        setPendingCredentials(data);
+        setDuplicateGuests(duplicates);
+
+        return;
       }
+
+      await performSignIn(data.firstName, data.lastName);
     } catch {
       setAuthError('An error occurred during sign in. Please try again.');
     }
   };
+
+  /**
+   * Handles selection of a specific guest when disambiguating duplicate names.
+   */
+  const onSelectGuest = async (guestId: string) => {
+    if (!pendingCredentials) return;
+
+    setIsSelectingGuest(true);
+    setAuthError('');
+
+    try {
+      await performSignIn(
+        pendingCredentials.firstName,
+        pendingCredentials.lastName,
+        guestId,
+      );
+    } catch {
+      setAuthError('An error occurred during sign in. Please try again.');
+    } finally {
+      setIsSelectingGuest(false);
+    }
+  };
+
+  const onCancelDisambiguation = () => {
+    setDuplicateGuests(null);
+    setPendingCredentials(null);
+    setAuthError('');
+  };
+
+  // Show address disambiguation step when multiple guests share the same name
+  if (duplicateGuests && pendingCredentials) {
+    return (
+      <div className="rounded-lg bg-[#fffdfb] p-8 shadow-xl">
+        <div className="mb-8 space-y-2">
+          <h2
+            className={`${marcellusClassName} text-center text-4xl font-bold text-[#9e3f3f]`}
+          >
+            Select Your Invitation
+          </h2>
+          <p className="text-center text-[#6a5555]">
+            We found multiple guests named{' '}
+            <span className="font-medium">
+              {pendingCredentials.firstName} {pendingCredentials.lastName}
+            </span>
+            . Please select the invitation address you received.
+          </p>
+        </div>
+
+        {authError && (
+          <div className="mb-4 rounded-md border border-[#fcc] bg-[#fee] p-4 text-sm text-[#c33]">
+            {authError}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {duplicateGuests.map((guest) => (
+            <button
+              key={guest.guestId}
+              onClick={() => onSelectGuest(guest.guestId)}
+              disabled={isSelectingGuest}
+              className="w-full rounded-md border border-[#f3dedb] bg-white px-4 py-4 text-left text-sm text-[#6a5555] shadow-sm transition-colors hover:border-[#9e3f3f] hover:bg-[#fff7f4] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {guest.address || 'No address on file'}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={onCancelDisambiguation}
+          disabled={isSelectingGuest}
+          className="mt-4 w-full text-center text-sm text-[#9e3f3f] underline hover:no-underline disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg bg-[#fffdfb] p-8 shadow-xl">
