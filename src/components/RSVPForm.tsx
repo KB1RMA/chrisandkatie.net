@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import confetti from 'canvas-confetti';
-import { submitRsvp } from '@/app/rsvp/actions';
+import { submitRsvp, checkEmailAvailability } from '@/app/rsvp/actions';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
 import {
   MEAL_OPTIONS,
@@ -59,6 +59,7 @@ export function RSVPForm({
     setError,
   } = useForm<SubmitRsvpInput>({
     resolver: zodResolver(submitRsvpSchema),
+    mode: 'onBlur',
     defaultValues: {
       invitationId,
       guests: guests.map((g) => ({
@@ -399,7 +400,22 @@ export function RSVPForm({
           id="email"
           type="email"
           placeholder="your.email@example.com"
-          {...register('email')}
+          {...register('email', {
+            validate: async (value) => {
+              if (!value) {
+                return true;
+              }
+
+              try {
+                const result = await checkEmailAvailability(value);
+
+                return result.available || 'Email address is already in use';
+              } catch {
+                // Silently ignore network errors during availability check
+                return true;
+              }
+            },
+          })}
           className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
         />
         <p className="mt-2 text-sm text-gray-600">
