@@ -13,7 +13,7 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }));
 
-import { submitRsvp } from './actions';
+import { submitRsvp, checkEmailAvailability } from './actions';
 import { MEAL_OPTIONS } from '@/lib/constants';
 import { guests } from '@/lib/db/schema';
 import { type DbClient } from '@/lib/db';
@@ -27,18 +27,23 @@ type Guest = InferSelectModel<typeof guests>;
  * Creates a mock Drizzle database for testing.
  * Provides only the methods used in submitRsvp tests.
  *
- * @param findFirstFn Mock function for query.guests.findFirst
+ * @param findFirstGuestFn Mock function for query.guests.findFirst
  * @param updateFn Optional mock function for db.update
+ * @param findFirstUserFn Optional mock function for query.users.findFirst
  * @returns Partial DbClient with mocked methods
  */
 function createMockDb(
-  findFirstFn: ReturnType<typeof vi.fn>,
+  findFirstGuestFn: ReturnType<typeof vi.fn>,
   updateFn?: ReturnType<typeof vi.fn>,
+  findFirstUserFn?: ReturnType<typeof vi.fn>,
 ): Partial<DbClient> {
   return {
     query: {
       guests: {
-        findFirst: findFirstFn,
+        findFirst: findFirstGuestFn,
+      },
+      users: {
+        findFirst: findFirstUserFn ?? vi.fn().mockResolvedValue(null),
       },
     },
     ...(updateFn && { update: updateFn }),
@@ -460,5 +465,192 @@ describe('submitRsvp', () => {
         ],
       }),
     ).rejects.toThrow('Invalid request data');
+  });
+
+  test('should throw error when email is already in use', async () => {
+    const guestId = 'guest-1';
+    const invitationId = 'invitation-1';
+    const userId = 'user-1';
+
+    const mockSession: Session = {
+      user: { guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId,
+      firstName: 'John',
+      lastName: 'Doe',
+      userId,
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createMockDb(
+      vi.fn().mockResolvedValue(mockGuest),
+      updateFn,
+      vi
+        .fn()
+        .mockResolvedValue({ id: 'other-user', email: 'taken@example.com' }),
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await expect(
+      submitRsvp({
+        invitationId,
+        email: 'taken@example.com',
+        guests: [
+          {
+            id: guestId,
+            attending: true,
+            mealChoice: MEAL_OPTIONS.PRIME_RIB,
+            dietaryRestrictions: null,
+            notes: null,
+          },
+        ],
+      }),
+    ).rejects.toThrow('Email address is already in use');
+  });
+});
+
+describe('checkEmailAvailability', () => {
+  const mockAuth = vi.mocked(auth);
+  const mockGetDb = vi.mocked(getDb);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('should throw error when user is not authenticated', async () => {
+    mockAuth.mockResolvedValue(null);
+
+    await expect(checkEmailAvailability('test@example.com')).rejects.toThrow(
+      'Unauthorized',
+    );
+  });
+
+  test('should return available true when email is not taken', async () => {
+    const guestId = 'guest-1';
+
+    const mockSession: Session = {
+      user: { guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId: 'invitation-1',
+      firstName: 'John',
+      lastName: 'Doe',
+      userId: 'user-1',
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createMockDb(
+      vi.fn().mockResolvedValue(mockGuest),
+      undefined,
+      vi.fn().mockResolvedValue(null),
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    const result = await checkEmailAvailability('free@example.com');
+
+    expect(result).toEqual({ available: true });
+  });
+
+  test('should return available false when email is already taken', async () => {
+    const guestId = 'guest-1';
+
+    const mockSession: Session = {
+      user: { guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId: 'invitation-1',
+      firstName: 'John',
+      lastName: 'Doe',
+      userId: 'user-1',
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createMockDb(
+      vi.fn().mockResolvedValue(mockGuest),
+      undefined,
+      vi
+        .fn()
+        .mockResolvedValue({ id: 'other-user', email: 'taken@example.com' }),
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    const result = await checkEmailAvailability('taken@example.com');
+
+    expect(result).toEqual({ available: false });
+  });
+
+  test('should return available true when guest has no userId', async () => {
+    const guestId = 'guest-1';
+
+    const mockSession: Session = {
+      user: { guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId: 'invitation-1',
+      firstName: 'John',
+      lastName: 'Doe',
+      userId: null,
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createMockDb(vi.fn().mockResolvedValue(mockGuest));
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    const result = await checkEmailAvailability('any@example.com');
+
+    expect(result).toEqual({ available: true });
   });
 });

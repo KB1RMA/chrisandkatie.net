@@ -89,8 +89,12 @@ export async function submitRsvp(input: SubmitRsvpInput) {
         ),
       });
 
-      // Only update if email is not already used by another user
-      if (!existingUserWithEmail) {
+      if (existingUserWithEmail) {
+        throw new Error('Email address is already in use');
+      }
+
+      // Wrap in try/catch to handle race-condition unique constraint failures
+      try {
         await db
           .update(users)
           .set({
@@ -98,6 +102,15 @@ export async function submitRsvp(input: SubmitRsvpInput) {
             updatedAt: now,
           })
           .where(eq(users.id, loggedInGuest.userId));
+      } catch (dbError) {
+        if (
+          dbError instanceof Error &&
+          dbError.message.toLowerCase().includes('unique')
+        ) {
+          throw new Error('Email address is already in use');
+        }
+
+        throw dbError;
       }
     }
 
@@ -109,4 +122,38 @@ export async function submitRsvp(input: SubmitRsvpInput) {
 
     throw error;
   }
+}
+
+/**
+ * Check if an email address is available for the current user to use.
+ *
+ * @param email - The email address to check.
+ * @returns Object indicating whether the email is available.
+ * @throws Error if user is not authenticated
+ */
+export async function checkEmailAvailability(
+  email: string,
+): Promise<{ available: boolean }> {
+  const session = await auth();
+
+  if (!session?.user?.guestId) {
+    throw new Error('Unauthorized');
+  }
+
+  const db = getDb();
+
+  // Get current user to exclude from the duplicate check
+  const loggedInGuest = await db.query.guests.findFirst({
+    where: (table, { eq }) => eq(table.id, session.user.guestId as string),
+  });
+
+  if (!loggedInGuest?.userId) {
+    return { available: true };
+  }
+
+  const existingUser = await db.query.users.findFirst({
+    where: and(eq(users.email, email), ne(users.id, loggedInGuest.userId)),
+  });
+
+  return { available: !existingUser };
 }

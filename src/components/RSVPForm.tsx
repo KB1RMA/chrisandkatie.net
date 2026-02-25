@@ -7,12 +7,12 @@
  * Uses react-hook-form for state management and server action for submission.
  * Validates with Zod schemas shared with server action.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import confetti from 'canvas-confetti';
-import { submitRsvp } from '@/app/rsvp/actions';
+import { submitRsvp, checkEmailAvailability } from '@/app/rsvp/actions';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
 import {
   MEAL_OPTIONS,
@@ -57,6 +57,7 @@ export function RSVPForm({
     control,
     formState: { isSubmitting, errors },
     setError,
+    clearErrors,
   } = useForm<SubmitRsvpInput>({
     resolver: zodResolver(submitRsvpSchema),
     defaultValues: {
@@ -77,6 +78,7 @@ export function RSVPForm({
 
   // Watch attending status for each guest to show meal selection conditionally
   const watchedAttending = watch('guests');
+  const watchedEmail = watch('email');
 
   // Calculate summary counts
   const summary = useMemo(() => {
@@ -136,6 +138,36 @@ export function RSVPForm({
       startVelocity: 45,
     });
   }, []);
+
+  /**
+   * Debounced check for email availability as the user types.
+   */
+  useEffect(() => {
+    if (!watchedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchedEmail)) {
+      clearErrors('email');
+
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        const result = await checkEmailAvailability(watchedEmail);
+
+        if (!result.available) {
+          setError('email', {
+            type: 'manual',
+            message: 'Email address is already in use',
+          });
+        } else {
+          clearErrors('email');
+        }
+      } catch {
+        // Silently ignore network errors during availability check
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [watchedEmail, clearErrors, setError]);
 
   /**
    * Handle form submission with server action.
