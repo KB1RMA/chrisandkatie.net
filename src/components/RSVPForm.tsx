@@ -7,7 +7,7 @@
  * Uses react-hook-form for state management and server action for submission.
  * Validates with Zod schemas shared with server action.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -57,9 +57,9 @@ export function RSVPForm({
     control,
     formState: { isSubmitting, errors },
     setError,
-    clearErrors,
   } = useForm<SubmitRsvpInput>({
     resolver: zodResolver(submitRsvpSchema),
+    mode: 'onBlur',
     defaultValues: {
       invitationId,
       guests: guests.map((g) => ({
@@ -78,7 +78,6 @@ export function RSVPForm({
 
   // Watch attending status for each guest to show meal selection conditionally
   const watchedAttending = watch('guests');
-  const watchedEmail = watch('email');
 
   // Calculate summary counts
   const summary = useMemo(() => {
@@ -138,36 +137,6 @@ export function RSVPForm({
       startVelocity: 45,
     });
   }, []);
-
-  /**
-   * Debounced check for email availability as the user types.
-   */
-  useEffect(() => {
-    if (!watchedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchedEmail)) {
-      clearErrors('email');
-
-      return;
-    }
-
-    const timeout = setTimeout(async () => {
-      try {
-        const result = await checkEmailAvailability(watchedEmail);
-
-        if (!result.available) {
-          setError('email', {
-            type: 'manual',
-            message: 'Email address is already in use',
-          });
-        } else {
-          clearErrors('email');
-        }
-      } catch {
-        // Silently ignore network errors during availability check
-      }
-    }, 500);
-
-    return () => clearTimeout(timeout);
-  }, [watchedEmail, clearErrors, setError]);
 
   /**
    * Handle form submission with server action.
@@ -431,7 +400,22 @@ export function RSVPForm({
           id="email"
           type="email"
           placeholder="your.email@example.com"
-          {...register('email')}
+          {...register('email', {
+            validate: async (value) => {
+              if (!value) {
+                return true;
+              }
+
+              try {
+                const result = await checkEmailAvailability(value);
+
+                return result.available || 'Email address is already in use';
+              } catch {
+                // Silently ignore network errors during availability check
+                return true;
+              }
+            },
+          })}
           className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
         />
         <p className="mt-2 text-sm text-gray-600">
