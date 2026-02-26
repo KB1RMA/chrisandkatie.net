@@ -1,10 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: unset (template) -> 1.0.0
-- Modified principles: n/a (initial adoption)
-- Added sections: Core Principles, Technology Constraints, Development Workflow, Governance
+- Version change: 1.0.0 -> 1.1.0
+- Modified principles: V. Quality Gates And Reliability (tests optional → unit tests REQUIRED for all features)
+- Added sections: none
 - Removed sections: none
-- Templates requiring updates: ✅ updated .specify/templates/plan-template.md; ✅ no change needed .specify/templates/spec-template.md; ✅ no change needed .specify/templates/tasks-template.md; ✅ no change needed .specify/templates/checklist-template.md; ✅ no change needed .specify/templates/agent-file-template.md
+- Templates requiring updates:
+    ✅ .specify/templates/plan-template.md — Constitution Check quality gates bullet updated
+    ✅ .specify/templates/tasks-template.md — tests header and per-story labels updated from OPTIONAL to REQUIRED
+    ✅ no change needed .specify/templates/spec-template.md
+    ✅ no change needed .specify/templates/checklist-template.md
+    ✅ no change needed .specify/templates/agent-file-template.md
 - Deferred placeholders: none
 -->
 # ChrisAndKatie.net Constitution
@@ -33,8 +38,11 @@ frameworks MUST only be introduced after three concrete, similar uses exist.
 
 ### V. Quality Gates And Reliability
 Features MUST meet the defined linting, formatting, and type-checking gates.
-Tests are REQUIRED when explicitly requested by the specification, and any
-test scope MUST be documented in the plan before implementation begins.
+Unit tests MUST be written for all server-side logic, server actions, and
+utility functions introduced by a feature. Test scope MUST be documented in
+the implementation plan before coding begins. Tests MUST be authored before
+their corresponding implementation (TDD) and MUST fail before the
+implementation is written.
 
 ## Technology Constraints
 
@@ -60,4 +68,4 @@ test scope MUST be documented in the plan before implementation begins.
 	changes, MINOR for new principles or sections, PATCH for clarifications.
 - All plans and reviews MUST include a constitution compliance check.
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-26
+**Version**: 1.1.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-26

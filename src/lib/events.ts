@@ -61,3 +61,53 @@ export const SCHEDULE_EVENTS: ScheduleItem[] = [
       'Join us for dinner, dancing, and a celebration of our marriage!',
   },
 ];
+
+/**
+ * Determine if a scheduled event is currently happening.
+ *
+ * An event is "current" if `now` falls between the event's start time and
+ * its calculated end time (start + duration). If no duration is provided,
+ * a default of 60 minutes is assumed.
+ *
+ * @param event - The schedule item to evaluate.
+ * @param now - Current date/time (defaults to new Date()).
+ * @returns True if the event is currently happening.
+ */
+export function isCurrentEvent(
+  event: ScheduleItem,
+  now: Date = new Date(),
+): boolean {
+  // Parse the date and time into a start Date
+  const year = now.getFullYear();
+  const dateStr = `${year} ${event.date} ${event.time}`;
+  const startTime = new Date(dateStr);
+
+  if (isNaN(startTime.getTime())) {
+    return false;
+  }
+
+  // Parse end time if provided, otherwise default to 60 minutes
+  let endTime: Date;
+
+  if (event.endTime) {
+    endTime = new Date(`${year} ${event.date} ${event.endTime}`);
+  } else {
+    endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+  }
+
+  return now >= startTime && now <= endTime;
+}
+
+/**
+ * Find the currently active event from a list of schedule items.
+ *
+ * @param events - Array of schedule items to check.
+ * @param now - Current date/time (defaults to new Date()).
+ * @returns The active ScheduleItem, or null if no event is currently happening.
+ */
+export function getCurrentEvent(
+  events: ScheduleItem[],
+  now: Date = new Date(),
+): ScheduleItem | null {
+  return events.find((event) => isCurrentEvent(event, now)) ?? null;
+}

@@ -2,9 +2,10 @@ import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { Button } from '@/components/Button';
+import { ScheduleCard } from '@/components/ScheduleCard';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { SCHEDULE_EVENTS } from '@/lib/events';
+import { SCHEDULE_EVENTS, isCurrentEvent } from '@/lib/events';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,38 +75,11 @@ export default async function SchedulePage() {
 
         <div className="mb-12 space-y-6">
           {visibleScheduleItems.map((item) => (
-            <div
+            <ScheduleCard
               key={item.id}
-              className="rounded-lg bg-[#fffdfb] p-8 shadow-lg transition-shadow duration-200 hover:shadow-xl"
-            >
-              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2
-                    className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f]`}
-                  >
-                    {item.event}
-                  </h2>
-                  <p className="text-[#7a6666]">
-                    {item.date} • {item.day}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-3xl font-bold text-[#9e3f3f]">
-                    {item.endTime
-                      ? `${item.time} - ${item.endTime}`
-                      : item.time}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-[#6a5555]">
-                <p className="flex items-center gap-2">
-                  <span className="text-[#b76565]">📍</span>
-                  <span className="font-medium">{item.location}</span>
-                </p>
-                <p className="text-[#7a6666]">{item.description}</p>
-              </div>
-            </div>
+              item={item}
+              isCurrentEvent={isCurrentEvent(item)}
+            />
           ))}
         </div>
 

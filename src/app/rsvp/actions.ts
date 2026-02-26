@@ -1,11 +1,11 @@
 'use server';
 
 /**
- * Server action to update RSVP responses.
+ * Server actions for RSVP submission and data retrieval.
  */
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guests } from '@/lib/db/schema';
+import { guests, rsvpResponses } from '@/lib/db/schema';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -88,4 +88,45 @@ export async function submitRsvp(input: SubmitRsvpInput) {
 
     throw error;
   }
+}
+
+/**
+ * Fetch all events a guest is invited to, including their existing RSVP status.
+ *
+ * Uses the guest_event junction table to determine which events the authenticated
+ * guest can access. Returns each event with the guest's current RSVP response.
+ *
+ * @returns Array of events with RSVP status for authenticated guest.
+ * @throws Error if user is not authenticated.
+ */
+export async function fetchGuestEvents() {
+  const session = await auth();
+
+  if (!session?.user?.guestId) {
+    throw new Error('Unauthorized');
+  }
+
+  const db = getDb();
+  const guestId = session.user.guestId as string;
+
+  // Fetch all events guest is invited to via junction table
+  const guestEventRows = await db.query.guestEvents.findMany({
+    where: (table, { eq: eqFn }) => eqFn(table.guestId, guestId),
+    with: {
+      event: true,
+    },
+  });
+
+  // Fetch existing RSVP responses for this guest
+  const rsvpRows = await db
+    .select()
+    .from(rsvpResponses)
+    .where(eq(rsvpResponses.guestId, guestId));
+
+  const rsvpByEventId = new Map(rsvpRows.map((r) => [r.eventId, r]));
+
+  return guestEventRows.map(({ event: eventRow }) => ({
+    event: eventRow,
+    rsvp: rsvpByEventId.get(eventRow.id) ?? null,
+  }));
 }

@@ -35,7 +35,7 @@
 - Functional core approach identified with side effects isolated.
 - Specification-first scope is concise and traceable to delivery.
 - Simplicity check passes (no premature abstraction; Rule of Three).
-- Quality gates defined (linting/formatting/type checks; tests if requested).
+- Quality gates defined (linting/formatting/type checks; unit tests REQUIRED for all server-side logic, actions, and utilities — test scope documented here).
 
 ## Project Structure
 

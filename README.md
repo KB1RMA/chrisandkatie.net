@@ -18,6 +18,7 @@ Set up the local SQLite database with migrations and seed data:
 ```bash
 npm run db:migrate:local  # Apply database migrations
 npm run db:seed:local    # Seed guest and invitation data
+npm run db:seed:test-data   # Seed test fixtures for integration testing (tests/fixtures/test-data.sql)
 ```
 
 ### Production Database

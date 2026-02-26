@@ -4,7 +4,9 @@ import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { RSVPForm, type GuestRSVP } from '@/components/RSVPForm';
+import { EventRsvpCard } from '@/components/EventRsvpCard';
 import { WEDDING_DATE_DISPLAY, type MealOption } from '@/lib/constants';
+import { fetchGuestEvents } from '@/app/rsvp/actions';
 
 const marcellus = Marcellus({
   subsets: ['latin'],
@@ -68,6 +70,18 @@ export default async function RSVPPage() {
   const submittedBy = `${loggedInGuest.firstName} ${loggedInGuest.lastName}`;
   const submittedAt = loggedInGuest.updatedAt;
 
+  // Fetch additional events guest is invited to (excluding main wedding type)
+  let additionalEvents: Awaited<ReturnType<typeof fetchGuestEvents>> = [];
+
+  try {
+    const allGuestEvents = await fetchGuestEvents();
+    additionalEvents = allGuestEvents.filter(
+      ({ event }) => event.type !== 'main',
+    );
+  } catch {
+    // Non-critical: continue without additional events if query fails
+  }
+
   return (
     <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:justify-center sm:p-8">
       <div className="w-full max-w-3xl">
@@ -113,6 +127,22 @@ export default async function RSVPPage() {
             submittedAt={submittedAt}
           />
         </div>
+
+        {/* Additional events section */}
+        {additionalEvents.length > 0 && (
+          <div className="mt-6">
+            <h2
+              className={`${marcellus.className} mb-4 text-2xl font-bold text-[#9e3f3f]`}
+            >
+              Additional Events
+            </h2>
+            <div className="space-y-3">
+              {additionalEvents.map(({ event, rsvp }) => (
+                <EventRsvpCard key={event.id} event={event} rsvp={rsvp} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
