@@ -524,6 +524,132 @@ describe('submitRsvp', () => {
       }),
     ).rejects.toThrow('Email address is already in use');
   });
+
+  test('should save email when loggedInGuest.userId exists', async () => {
+    const guestId = 'guest-1';
+    const invitationId = 'invitation-1';
+    const userId = 'user-1';
+
+    const mockSession: Session = {
+      user: { guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId,
+      firstName: 'John',
+      lastName: 'Doe',
+      userId,
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createMockDb(
+      vi.fn().mockResolvedValue(mockGuest),
+      updateFn,
+      vi.fn().mockResolvedValue(null),
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    const response = await submitRsvp({
+      invitationId,
+      email: 'john@example.com',
+      guests: [
+        {
+          id: guestId,
+          attending: true,
+          mealChoice: MEAL_OPTIONS.PRIME_RIB,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    expect(response).toEqual({ success: true });
+    // update is called twice: once for the guest record, once for the user email
+    expect(updateFn).toHaveBeenCalledTimes(2);
+    // verify the email update was called with the correct email for the right user
+    expect(setFn).toHaveBeenLastCalledWith(
+      expect.objectContaining({ email: 'john@example.com' }),
+    );
+  });
+
+  test('should throw error on unique constraint violation when saving email', async () => {
+    const guestId = 'guest-1';
+    const invitationId = 'invitation-1';
+    const userId = 'user-1';
+
+    const mockSession: Session = {
+      user: { guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    // Guest update succeeds; user email update hits unique constraint
+    const whereFn = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        new Error('UNIQUE constraint failed: users.email'),
+      );
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId,
+      firstName: 'John',
+      lastName: 'Doe',
+      userId,
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createMockDb(
+      vi.fn().mockResolvedValue(mockGuest),
+      updateFn,
+      vi.fn().mockResolvedValue(null),
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await expect(
+      submitRsvp({
+        invitationId,
+        email: 'john@example.com',
+        guests: [
+          {
+            id: guestId,
+            attending: true,
+            mealChoice: MEAL_OPTIONS.PRIME_RIB,
+            dietaryRestrictions: null,
+            notes: null,
+          },
+        ],
+      }),
+    ).rejects.toThrow('Email address is already in use');
+    // verify the guest update succeeded before the email update failed (race condition)
+    expect(updateFn).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('checkEmailAvailability', () => {
