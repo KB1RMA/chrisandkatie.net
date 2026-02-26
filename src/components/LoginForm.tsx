@@ -81,6 +81,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
       setDuplicateGuests(null);
       setPendingCredentials(null);
     } else if (result?.ok) {
+      // @ts-expect-error - callbackUrl is a dynamic route from query params, not a literal type
       router.push(callbackUrl);
     }
   };
