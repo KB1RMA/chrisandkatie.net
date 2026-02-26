@@ -17,11 +17,12 @@ This project uses NextJS v16 and React v19 using the App router. All generated c
 - Use dynamic imports (`await import()`) in tests when module isolation is needed
 
 ### Test File Conventions
-- Test files should use the `/**\n * @jest-environment node\n */` comment when testing Node.js modules
 - Use `describe` blocks to group related tests, with clear descriptive names
-- Import Jest globals explicitly: `import { expect, test } from '@jest/globals'`
-- Mock external dependencies at the top of the test file using `jest.mock()`
+- Import Vitest globals explicitly: `import { expect, test } from 'vitest'`
+- Mock external dependencies at the top of the test file using `vi.mock()`
 - Use meaningful test descriptions that start with "should" (e.g., "should throw error when rate limit is exceeded")
+- Avoid mocking wherever possible; prefer testing with real implementations to ensure accurate behavior
+- Tests do not need comment blocks unless the test logic is complex and requires explanation. The test name should be explicit enough
 
 ### Error Handling
 - Include descriptive error messages that help with debugging
@@ -69,11 +70,11 @@ return context;
 - Protected routes should check for valid session via `auth()` function and validate guest access permissions
 - The Credentials provider authenticates by first/last name lookup against the Guest table
 
-### Database with Prisma
-- This project uses Prisma ORM with SQLite for local development and Cloudflare D1 for production
-- Always define database models in `prisma/schema.prisma` with appropriate relationships and field constraints
-- Run `npx prisma generate` after schema changes to regenerate Prisma client
-- Database queries should use the Prisma client instance from `@/lib/db`
+### Database with Drizzle ORM
+- This project uses Drizzle ORM with SQLite for local development and Cloudflare D1 for production
+- Always define database models in `src/lib/db/schema.ts` using Drizzle's schema definition API with appropriate relationships and field constraints
+- Run `npx drizzle-kit generate` after schema changes to generate new migration files
+- Database queries should use the Drizzle client instance from `@/lib/db`
 
 ### Form Validation with React Hook Form & Zod
 - Use react-hook-form paired with Zod for client-side form validation
