@@ -1,0 +1,7 @@
+# Load .env.development* files when running `wrangler dev`
+NEXTJS_ENV=development
+
+# Admin credentials — used as First Name / Last Name in the existing login form.
+# Set these to log in as admin and access /admin/* pages.
+ADMIN_USERNAME=your_admin_first_name
+ADMIN_PASSWORD=your_admin_password

@@ -11,8 +11,10 @@ export type AdminTab = {
 };
 
 const adminTabs: AdminTab[] = [
+  { href: '/admin/events', label: 'Events' },
   { href: '/admin/invitations', label: 'Invitations' },
   { href: '/admin/guests', label: 'Guests' },
+  { href: '/admin/rsvp', label: 'RSVPs' },
 ];
 
 const baseTabClassName =

@@ -1,12 +1,13 @@
 import { Marcellus } from 'next/font/google';
-import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { auth } from '@/lib/auth';
+import { asc } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
+import { events } from '@/lib/db/schema';
 import type { MealOption } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import {
   InvitationTable,
+  type AvailableEvent,
   type InvitationTableRow,
 } from '@/components/admin/InvitationTable';
 
@@ -41,16 +42,21 @@ const formatGuestName = (firstName: string, lastName: string) => {
  * @throws {Error} Redirects when user is unauthenticated.
  */
 export default async function AdminInvitationsPage() {
-  const session = await auth();
-
-  if (!session?.user?.guestId) {
-    redirect('/login?callbackUrl=/admin/invitations');
-  }
-
   const db = getDb();
+
+  // Fetch all available events ordered for display
+  const availableEvents: AvailableEvent[] = await db
+    .select({ id: events.id, name: events.name, sortOrder: events.sortOrder })
+    .from(events)
+    .orderBy(asc(events.sortOrder));
+
   const invitations = await db.query.invitations.findMany({
     with: {
-      guests: true,
+      guests: {
+        with: {
+          guestEvents: true,
+        },
+      },
     },
   });
 
@@ -79,7 +85,15 @@ export default async function AdminInvitationsPage() {
     const searchText = `${invitationName} ${relationshipToCouple} ${guestNames}`
       .toLowerCase()
       .trim();
-    const visibleEvents = JSON.parse(invitation.visibleEvents) as number[];
+
+    // Compute unique event IDs granted to any guest on this invitation
+    const initialVisibleEventIds = [
+      ...new Set(
+        invitation.guests.flatMap((guest) =>
+          guest.guestEvents.map((ge) => ge.eventId),
+        ),
+      ),
+    ];
 
     return {
       id: invitation.id,
@@ -100,7 +114,8 @@ export default async function AdminInvitationsPage() {
         dietaryRestrictions: guest.dietaryRestrictions,
         notes: guest.notes,
       })),
-      visibleEvents,
+      availableEvents,
+      initialVisibleEventIds,
       searchText,
     };
   });

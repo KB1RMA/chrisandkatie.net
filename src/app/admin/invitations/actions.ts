@@ -4,41 +4,63 @@ import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { invitations } from '@/lib/db/schema';
+import { guestEvents } from '@/lib/db/schema';
 
 /**
- * Update visible events for an invitation.
+ * Update visible events for an invitation by syncing the guestEvents table.
+ *
+ * For each guest on the invitation, deletes all existing guestEvents rows then
+ * inserts new rows for each granted eventId. An empty eventIds array removes
+ * all event visibility for all guests on the invitation.
  *
  * @param invitationId - The ID of the invitation to update.
- * @param eventIds - Array of event IDs that should be visible to this invitation.
+ * @param eventIds - UUID strings of events that should be visible (from events.id).
  * @returns Success status and optional error message.
  * @throws Error if not authenticated or update fails.
  */
 export async function updateInvitationVisibleEvents(
   invitationId: string,
-  eventIds: number[],
+  eventIds: string[],
 ): Promise<{ success: boolean; error?: string }> {
   // Check authentication
   const session = await auth();
 
-  if (!session?.user?.guestId) {
+  if (!session?.user?.roles?.includes('admin')) {
     return { success: false, error: 'Unauthorized' };
   }
 
   try {
     const db = getDb();
 
-    // Convert event IDs to JSON string
-    const visibleEvents = JSON.stringify(eventIds.sort((a, b) => a - b));
+    // Fetch all guests for this invitation
+    const invitation = await db.query.invitations.findFirst({
+      where: (table, { eq }) => eq(table.id, invitationId),
+      with: {
+        guests: true,
+      },
+    });
 
-    // Update invitation
-    await db
-      .update(invitations)
-      .set({
-        visibleEvents,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(invitations.id, invitationId));
+    if (!invitation) {
+      return { success: false, error: 'Invitation not found' };
+    }
+
+    // Deduplicate event IDs to avoid unique constraint violations
+    const uniqueEventIds = [...new Set(eventIds)];
+
+    // Sync guestEvents for each guest: delete existing rows, insert granted ones
+    for (const guest of invitation.guests) {
+      await db.delete(guestEvents).where(eq(guestEvents.guestId, guest.id));
+
+      if (uniqueEventIds.length > 0) {
+        await db.insert(guestEvents).values(
+          uniqueEventIds.map((eventId) => ({
+            id: crypto.randomUUID(),
+            guestId: guest.id,
+            eventId,
+          })),
+        );
+      }
+    }
 
     // Revalidate admin and schedule pages
     revalidatePath('/admin/invitations');

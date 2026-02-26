@@ -1,9 +1,9 @@
 import { Marcellus } from 'next/font/google';
-import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { auth } from '@/lib/auth';
+import { asc } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import type { MealOption } from '@/lib/constants';
+import { events, guestEvents } from '@/lib/db/schema';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { GuestTable, type GuestTableRow } from '@/components/admin/GuestTable';
 
@@ -38,18 +38,32 @@ const formatGuestName = (firstName: string, lastName: string) => {
  * @throws {Error} Redirects when user is unauthenticated.
  */
 export default async function AdminGuestsPage() {
-  const session = await auth();
-
-  if (!session?.user?.guestId) {
-    redirect('/login?callbackUrl=/admin/guests');
-  }
-
   const db = getDb();
-  const invitations = await db.query.invitations.findMany({
-    with: {
-      guests: true,
+
+  const [invitations, allEvents, allGuestEvents] = await Promise.all([
+    db.query.invitations.findMany({
+      with: {
+        guests: true,
+      },
+    }),
+    db
+      .select({ id: events.id, name: events.name })
+      .from(events)
+      .orderBy(asc(events.sortOrder)),
+    db
+      .select({ guestId: guestEvents.guestId, eventId: guestEvents.eventId })
+      .from(guestEvents),
+  ]);
+
+  // Build a map of guestId → eventIds for event filtering
+  const guestEventMap = allGuestEvents.reduce<Record<string, string[]>>(
+    (acc, ge) => {
+      acc[ge.guestId] = [...(acc[ge.guestId] ?? []), ge.eventId];
+
+      return acc;
     },
-  });
+    {},
+  );
 
   const rows: GuestTableRow[] = invitations.flatMap((invitation) => {
     const primaryGuest = invitation.guests[0];
@@ -82,6 +96,7 @@ export default async function AdminGuestsPage() {
         dietaryRestrictions: guest.dietaryRestrictions,
         notes: guest.notes,
         searchText,
+        invitedEventIds: guestEventMap[guest.id] ?? [],
       };
     });
   });
@@ -148,7 +163,7 @@ export default async function AdminGuestsPage() {
         </div>
 
         <div className="rounded-lg bg-[#fffdfb] p-6 shadow-lg">
-          <GuestTable data={rows} />
+          <GuestTable data={rows} availableEvents={allEvents} />
         </div>
       </div>
     </div>

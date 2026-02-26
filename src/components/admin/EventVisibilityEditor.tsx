@@ -2,34 +2,42 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/Button';
-import { SCHEDULE_EVENTS } from '@/lib/events';
 import { updateInvitationVisibleEvents } from '@/app/admin/invitations/actions';
+
+type AvailableEvent = {
+  id: string;
+  name: string;
+  sortOrder: number;
+};
 
 type EventVisibilityEditorProps = {
   invitationId: string;
-  initialVisibleEvents: number[];
+  availableEvents: AvailableEvent[];
+  initialVisibleEventIds: string[];
 };
 
 /**
  * Event visibility editor for invitations.
  *
- * Displays checkboxes for each event with save functionality.
- * Updates invitation.visibleEvents field via server action.
+ * Displays checkboxes for each available DB event with save functionality.
+ * Updates guestEvents rows via server action.
  */
 export function EventVisibilityEditor({
   invitationId,
-  initialVisibleEvents,
+  availableEvents,
+  initialVisibleEventIds,
 }: EventVisibilityEditorProps) {
-  const [visibleEvents, setVisibleEvents] =
-    useState<number[]>(initialVisibleEvents);
+  const [visibleEventIds, setVisibleEventIds] = useState<string[]>(
+    initialVisibleEventIds,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
 
-  const handleToggleEvent = (eventId: number) => {
-    setVisibleEvents((prev) => {
+  const handleToggleEvent = (eventId: string) => {
+    setVisibleEventIds((prev) => {
       if (prev.includes(eventId)) {
         return prev.filter((id) => id !== eventId);
       }
@@ -44,7 +52,7 @@ export function EventVisibilityEditor({
 
     const result = await updateInvitationVisibleEvents(
       invitationId,
-      visibleEvents,
+      visibleEventIds,
     );
 
     setIsSubmitting(false);
@@ -58,30 +66,25 @@ export function EventVisibilityEditor({
   };
 
   const hasChanges =
-    JSON.stringify(visibleEvents.sort()) !==
-    JSON.stringify(initialVisibleEvents.sort());
+    JSON.stringify([...visibleEventIds].sort()) !==
+    JSON.stringify([...initialVisibleEventIds].sort());
 
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        {SCHEDULE_EVENTS.map((event) => (
+        {availableEvents.map((event) => (
           <label
             key={event.id}
             className="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-3 hover:bg-gray-50"
           >
             <input
               type="checkbox"
-              checked={visibleEvents.includes(event.id)}
+              checked={visibleEventIds.includes(event.id)}
               onChange={() => handleToggleEvent(event.id)}
               className="mt-1 h-5 w-5 rounded border-gray-300 text-[#9e3f3f] focus:ring-[#9e3f3f]"
             />
             <div className="flex-1">
-              <div className="font-semibold text-gray-900">
-                {event.day} {event.time} - {event.event}
-              </div>
-              <div className="mt-0.5 text-sm text-gray-600">
-                {event.location}
-              </div>
+              <div className="font-semibold text-gray-900">{event.name}</div>
             </div>
           </label>
         ))}

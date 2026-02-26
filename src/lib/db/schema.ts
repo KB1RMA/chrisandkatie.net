@@ -142,7 +142,7 @@ export const invitationsRelations = relations(invitations, ({ many }) => ({
   guests: many(guests),
 }));
 
-export const guestsRelations = relations(guests, ({ one }) => ({
+export const guestsRelations = relations(guests, ({ one, many }) => ({
   user: one(users, {
     fields: [guests.userId],
     references: [users.id],
@@ -151,4 +151,188 @@ export const guestsRelations = relations(guests, ({ one }) => ({
     fields: [guests.invitationId],
     references: [invitations.id],
   }),
+  guestEvents: many(guestEvents),
+  rsvpResponses: many(rsvpResponses),
 }));
+
+// Event table for wedding & additional events
+export const events = sqliteTable(
+  'Event',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    location: text('location'),
+    eventDate: text('eventDate').notNull(), // ISO 8601 date
+    startTime: text('startTime').notNull(), // HH:MM format
+    endTime: text('endTime').notNull(), // HH:MM format
+    type: text('type', { enum: ['main', 'rehearsal', 'brunch', 'other'] })
+      .notNull()
+      .default('main'),
+    dressCode: text('dressCode'),
+    parkingInfo: text('parkingInfo'),
+    sortOrder: integer('sortOrder').notNull().default(0),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+    updatedAt: text('updatedAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    eventDateIndex: index('Event_eventDate_idx').on(table.eventDate),
+    typeIndex: index('Event_type_idx').on(table.type),
+  }),
+);
+
+// Junction table: links guests to events (M:N relationship)
+export const guestEvents = sqliteTable(
+  'GuestEvent',
+  {
+    id: text('id').primaryKey(),
+    guestId: text('guestId')
+      .notNull()
+      .references(() => guests.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    eventId: text('eventId')
+      .notNull()
+      .references(() => events.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+  },
+  (table) => ({
+    guestEventUniqueIndex: uniqueIndex('GuestEvent_guestId_eventId_key').on(
+      table.guestId,
+      table.eventId,
+    ),
+    guestIdIndex: index('GuestEvent_guestId_idx').on(table.guestId),
+    eventIdIndex: index('GuestEvent_eventId_idx').on(table.eventId),
+  }),
+);
+
+// RSVP response table: tracks guest's response for each event
+export const rsvpResponses = sqliteTable(
+  'RsvpResponse',
+  {
+    id: text('id').primaryKey(),
+    guestId: text('guestId')
+      .notNull()
+      .references(() => guests.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    eventId: text('eventId')
+      .notNull()
+      .references(() => events.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    attendanceStatus: text('attendanceStatus', {
+      enum: ['attending', 'not_attending'],
+    }).notNull(),
+    numberOfAttending: integer('numberOfAttending').notNull().default(0),
+    specialRequests: text('specialRequests'),
+    submittedAt: text('submittedAt').notNull().default(timestampDefault),
+    updatedAt: text('updatedAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    rsvpUniqueIndex: uniqueIndex('RsvpResponse_guestId_eventId_key').on(
+      table.guestId,
+      table.eventId,
+    ),
+    guestIdIndex: index('RsvpResponse_guestId_idx').on(table.guestId),
+    eventIdIndex: index('RsvpResponse_eventId_idx').on(table.eventId),
+  }),
+);
+
+// Attendee table: individual attendees within an RSVP response
+export const attendees = sqliteTable(
+  'Attendee',
+  {
+    id: text('id').primaryKey(),
+    rsvpResponseId: text('rsvpResponseId')
+      .notNull()
+      .references(() => rsvpResponses.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    name: text('name').notNull(),
+    mealOption: text('mealOption', {
+      enum: ['option_a', 'option_b'],
+    }).notNull(),
+    dietaryRestrictions: text('dietaryRestrictions'),
+    sortOrder: integer('sortOrder').notNull().default(0),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    rsvpResponseIdIndex: index('Attendee_rsvpResponseId_idx').on(
+      table.rsvpResponseId,
+    ),
+  }),
+);
+
+// Photo table for gallery
+export const photos = sqliteTable(
+  'Photo',
+  {
+    id: text('id').primaryKey(),
+    imageUrl: text('imageUrl').notNull(),
+    caption: text('caption'),
+    description: text('description'),
+    dateTaken: text('dateTaken'), // ISO 8601 date
+    milestone: text('milestone'),
+    album: text('album'),
+    sortOrder: integer('sortOrder').notNull().default(0),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    albumIndex: index('Photo_album_idx').on(table.album),
+    dateTakenIndex: index('Photo_dateTaken_idx').on(table.dateTaken),
+  }),
+);
+
+// Relations
+export const eventsRelations = relations(events, ({ many }) => ({
+  guestEvents: many(guestEvents),
+  rsvpResponses: many(rsvpResponses),
+}));
+
+export const guestEventsRelations = relations(guestEvents, ({ one }) => ({
+  guest: one(guests, {
+    fields: [guestEvents.guestId],
+    references: [guests.id],
+  }),
+  event: one(events, {
+    fields: [guestEvents.eventId],
+    references: [events.id],
+  }),
+}));
+
+export const rsvpResponsesRelations = relations(
+  rsvpResponses,
+  ({ one, many }) => ({
+    guest: one(guests, {
+      fields: [rsvpResponses.guestId],
+      references: [guests.id],
+    }),
+    event: one(events, {
+      fields: [rsvpResponses.eventId],
+      references: [events.id],
+    }),
+    attendees: many(attendees),
+  }),
+);
+
+export const attendeesRelations = relations(attendees, ({ one }) => ({
+  rsvpResponse: one(rsvpResponses, {
+    fields: [attendees.rsvpResponseId],
+    references: [rsvpResponses.id],
+  }),
+}));
+
+// Inferred type aliases for schema tables
+export type Guest = typeof guests.$inferSelect;
+export type Invitation = typeof invitations.$inferSelect;
+export type WeddingEvent = typeof events.$inferSelect;
+export type GuestEvent = typeof guestEvents.$inferSelect;
+export type RsvpResponse = typeof rsvpResponses.$inferSelect;
+export type Attendee = typeof attendees.$inferSelect;
