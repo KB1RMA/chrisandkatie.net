@@ -1,5 +1,5 @@
 ---
-applyTo: 'src/app/**/*.page.tsx'
+applyTo: 'src/app/**/page.tsx'
 ---
 
 ### Next.js App Router Page Conventions
