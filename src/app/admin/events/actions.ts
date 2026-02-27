@@ -74,34 +74,37 @@ export async function createEvent(
     updatedAt: now,
   };
 
-  if (!data.inviteAllGuests) {
-    await db.insert(events).values(eventValues);
+  try {
+    if (!data.inviteAllGuests) {
+      await db.insert(events).values(eventValues);
+    } else {
+      // Fetch guests first, then atomically insert the event and all invitations
+      // using D1's batch API, which executes statements as a single transaction.
+      const allGuests = await db.query.guests.findMany({
+        columns: { id: true },
+      });
 
-    revalidatePath('/admin/events');
-    revalidatePath('/schedule');
-
-    return { success: true, data: { id } };
-  }
-
-  // Wrap event creation and guest invitations in a single transaction so a
-  // failed guestEvents insert cannot leave a partially-applied state.
-  await db.transaction(async (tx) => {
-    await tx.insert(events).values(eventValues);
-
-    const allGuests = await tx.query.guests.findMany({
-      columns: { id: true },
-    });
-
-    if (allGuests.length > 0) {
-      await tx.insert(guestEvents).values(
-        allGuests.map((guest) => ({
-          id: randomUUID(),
-          guestId: guest.id,
-          eventId: id,
-        })),
-      );
+      if (allGuests.length > 0) {
+        await db.batch([
+          db.insert(events).values(eventValues),
+          db.insert(guestEvents).values(
+            allGuests.map((guest) => ({
+              id: randomUUID(),
+              guestId: guest.id,
+              eventId: id,
+            })),
+          ),
+        ]);
+      } else {
+        await db.insert(events).values(eventValues);
+      }
     }
-  });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create event',
+    };
+  }
 
   revalidatePath('/admin/events');
   revalidatePath('/schedule');

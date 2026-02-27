@@ -133,13 +133,11 @@ export async function cascadeRsvpNotAttending(input: {
   const now = new Date().toISOString();
 
   if (input.cascadeToEvents) {
-    // Update all rsvpResponses for this guest inside a single transaction
-    await db.transaction(async (tx) => {
-      await tx
-        .update(rsvpResponses)
-        .set({ attendanceStatus: 'not_attending', updatedAt: now })
-        .where(eq(rsvpResponses.guestId, input.guestId));
-    });
+    // Update all rsvpResponses for this guest in one statement
+    await db
+      .update(rsvpResponses)
+      .set({ attendanceStatus: 'not_attending', updatedAt: now })
+      .where(eq(rsvpResponses.guestId, input.guestId));
   } else {
     // Find the main wedding event and update only that response
     const mainEvent = await db.query.events.findFirst({

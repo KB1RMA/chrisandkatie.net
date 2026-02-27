@@ -47,7 +47,6 @@ function createMockDb(
     attendeeDelete: ReturnType<typeof vi.fn>;
     insert: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
-    transaction: ReturnType<typeof vi.fn>;
   }> = {},
 ): DbClient {
   const whereFn = vi.fn().mockResolvedValue(undefined);
@@ -81,13 +80,6 @@ function createMockDb(
       vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined),
       }),
-    transaction:
-      overrides.transaction ??
-      vi
-        .fn()
-        .mockImplementation(async (cb: (tx: DbClient) => Promise<unknown>) =>
-          cb({ update: updateFn, insert: insertFn } as unknown as DbClient),
-        ),
   } as unknown as DbClient;
 }
 
@@ -291,30 +283,26 @@ describe('cascadeRsvpNotAttending', () => {
     expect(updateFn).toHaveBeenCalled();
   });
 
-  test('should run cascade updates in a single database transaction', async () => {
+  test('should update all rsvpResponses directly when cascadeToEvents is true', async () => {
     mockAuth.mockResolvedValue(makeSession(['admin']));
 
-    const transactionFn = vi
-      .fn()
-      .mockImplementation(async (cb: (tx: DbClient) => Promise<unknown>) => {
-        const txUpdateWhere = vi.fn().mockResolvedValue(undefined);
-        const txUpdateSet = vi.fn().mockReturnValue({ where: txUpdateWhere });
-        const txUpdate = vi.fn().mockReturnValue({ set: txUpdateSet });
-        const tx = { update: txUpdate } as unknown as DbClient;
-
-        return cb(tx);
-      });
+    const updateWhereFn = vi.fn().mockResolvedValue(undefined);
+    const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: updateSetFn });
 
     const mockDb = createMockDb({
       guestFindFirst: vi.fn().mockResolvedValue({ id: 'g1' }),
-      transaction: transactionFn,
+      update: updateFn,
     });
 
     mockGetDb.mockReturnValue(mockDb);
 
     await cascadeRsvpNotAttending({ guestId: 'g1', cascadeToEvents: true });
 
-    expect(transactionFn).toHaveBeenCalled();
+    expect(updateFn).toHaveBeenCalledTimes(1);
+    expect(updateSetFn).toHaveBeenCalledWith(
+      expect.objectContaining({ attendanceStatus: 'not_attending' }),
+    );
   });
 
   test('should return { success: false } when the guest does not exist', async () => {

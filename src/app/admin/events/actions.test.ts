@@ -48,6 +48,7 @@ function createMockDb(
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
     select: ReturnType<typeof vi.fn>;
+    batch: ReturnType<typeof vi.fn>;
   }> = {},
 ): DbClient {
   const whereFn = vi.fn().mockResolvedValue(undefined);
@@ -79,12 +80,7 @@ function createMockDb(
     update: updateFn,
     delete: deleteFn,
     select: selectFn,
-    // Execute the transaction callback with the same mock db as the tx argument
-    transaction: vi
-      .fn()
-      .mockImplementation((callback: (tx: DbClient) => Promise<unknown>) =>
-        callback(db),
-      ),
+    batch: overrides.batch ?? vi.fn().mockResolvedValue([]),
   } as unknown as DbClient;
 
   return db;
@@ -259,16 +255,18 @@ describe('createEvent', () => {
     expect(insertFn).toHaveBeenCalledTimes(1);
   });
 
-  test('should use a transaction when inviteAllGuests is true', async () => {
+  test('should use batch when inviteAllGuests is true', async () => {
     mockAuth.mockResolvedValue(makeAdminSession());
 
     const insertFn = vi
       .fn()
       .mockReturnValue({ values: vi.fn().mockResolvedValue([]) });
     const guestFindManyFn = vi.fn().mockResolvedValue([{ id: 'guest-1' }]);
+    const batchFn = vi.fn().mockResolvedValue([]);
     const mockDb = createMockDb({
       insert: insertFn,
       guestFindMany: guestFindManyFn,
+      batch: batchFn,
     });
 
     mockGetDb.mockReturnValue(mockDb);
@@ -281,16 +279,17 @@ describe('createEvent', () => {
       inviteAllGuests: true,
     });
 
-    expect(vi.mocked(mockDb.transaction)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(mockDb.batch)).toHaveBeenCalledTimes(1);
   });
 
-  test('should not use a transaction when inviteAllGuests is false', async () => {
+  test('should not use batch when inviteAllGuests is false', async () => {
     mockAuth.mockResolvedValue(makeAdminSession());
 
     const insertFn = vi
       .fn()
       .mockReturnValue({ values: vi.fn().mockResolvedValue([]) });
-    const mockDb = createMockDb({ insert: insertFn });
+    const batchFn = vi.fn().mockResolvedValue([]);
+    const mockDb = createMockDb({ insert: insertFn, batch: batchFn });
 
     mockGetDb.mockReturnValue(mockDb);
 
@@ -302,7 +301,7 @@ describe('createEvent', () => {
       inviteAllGuests: false,
     });
 
-    expect(vi.mocked(mockDb.transaction)).not.toHaveBeenCalled();
+    expect(vi.mocked(mockDb.batch)).not.toHaveBeenCalled();
   });
 });
 
