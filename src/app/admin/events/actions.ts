@@ -74,32 +74,41 @@ export async function createEvent(
     updatedAt: now,
   };
 
+  // D1's SQLite enforces ~100 bound variables per statement and 100 statements
+  // per batch call. Each guestEvents row uses 3 columns, so we insert every row
+  // as its own single-row statement and flush in batches of 100.
+  const D1_BATCH_STATEMENT_LIMIT = 100;
+
   try {
-    if (!data.inviteAllGuests) {
-      await db.insert(events).values(eventValues);
-    } else {
-      // Fetch guests first, then atomically insert the event and all invitations
-      // using D1's batch API, which executes statements as a single transaction.
+    await db.insert(events).values(eventValues);
+
+    if (data.inviteAllGuests) {
       const allGuests = await db.query.guests.findMany({
         columns: { id: true },
       });
 
-      if (allGuests.length > 0) {
-        await db.batch([
-          db.insert(events).values(eventValues),
-          db.insert(guestEvents).values(
-            allGuests.map((guest) => ({
-              id: randomUUID(),
-              guestId: guest.id,
-              eventId: id,
-            })),
-          ),
-        ]);
-      } else {
-        await db.insert(events).values(eventValues);
+      // Build one INSERT statement per guest row (3 variables each — safely under D1's limit)
+      const statements = allGuests.map((guest) =>
+        db.insert(guestEvents).values({
+          id: randomUUID(),
+          guestId: guest.id,
+          eventId: id,
+        }),
+      );
+
+      // Flush in batches of 100 to stay within D1's per-batch statement limit
+      for (let i = 0; i < statements.length; i += D1_BATCH_STATEMENT_LIMIT) {
+        const [first, ...rest] = statements.slice(
+          i,
+          i + D1_BATCH_STATEMENT_LIMIT,
+        );
+
+        await db.batch([first, ...rest]);
       }
     }
   } catch (error) {
+    console.error('Failed to create event:', error);
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create event',
