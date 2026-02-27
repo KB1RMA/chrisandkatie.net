@@ -71,16 +71,20 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
   async function onSubmit(data: EventFormData) {
     setSubmitError(null);
 
-    const result = await createEvent(data);
+    try {
+      const result = await createEvent(data);
 
-    if (!result.success) {
-      setSubmitError(result.error);
+      if (!result.success) {
+        setSubmitError(result.error);
 
-      return;
+        return;
+      }
+
+      router.refresh();
+      onClose();
+    } catch {
+      setSubmitError('An unexpected error occurred. Please try again.');
     }
-
-    router.refresh();
-    onClose();
   }
 
   return (

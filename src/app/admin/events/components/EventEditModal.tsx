@@ -76,16 +76,20 @@ export default function EventEditModal({
   async function onSubmit(data: EventFormData) {
     setSubmitError(null);
 
-    const result = await updateEvent({ id: event.id, ...data });
+    try {
+      const result = await updateEvent({ id: event.id, ...data });
 
-    if (!result.success) {
-      setSubmitError(result.error);
+      if (!result.success) {
+        setSubmitError(result.error);
 
-      return;
+        return;
+      }
+
+      router.refresh();
+      onClose();
+    } catch {
+      setSubmitError('An unexpected error occurred. Please try again.');
     }
-
-    router.refresh();
-    onClose();
   }
 
   return (
