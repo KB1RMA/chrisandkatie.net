@@ -60,3 +60,6 @@ prisma/generated/
 dev.db*
 
 seed-data/
+
+# Ignore the specs directory as its far too verbose
+specs/

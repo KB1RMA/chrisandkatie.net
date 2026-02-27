@@ -8,6 +8,12 @@ import { MEAL_CHOICE_LABELS, type MealOption } from '@/lib/constants';
 import { EventVisibilityEditor } from '@/components/admin/EventVisibilityEditor';
 import { resetInvitationRSVP } from '@/app/admin/invitations/actions';
 
+export type AvailableEvent = {
+  id: string;
+  name: string;
+  sortOrder: number;
+};
+
 export type InvitationGuestRow = {
   id: string;
   firstName: string;
@@ -29,7 +35,8 @@ export type InvitationTableRow = {
   declinedCount: number;
   pendingCount: number;
   guests: InvitationGuestRow[];
-  visibleEvents: number[];
+  availableEvents: AvailableEvent[];
+  initialVisibleEventIds: string[];
   searchText: string;
 };
 
@@ -193,7 +200,8 @@ export function InvitationTable({ data }: InvitationTableProps) {
           <div className="rounded-md border border-gray-200 bg-white p-4">
             <EventVisibilityEditor
               invitationId={row.original.id}
-              initialVisibleEvents={row.original.visibleEvents}
+              availableEvents={row.original.availableEvents}
+              initialVisibleEventIds={row.original.initialVisibleEventIds}
             />
           </div>
         </div>

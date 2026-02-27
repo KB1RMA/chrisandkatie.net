@@ -1,10 +1,13 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
+import { eq, asc } from 'drizzle-orm';
 import { Button } from '@/components/Button';
+import { ScheduleCard } from '@/components/ScheduleCard';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { SCHEDULE_EVENTS } from '@/lib/events';
+import { events, guestEvents } from '@/lib/db/schema';
+import { isCurrentEvent } from '@/lib/schedule-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +25,7 @@ const marcellus = Marcellus({
  * Schedule page displaying celebration events filtered by guest permissions.
  *
  * Protected route - redirects to login if not authenticated.
- * Filters events based on guest's visibleEvents array.
+ * Queries visible events from the guestEvents table joined with events.
  */
 export default async function SchedulePage() {
   // Check authentication
@@ -32,32 +35,27 @@ export default async function SchedulePage() {
     redirect('/login?callbackUrl=/schedule');
   }
 
-  // Get guest data with invitation to determine visible events
+  const guestId = session.user.guestId as string;
   const db = getDb();
+
+  // Get guest name for the welcome message
   const guest = await db.query.guests.findFirst({
-    where: (table, { eq }) => eq(table.id, session.user.guestId as string),
-    with: {
-      invitation: true,
-    },
+    where: (table, { eq }) => eq(table.id, guestId),
   });
 
-  if (!guest || !guest.invitation) {
+  if (!guest) {
     redirect('/login?callbackUrl=/schedule');
   }
 
-  // Parse visible events from invitation's JSON string
-  let visibleEventIndices: number[] = [];
+  // Query visible events via guestEvents join, ordered by sortOrder
+  const visibleEventRows = await db
+    .select({ event: events })
+    .from(guestEvents)
+    .innerJoin(events, eq(guestEvents.eventId, events.id))
+    .where(eq(guestEvents.guestId, guestId))
+    .orderBy(asc(events.sortOrder));
 
-  try {
-    visibleEventIndices = JSON.parse(guest.invitation.visibleEvents || '[]');
-  } catch (error) {
-    console.error('Failed to parse visibleEvents:', error);
-  }
-
-  // Filter schedule items based on guest permissions
-  const visibleScheduleItems = SCHEDULE_EVENTS.filter((event) =>
-    visibleEventIndices.includes(event.id),
-  );
+  const visibleEvents = visibleEventRows.map((row) => row.event);
 
   return (
     <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:justify-center sm:p-8">
@@ -69,44 +67,23 @@ export default async function SchedulePage() {
         </h1>
 
         <p className="mb-12 text-center text-xl text-[#6a5555]">
-          Welcome, {guest.firstName}! Here's your personalized schedule.
+          Welcome, {guest.firstName}! Here&apos;s your personalized schedule.
         </p>
 
         <div className="mb-12 space-y-6">
-          {visibleScheduleItems.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-lg bg-[#fffdfb] p-8 shadow-lg transition-shadow duration-200 hover:shadow-xl"
-            >
-              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2
-                    className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f]`}
-                  >
-                    {item.event}
-                  </h2>
-                  <p className="text-[#7a6666]">
-                    {item.date} • {item.day}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-3xl font-bold text-[#9e3f3f]">
-                    {item.endTime
-                      ? `${item.time} - ${item.endTime}`
-                      : item.time}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-[#6a5555]">
-                <p className="flex items-center gap-2">
-                  <span className="text-[#b76565]">📍</span>
-                  <span className="font-medium">{item.location}</span>
-                </p>
-                <p className="text-[#7a6666]">{item.description}</p>
-              </div>
-            </div>
-          ))}
+          {visibleEvents.length === 0 ? (
+            <p className="text-center text-[#6a5555]">
+              No events have been added to your schedule yet.
+            </p>
+          ) : (
+            visibleEvents.map((item) => (
+              <ScheduleCard
+                key={item.id}
+                item={item}
+                isCurrentEvent={isCurrentEvent(item)}
+              />
+            ))
+          )}
         </div>
 
         <div className="text-center">

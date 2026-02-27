@@ -2,6 +2,12 @@ import { format } from 'date-fns';
 
 export const WEDDING_DATE = new Date('2026-09-12T16:00:00');
 
+/**
+ * RSVP deadline: June 15, 2026 at 11:59 PM UTC.
+ * Guests cannot modify their RSVP after this date.
+ */
+export const RSVP_DEADLINE = new Date('2026-06-15T23:59:59Z');
+
 // ISO date format (YYYY-MM-DD)
 export const WEDDING_DATE_ISO = format(WEDDING_DATE, 'yyyy-MM-dd');
 
@@ -36,3 +42,27 @@ export const MEAL_CHOICE_LABELS: Record<
 };
 
 export type MealOption = (typeof MEAL_OPTIONS)[keyof typeof MEAL_OPTIONS];
+
+/**
+ * Meal options for event-specific RSVPs (option A / option B catering format).
+ */
+export const EVENT_MEAL_OPTIONS = {
+  OPTION_A: 'option_a',
+  OPTION_B: 'option_b',
+} as const;
+
+export const EVENT_MEAL_OPTION_LABELS: Record<
+  (typeof EVENT_MEAL_OPTIONS)[keyof typeof EVENT_MEAL_OPTIONS],
+  string
+> = {
+  [EVENT_MEAL_OPTIONS.OPTION_A]: 'Option A',
+  [EVENT_MEAL_OPTIONS.OPTION_B]: 'Option B',
+};
+
+export type EventMealOption =
+  (typeof EVENT_MEAL_OPTIONS)[keyof typeof EVENT_MEAL_OPTIONS];
+
+/**
+ * Human-readable label for the RSVP deadline.
+ */
+export const RSVP_DEADLINE_DISPLAY = 'June 15, 2026 at 11:59 PM';

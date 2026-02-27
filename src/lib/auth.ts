@@ -7,31 +7,29 @@
 import NextAuth, { type DefaultSession } from 'next-auth';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import Credentials from 'next-auth/providers/credentials';
-import { eq, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import {
-  accounts,
-  guests,
-  sessions,
-  users,
-  verificationTokens,
-} from '@/lib/db/schema';
+import { accounts, sessions, users, verificationTokens } from '@/lib/db/schema';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
+export { authorizeCredentials } from '@/lib/auth-credentials';
+import { authorizeCredentials } from '@/lib/auth-credentials';
+
 /**
- * Extends the default session to include guest ID and first name.
+ * Extends the default session to include guest ID, first name, and roles.
  */
 declare module 'next-auth' {
   interface Session {
     user: {
       guestId?: string;
       firstName?: string;
+      roles?: string[];
     } & DefaultSession['user'];
   }
 
   interface User {
     guestId?: string;
     firstName?: string;
+    roles?: string[];
   }
 }
 
@@ -39,6 +37,7 @@ declare module '@auth/core/jwt' {
   interface JWT {
     guestId?: string;
     firstName?: string;
+    roles?: string[];
   }
 }
 
@@ -79,79 +78,18 @@ export function createAuth(env?: CloudflareEnv) {
         },
 
         /**
-         * Authenticates a guest by looking up their name in the database.
-         * Creates a User record if guest exists but has no linked user.
+         * Authenticates a user — first checks admin credentials, then falls
+         * through to guest name lookup.
          */
         async authorize(credentials) {
-          if (!credentials?.firstName || !credentials?.lastName) {
-            return null;
-          }
-
-          // Case-insensitive name match
-          const firstName = (credentials.firstName as string).trim();
-          const lastName = (credentials.lastName as string).trim();
-
-          const guest = await db.query.guests.findFirst({
-            where: (table) =>
-              sql`LOWER(${table.firstName}) = LOWER(${firstName}) AND LOWER(${table.lastName}) = LOWER(${lastName})`,
-          });
-
-          if (!guest) {
-            return null;
-          }
-
-          let userId = guest.userId;
-          let userName = `${guest.firstName} ${guest.lastName}`;
-          let userEmail: string | null = null;
-
-          if (userId) {
-            const existingUser = await db.query.users.findFirst({
-              where: (table) => eq(table.id, userId as string),
-            });
-
-            if (existingUser) {
-              userName = existingUser.name ?? userName;
-              userEmail = existingUser.email ?? null;
-            } else {
-              userId = null;
-            }
-          }
-
-          if (!userId) {
-            const newUserId = crypto.randomUUID();
-
-            const now = new Date().toISOString();
-
-            await db.insert(users).values({
-              id: newUserId,
-              name: userName,
-              email: null,
-              createdAt: now,
-              updatedAt: now,
-            });
-
-            await db
-              .update(guests)
-              .set({ userId: newUserId })
-              .where(eq(guests.id, guest.id));
-
-            userId = newUserId;
-          }
-
-          return {
-            id: userId,
-            name: userName,
-            email: userEmail,
-            guestId: guest.id,
-            firstName: guest.firstName,
-          };
+          return authorizeCredentials(credentials);
         },
       }),
     ],
 
     callbacks: {
       /**
-       * Adds guestId and firstName to JWT token when user signs in.
+       * Adds guestId, firstName, and roles to JWT token when user signs in.
        */
       async jwt({ token, user }) {
         if (user?.guestId) {
@@ -162,11 +100,15 @@ export function createAuth(env?: CloudflareEnv) {
           token.firstName = user.firstName;
         }
 
+        if (user?.roles) {
+          token.roles = user.roles;
+        }
+
         return token;
       },
 
       /**
-       * Adds guestId and firstName to session object from JWT token.
+       * Adds guestId, firstName, and roles to session object from JWT token.
        */
       async session({ session, token }) {
         if (token.guestId && session.user) {
@@ -175,6 +117,10 @@ export function createAuth(env?: CloudflareEnv) {
 
         if (token.firstName && session.user) {
           session.user.firstName = token.firstName as string;
+        }
+
+        if (token.roles && session.user) {
+          session.user.roles = token.roles as string[];
         }
 
         return session;

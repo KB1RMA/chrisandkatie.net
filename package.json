@@ -14,15 +14,16 @@
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest --coverage",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate:d1": "wrangler d1 migrations apply prisma-demo-db --remote --env production",
-		"db:migrate:local": "wrangler d1 migrations apply prisma-demo-db-local --local",
+		"db:migrate:d1": "nocorrect wrangler d1 migrations apply prisma-demo-db --remote --env production",
+		"db:migrate:local": "nocorrect wrangler d1 migrations apply prisma-demo-db-local --local",
 		"db:seed": "tsx scripts/import-guests.ts",
 		"db:seed:d1": "tsx scripts/import-guests.ts --remote --env production",
 		"db:seed:local": "tsx scripts/import-guests.ts --local",
+		"db:seed:test-data": "nocorrect wrangler d1 execute prisma-demo-db-local --local --file tests/fixtures/test-data.sql",
 		"deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
 		"upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
 		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
+		"cf-typegen": "nocorrect wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
 	},
 	"dependencies": {
 		"@auth/drizzle-adapter": "^1.9.0",
