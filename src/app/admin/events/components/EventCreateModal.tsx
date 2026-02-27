@@ -47,6 +47,7 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
       dressCode: '',
       parkingInfo: '',
       sortOrder: 0,
+      inviteAllGuests: false,
     },
   });
 
@@ -257,6 +258,19 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
             {errors.parkingInfo && (
               <p className={ERROR_CLASS}>{errors.parkingInfo.message}</p>
             )}
+          </div>
+
+          {/* Invite all guests */}
+          <div className="flex items-center gap-3">
+            <input
+              id="create-inviteAllGuests"
+              type="checkbox"
+              {...register('inviteAllGuests')}
+              className="h-4 w-4 rounded border-gray-300 text-[#9e3f3f] focus:ring-[#9e3f3f]"
+            />
+            <label htmlFor="create-inviteAllGuests" className={LABEL_CLASS}>
+              Invite all guests
+            </label>
           </div>
         </div>
 
