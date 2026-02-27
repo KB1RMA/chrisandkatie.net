@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * Client-side login form for guest authentication.
+ * Client-side admin login form.
  *
- * Allows guests to sign in using their first and last name.
- * Uses Auth.js credentials provider for authentication.
+ * Allows administrators to sign in using a username and password.
+ * Uses Auth.js admin-credentials provider for authentication.
  * Uses react-hook-form with Zod validation.
  */
 import { signIn } from 'next-auth/react';
@@ -16,19 +16,11 @@ import { z } from 'zod';
 import { Button } from '@/components/Button';
 
 /**
- * Zod schema for login form validation.
+ * Zod schema for admin login form validation.
  */
 const loginSchema = z.object({
-  firstName: z
-    .string()
-    .min(1, 'First name is required')
-    .min(2, 'First name must be at least 2 characters')
-    .trim(),
-  lastName: z
-    .string()
-    .min(1, 'Last name is required')
-    .min(2, 'Last name must be at least 2 characters')
-    .trim(),
+  username: z.string().min(1, 'Username is required').trim(),
+  password: z.string().min(1, 'Password is required'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -42,7 +34,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
   const searchParams = useSearchParams();
   const [authError, setAuthError] = useState('');
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/schedule';
+  const callbackUrl = searchParams.get('callbackUrl') || '/admin/rsvp';
 
   const {
     register,
@@ -56,15 +48,17 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
     setAuthError('');
 
     try {
-      const result = await signIn('credentials', {
-        firstName: data.firstName,
-        lastName: data.lastName,
+      const result = await signIn('admin-credentials', {
+        username: data.username,
+        password: data.password,
         redirect: false,
         callbackUrl,
       });
 
       if (result?.error) {
-        setAuthError('Guest not found. Please check your name and try again.');
+        setAuthError(
+          'Invalid credentials. Please check your username and password.',
+        );
       } else if (result?.ok) {
         // @ts-expect-error - callbackUrl is a dynamic route from query params, not a literal type
         router.push(callbackUrl);
@@ -80,10 +74,10 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
         <h2
           className={`${marcellusClassName} text-center text-4xl font-bold text-[#9e3f3f]`}
         >
-          Guest Sign In
+          Admin Sign In
         </h2>
         <p className="text-center text-[#6a5555]">
-          Enter your name to view your personalized schedule
+          Enter your admin credentials to continue
         </p>
       </div>
 
@@ -97,46 +91,46 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
         <div className="space-y-4">
           <div>
             <label
-              htmlFor="firstName"
+              htmlFor="username"
               className="mb-2 block text-sm font-medium text-[#6a5555]"
             >
-              First Name
+              Username
             </label>
             <input
-              id="firstName"
+              id="username"
               type="text"
-              autoComplete="given-name"
-              {...register('firstName')}
+              autoComplete="username"
+              {...register('username')}
               className="block w-full rounded-md border-0 bg-white px-4 py-3 text-[#6a5555] shadow-sm ring-1 ring-[#f3dedb] ring-inset placeholder:text-[#b5a0a0] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-inset sm:text-sm sm:leading-6"
-              placeholder="Enter your first name"
+              placeholder="Enter your username"
               disabled={isSubmitting}
             />
-            {errors.firstName && (
+            {errors.username && (
               <p className="mt-1 text-sm text-[#c33]">
-                {errors.firstName.message}
+                {errors.username.message}
               </p>
             )}
           </div>
 
           <div>
             <label
-              htmlFor="lastName"
+              htmlFor="password"
               className="mb-2 block text-sm font-medium text-[#6a5555]"
             >
-              Last Name
+              Password
             </label>
             <input
-              id="lastName"
-              type="text"
-              autoComplete="family-name"
-              {...register('lastName')}
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              {...register('password')}
               className="block w-full rounded-md border-0 bg-white px-4 py-3 text-[#6a5555] shadow-sm ring-1 ring-[#f3dedb] ring-inset placeholder:text-[#b5a0a0] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-inset sm:text-sm sm:leading-6"
-              placeholder="Enter your last name"
+              placeholder="Enter your password"
               disabled={isSubmitting}
             />
-            {errors.lastName && (
+            {errors.password && (
               <p className="mt-1 text-sm text-[#c33]">
-                {errors.lastName.message}
+                {errors.password.message}
               </p>
             )}
           </div>

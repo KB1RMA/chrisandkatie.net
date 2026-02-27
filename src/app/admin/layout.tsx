@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 
 type AdminLayoutProps = {
   children: React.ReactNode;
@@ -18,15 +18,16 @@ type AdminLayoutProps = {
  */
 export default async function AdminLayout({ children }: AdminLayoutProps) {
   const session = await auth();
+  const identity = getAuthIdentity(session);
 
-  if (!session?.user) {
+  if (!identity) {
     const headersList = await headers();
     const pathname = headersList.get('x-pathname') ?? '/admin';
 
     redirect(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
   }
 
-  if (!(session.user.roles ?? []).includes('admin')) {
+  if (identity.type !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-8">
         <div className="rounded-lg bg-white p-8 text-center shadow-lg">

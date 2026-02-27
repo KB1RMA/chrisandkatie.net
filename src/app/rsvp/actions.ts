@@ -3,15 +3,16 @@
 /**
  * Server actions for RSVP submission and data retrieval.
  */
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guests, rsvpResponses } from '@/lib/db/schema';
+import { guests, invitations, users, rsvpResponses } from '@/lib/db/schema';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 /**
  * Update RSVP responses for all guests on an invitation.
+ * Optionally persists contactEmail to Invitation and User tables.
  *
  * @throws Error if user is not authenticated or not authorized
  */
@@ -20,26 +21,29 @@ export async function submitRsvp(input: SubmitRsvpInput) {
     // Check authentication
     const session = await auth();
 
-    if (!session?.user?.guestId) {
+    const identity = getAuthIdentity(session);
+
+    if (!identity) {
       throw new Error('Unauthorized');
     }
 
     // Validate input
     const validatedData = submitRsvpSchema.parse(input);
 
-    const db = getDb();
-
-    // Verify logged-in guest belongs to this invitation
-    const loggedInGuest = await db.query.guests.findFirst({
-      where: (table, { eq }) => eq(table.id, session.user.guestId as string),
-    });
-
+    // Guests can only submit for their own invitation; admins can submit for any
     if (
-      !loggedInGuest ||
-      loggedInGuest.invitationId !== validatedData.invitationId
+      identity.type === 'guest' &&
+      identity.invitationId !== validatedData.invitationId
     ) {
       throw new Error('Not authorized for this invitation');
     }
+
+    const authorizedInvitationId =
+      identity.type === 'guest'
+        ? identity.invitationId
+        : validatedData.invitationId;
+
+    const db = getDb();
 
     // Update each guest
     const now = new Date().toISOString();
@@ -47,10 +51,10 @@ export async function submitRsvp(input: SubmitRsvpInput) {
     for (const guestUpdate of validatedData.guests) {
       // Verify guest belongs to this invitation
       const guest = await db.query.guests.findFirst({
-        where: (table, { eq }) => eq(table.id, guestUpdate.id),
+        where: (table, { eq: eqFn }) => eqFn(table.id, guestUpdate.id),
       });
 
-      if (!guest || guest.invitationId !== validatedData.invitationId) {
+      if (!guest || guest.invitationId !== authorizedInvitationId) {
         continue; // Skip guests not on this invitation
       }
 
@@ -80,6 +84,32 @@ export async function submitRsvp(input: SubmitRsvpInput) {
         .where(eq(guests.id, guestUpdate.id));
     }
 
+    // Persist contact email when provided
+    const contactEmail = validatedData.contactEmail?.trim();
+
+    if (contactEmail) {
+      try {
+        await db
+          .update(invitations)
+          .set({ contactEmail, updatedAt: now })
+          .where(eq(invitations.id, authorizedInvitationId));
+
+        const userId = session?.user.id;
+
+        if (userId) {
+          await db
+            .update(users)
+            .set({ email: contactEmail, updatedAt: now })
+            .where(eq(users.id, userId));
+        }
+      } catch (emailError) {
+        console.error(
+          '[submitRsvp] Failed to persist contact email:',
+          emailError,
+        );
+      }
+    }
+
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -101,32 +131,60 @@ export async function submitRsvp(input: SubmitRsvpInput) {
  */
 export async function fetchGuestEvents() {
   const session = await auth();
+  const identity = getAuthIdentity(session);
 
-  if (!session?.user?.guestId) {
+  if (identity?.type !== 'guest') {
     throw new Error('Unauthorized');
   }
 
   const db = getDb();
-  const guestId = session.user.guestId as string;
 
-  // Fetch all events guest is invited to via junction table
-  const guestEventRows = await db.query.guestEvents.findMany({
-    where: (table, { eq: eqFn }) => eqFn(table.guestId, guestId),
-    with: {
-      event: true,
-    },
+  // Load all guests for this invitation to query their events
+  const invitation = await db.query.invitations.findFirst({
+    where: (table, { eq: eqFn }) => eqFn(table.id, identity.invitationId),
+    with: { guests: true },
   });
 
-  // Fetch existing RSVP responses for this guest
+  if (!invitation) {
+    throw new Error('Invitation not found');
+  }
+
+  const guestIds = invitation.guests.map((g) => g.id);
+
+  if (guestIds.length === 0) {
+    return [];
+  }
+
+  // Fetch all events guests are invited to via junction table
+  const guestEventRows = await db.query.guestEvents.findMany({
+    where: (table, { inArray: inArrayFn }) =>
+      inArrayFn(table.guestId, guestIds),
+    with: { event: true },
+  });
+
+  // Fetch existing RSVP responses for all guests on this invitation
   const rsvpRows = await db
     .select()
     .from(rsvpResponses)
-    .where(eq(rsvpResponses.guestId, guestId));
+    .where(inArray(rsvpResponses.guestId, guestIds));
 
   const rsvpByEventId = new Map(rsvpRows.map((r) => [r.eventId, r]));
 
-  return guestEventRows.map(({ event: eventRow }) => ({
-    event: eventRow,
-    rsvp: rsvpByEventId.get(eventRow.id) ?? null,
-  }));
+  // Deduplicate events (multiple guests may be assigned to the same event)
+  const seenEventIds = new Set<string>();
+
+  return guestEventRows
+    .filter(({ event }) => {
+      if (seenEventIds.has(event.id)) {
+        return false;
+      }
+
+      seenEventIds.add(event.id);
+
+      return true;
+    })
+    .map(({ event }) => ({
+      event,
+      rsvp: rsvpByEventId.get(event.id) ?? null,
+    }));
 }

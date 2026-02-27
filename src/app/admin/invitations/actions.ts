@@ -1,10 +1,11 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guestEvents } from '@/lib/db/schema';
+import { guestEvents, invitations } from '@/lib/db/schema';
+import { generateUniqueInvitationCode } from '@/lib/invitation-code';
 
 /**
  * Update visible events for an invitation by syncing the guestEvents table.
@@ -22,10 +23,9 @@ export async function updateInvitationVisibleEvents(
   invitationId: string,
   eventIds: string[],
 ): Promise<{ success: boolean; error?: string }> {
-  // Check authentication
-  const session = await auth();
+  const identity = getAuthIdentity(await auth());
 
-  if (!session?.user?.roles?.includes('admin')) {
+  if (!identity || identity.type !== 'admin') {
     return { success: false, error: 'Unauthorized' };
   }
 
@@ -78,6 +78,64 @@ export async function updateInvitationVisibleEvents(
 }
 
 /**
+ * Bulk generate invitation codes for all invitations that are missing one.
+ *
+ * Iterates all invitations where `invitationCode IS NULL` and assigns a newly
+ * generated unique code to each. Uses `generateUniqueInvitationCode` which
+ * checks the database for collisions and retries up to MAX_ATTEMPTS times.
+ *
+ * @returns Count of invitations updated, or an error message.
+ * @throws Error if not authenticated as admin.
+ */
+export async function backfillInvitationCodes(): Promise<{
+  success: boolean;
+  updatedCount?: number;
+  error?: string;
+}> {
+  const identity = getAuthIdentity(await auth());
+
+  if (!identity || identity.type !== 'admin') {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    // Load all invitations that still need a code
+    const pending = await db.query.invitations.findMany({
+      where: isNull(invitations.invitationCode),
+      columns: { id: true, invitationCode: true },
+    });
+
+    if (pending.length === 0) {
+      return { success: true, updatedCount: 0 };
+    }
+
+    let updatedCount = 0;
+
+    for (const invitation of pending) {
+      const code = await generateUniqueInvitationCode(db);
+
+      await db
+        .update(invitations)
+        .set({ invitationCode: code, updatedAt: now })
+        .where(eq(invitations.id, invitation.id));
+
+      updatedCount += 1;
+    }
+
+    revalidatePath('/admin/invitations');
+
+    return { success: true, updatedCount };
+  } catch (error) {
+    console.error('Failed to backfill invitation codes:', error);
+
+    return { success: false, error: 'Failed to backfill invitation codes' };
+  }
+}
+
+/**
  * Reset RSVP responses for all guests on an invitation.
  *
  * @param invitationId - The ID of the invitation to reset.
@@ -87,10 +145,9 @@ export async function updateInvitationVisibleEvents(
 export async function resetInvitationRSVP(
   invitationId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  // Check authentication
-  const session = await auth();
+  const identity = getAuthIdentity(await auth());
 
-  if (!session?.user?.guestId) {
+  if (!identity || identity.type !== 'admin') {
     return { success: false, error: 'Unauthorized' };
   }
 

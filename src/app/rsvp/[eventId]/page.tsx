@@ -39,7 +39,7 @@ export async function generateMetadata({
 export default async function EventRsvpPage({ params }: EventRsvpPageProps) {
   const session = await auth();
 
-  if (!session?.user?.guestId) {
+  if (!session?.user?.invitationId) {
     redirect('/login?callbackUrl=/rsvp');
   }
 
@@ -96,7 +96,7 @@ export default async function EventRsvpPage({ params }: EventRsvpPageProps) {
         <div className="rounded-lg bg-[#fffdfb] p-4 shadow-lg sm:p-8">
           <EventRsvpForm
             eventId={event.id}
-            guestId={session.user.guestId as string}
+            guestId={result.guestId}
             invitationGuests={invitationGuests}
             existingRsvp={
               rsvp

@@ -34,6 +34,7 @@ import type {
  */
 type RetrieveEventRsvpResult = {
   event: WeddingEvent;
+  guestId: string;
   rsvp: EventRsvpResponse | null;
   attendees: AttendeeOutput[];
   invitationGuests: Guest[];
@@ -78,19 +79,24 @@ export async function submitEventRsvp(
 ): Promise<EventRsvpResponse> {
   const session = await auth();
 
-  if (!session?.user?.guestId) {
+  if (!session?.user?.invitationId) {
     throw new Error('Unauthorized');
   }
 
-  if (session.user.guestId !== input.guestId) {
+  const db = getDb();
+
+  // Verify the submitted guestId belongs to the session's invitation
+  const submittedGuest = await db.query.guests.findFirst({
+    where: eq(guests.id, input.guestId),
+  });
+
+  if (submittedGuest?.invitationId !== session.user.invitationId) {
     throw new Error('Unauthorized');
   }
 
   if (isDeadlinePassed()) {
     throw new Error('RSVP deadline has passed');
   }
-
-  const db = getDb();
 
   // Confirm guest is invited to this event
   const guestEvent = await db.query.guestEvents.findFirst({
@@ -235,27 +241,33 @@ export async function retrieveEventRsvp(
 ): Promise<RetrieveEventRsvpResult> {
   const session = await auth();
 
-  if (!session?.user?.guestId) {
+  if (!session?.user?.invitationId) {
     throw new Error('Unauthorized');
   }
 
-  const guestId = session.user.guestId;
+  const invitationId = session.user.invitationId;
   const db = getDb();
 
-  // Confirm guest is invited to this event
-  const guestEvent = await db.query.guestEvents.findFirst({
-    where: and(
-      eq(guestEvents.guestId, guestId),
-      eq(guestEvents.eventId, eventId),
-    ),
+  // Find guests for this invitation who are also invited to this event
+  const invitationGuestEvents = await db.query.guestEvents.findMany({
+    where: eq(guestEvents.eventId, eventId),
+    with: {
+      guest: true,
+    },
   });
 
-  if (!guestEvent) {
+  const matchingGuestEvent = invitationGuestEvents.find(
+    (row) => row.guest.invitationId === invitationId,
+  );
+
+  if (!matchingGuestEvent) {
     throw new Error('Not invited to this event');
   }
 
-  // Fetch event details, existing RSVP, and invitation guest list in parallel
-  const [event, existingRsvp, guestWithInvitation] = await Promise.all([
+  const guestId = matchingGuestEvent.guest.id;
+
+  // Fetch event details and existing RSVP in parallel
+  const [event, existingRsvp] = await Promise.all([
     db.query.events.findFirst({
       where: eq(events.id, eventId),
     }),
@@ -264,9 +276,6 @@ export async function retrieveEventRsvp(
         eq(rsvpResponses.guestId, guestId),
         eq(rsvpResponses.eventId, eventId),
       ),
-    }),
-    db.query.guests.findFirst({
-      where: eq(guests.id, guestId),
     }),
   ]);
 
@@ -306,15 +315,15 @@ export async function retrieveEventRsvp(
       }
     : null;
 
-  // Filter to guests on the same invitation who are also invited to this event
+  // Filter to all guests on the same invitation who are also invited to this event
   const allEventInvitees = await getEventInvitees(eventId, db);
-  const invitationId = guestWithInvitation?.invitationId;
-  const invitationGuests: Guest[] = invitationId
-    ? allEventInvitees.filter((g) => g.invitationId === invitationId)
-    : [];
+  const invitationGuests: Guest[] = allEventInvitees.filter(
+    (g) => g.invitationId === invitationId,
+  );
 
   return {
     event,
+    guestId,
     rsvp,
     attendees: attendeeOutputs,
     invitationGuests,

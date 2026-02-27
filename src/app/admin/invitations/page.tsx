@@ -117,6 +117,7 @@ export default async function AdminInvitationsPage() {
       availableEvents,
       initialVisibleEventIds,
       searchText,
+      invitationCode: invitation.invitationCode ?? null,
     };
   });
 

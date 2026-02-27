@@ -1,7 +1,7 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { RSVPForm, type GuestRSVP } from '@/components/RSVPForm';
 import { EventRsvpCard } from '@/components/EventRsvpCard';
@@ -23,35 +23,31 @@ export const metadata: Metadata = {
 /**
  * RSVP page for guests to respond to invitation.
  *
- * Protected route - shows invitation details and allows RSVP for all guests.
+ * Authenticated via invitation code — identity is guaranteed to be a guest
+ * by the rsvp/layout.tsx wrapper. Loads invitation and guest records using
+ * the invitationId from the session identity.
+ *
+ * Protected route — redirects unauthenticated requests to /login.
  */
 export default async function RSVPPage() {
-  // Check authentication
   const session = await auth();
+  const identity = getAuthIdentity(session);
 
-  if (!session?.user?.guestId) {
+  // Redirect if not a guest (layout should have already handled this)
+  if (identity?.type !== 'guest') {
     redirect('/login?callbackUrl=/rsvp');
   }
 
-  // Get logged-in guest with invitation and all guests on invitation
   const db = getDb();
-  const guestId = session.user.guestId as string;
-  const loggedInGuest = await db.query.guests.findFirst({
-    where: (table, { eq }) => eq(table.id, guestId),
-    with: {
-      invitation: {
-        with: {
-          guests: true,
-        },
-      },
-    },
+
+  const invitation = await db.query.invitations.findFirst({
+    where: (table, { eq }) => eq(table.id, identity.invitationId),
+    with: { guests: true },
   });
 
-  if (!loggedInGuest || !loggedInGuest.invitation) {
+  if (!invitation) {
     redirect('/login?callbackUrl=/rsvp');
   }
-
-  const { invitation } = loggedInGuest;
 
   // Format guests for form
   const guestsForForm: GuestRSVP[] = invitation.guests.map((g) => ({
@@ -67,8 +63,7 @@ export default async function RSVPPage() {
 
   // Check if RSVP has been submitted (all guests have a response)
   const isSubmitted = guestsForForm.every((g) => g.attending !== null);
-  const submittedBy = `${loggedInGuest.firstName} ${loggedInGuest.lastName}`;
-  const submittedAt = loggedInGuest.updatedAt;
+  const submittedAt = invitation.updatedAt;
 
   // Fetch additional events guest is invited to (excluding main wedding type)
   let additionalEvents: Awaited<ReturnType<typeof fetchGuestEvents>> = [];
@@ -123,8 +118,8 @@ export default async function RSVPPage() {
             invitationId={invitation.id}
             guests={guestsForForm}
             isSubmitted={isSubmitted}
-            submittedBy={submittedBy}
             submittedAt={submittedAt}
+            contactEmail={invitation.contactEmail}
           />
         </div>
 
