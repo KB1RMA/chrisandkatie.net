@@ -1,12 +1,12 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 -> 1.1.0
-- Modified principles: V. Quality Gates And Reliability (tests optional → unit tests REQUIRED for all features)
+- Version change: 1.1.0 -> 1.2.0
+- Modified principles: Technology Constraints (added Cloudflare D1 batch API constraint)
 - Added sections: none
 - Removed sections: none
 - Templates requiring updates:
-    ✅ .specify/templates/plan-template.md — Constitution Check quality gates bullet updated
-    ✅ .specify/templates/tasks-template.md — tests header and per-story labels updated from OPTIONAL to REQUIRED
+    ✅ no change needed .specify/templates/plan-template.md
+    ✅ no change needed .specify/templates/tasks-template.md
     ✅ no change needed .specify/templates/spec-template.md
     ✅ no change needed .specify/templates/checklist-template.md
     ✅ no change needed .specify/templates/agent-file-template.md
@@ -51,6 +51,7 @@ implementation is written.
 - Database access MUST use the Drizzle ORM layer and shared schema definitions.
 - Authentication MUST use Next.js Auth v5 with guest-based authorization.
 - Logging MUST use the project logger for any server-side diagnostics.
+- Cloudflare D1 does NOT support interactive transactions (`db.transaction()` / `BEGIN`). Multi-statement atomicity MUST use the [D1 batch API](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch) (`db.batch([...])`) instead. Sequential reads followed by a batched write are the required pattern when multiple statements must succeed or fail together.
 
 ## Development Workflow
 
@@ -68,4 +69,4 @@ implementation is written.
 	changes, MINOR for new principles or sections, PATCH for clarifications.
 - All plans and reviews MUST include a constitution compliance check.
 
-**Version**: 1.1.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-26
+**Version**: 1.2.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-27
