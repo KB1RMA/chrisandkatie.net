@@ -33,6 +33,7 @@ export const eventFormSchema = z
     dressCode: z.string().optional(),
     parkingInfo: z.string().optional(),
     sortOrder: z.coerce.number().default(0),
+    inviteAllGuests: z.boolean().default(false),
   })
   .refine((data) => data.endTime > data.startTime, {
     message: 'End time must be after start time',

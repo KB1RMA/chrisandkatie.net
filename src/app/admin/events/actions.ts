@@ -58,7 +58,7 @@ export async function createEvent(
   const id = randomUUID();
   const now = new Date().toISOString();
 
-  await db.insert(events).values({
+  const eventValues = {
     id,
     name: data.name,
     description: data.description,
@@ -72,6 +72,35 @@ export async function createEvent(
     sortOrder: data.sortOrder,
     createdAt: now,
     updatedAt: now,
+  };
+
+  if (!data.inviteAllGuests) {
+    await db.insert(events).values(eventValues);
+
+    revalidatePath('/admin/events');
+    revalidatePath('/schedule');
+
+    return { success: true, data: { id } };
+  }
+
+  // Wrap event creation and guest invitations in a single transaction so a
+  // failed guestEvents insert cannot leave a partially-applied state.
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values(eventValues);
+
+    const allGuests = await tx.query.guests.findMany({
+      columns: { id: true },
+    });
+
+    if (allGuests.length > 0) {
+      await tx.insert(guestEvents).values(
+        allGuests.map((guest) => ({
+          id: randomUUID(),
+          guestId: guest.id,
+          eventId: id,
+        })),
+      );
+    }
   });
 
   revalidatePath('/admin/events');

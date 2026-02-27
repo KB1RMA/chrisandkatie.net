@@ -41,6 +41,7 @@ function makeAdminSession(): Session {
 function createMockDb(
   overrides: Partial<{
     eventFindFirst: ReturnType<typeof vi.fn>;
+    guestFindMany: ReturnType<typeof vi.fn>;
     guestEventAggregate: ReturnType<typeof vi.fn>;
     rsvpAggregate: ReturnType<typeof vi.fn>;
     insert: ReturnType<typeof vi.fn>;
@@ -65,17 +66,28 @@ function createMockDb(
   const selectFn =
     overrides.select ?? vi.fn().mockReturnValue({ from: selectFromFn });
 
-  return {
+  const db: DbClient = {
     query: {
       events: {
         findFirst: overrides.eventFindFirst ?? vi.fn().mockResolvedValue(null),
+      },
+      guests: {
+        findMany: overrides.guestFindMany ?? vi.fn().mockResolvedValue([]),
       },
     },
     insert: insertFn,
     update: updateFn,
     delete: deleteFn,
     select: selectFn,
+    // Execute the transaction callback with the same mock db as the tx argument
+    transaction: vi
+      .fn()
+      .mockImplementation((callback: (tx: DbClient) => Promise<unknown>) =>
+        callback(db),
+      ),
   } as unknown as DbClient;
+
+  return db;
 }
 
 describe('createEvent', () => {
@@ -163,6 +175,134 @@ describe('createEvent', () => {
 
     expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/events');
     expect(mockRevalidatePath).toHaveBeenCalledWith('/schedule');
+  });
+
+  test('should insert a guestEvents row for every guest when inviteAllGuests is true', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertValuesFn = vi.fn().mockResolvedValue([]);
+    const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
+    const guestFindManyFn = vi
+      .fn()
+      .mockResolvedValue([{ id: 'guest-1' }, { id: 'guest-2' }]);
+    const mockDb = createMockDb({
+      insert: insertFn,
+      guestFindMany: guestFindManyFn,
+    });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await createEvent({
+      name: 'Wedding',
+      eventDate: '2026-09-12',
+      startTime: '16:00',
+      endTime: '23:00',
+      inviteAllGuests: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(insertFn).toHaveBeenCalledTimes(2);
+
+    const guestEventValues = insertValuesFn.mock.calls[1][0] as Array<{
+      guestId: string;
+      eventId: string;
+    }>;
+
+    expect(guestEventValues).toHaveLength(2);
+    expect(guestEventValues[0]).toMatchObject({ guestId: 'guest-1' });
+    expect(guestEventValues[1]).toMatchObject({ guestId: 'guest-2' });
+  });
+
+  test('should not insert guestEvents when inviteAllGuests is false', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertValuesFn = vi.fn().mockResolvedValue([]);
+    const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
+    const mockDb = createMockDb({ insert: insertFn });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await createEvent({
+      name: 'Wedding',
+      eventDate: '2026-09-12',
+      startTime: '16:00',
+      endTime: '23:00',
+      inviteAllGuests: false,
+    });
+
+    expect(result.success).toBe(true);
+    expect(insertFn).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not insert guestEvents when inviteAllGuests is true but no guests exist', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertValuesFn = vi.fn().mockResolvedValue([]);
+    const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
+    const guestFindManyFn = vi.fn().mockResolvedValue([]);
+    const mockDb = createMockDb({
+      insert: insertFn,
+      guestFindMany: guestFindManyFn,
+    });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await createEvent({
+      name: 'Wedding',
+      eventDate: '2026-09-12',
+      startTime: '16:00',
+      endTime: '23:00',
+      inviteAllGuests: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(insertFn).toHaveBeenCalledTimes(1);
+  });
+
+  test('should use a transaction when inviteAllGuests is true', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertFn = vi
+      .fn()
+      .mockReturnValue({ values: vi.fn().mockResolvedValue([]) });
+    const guestFindManyFn = vi.fn().mockResolvedValue([{ id: 'guest-1' }]);
+    const mockDb = createMockDb({
+      insert: insertFn,
+      guestFindMany: guestFindManyFn,
+    });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    await createEvent({
+      name: 'Wedding',
+      eventDate: '2026-09-12',
+      startTime: '16:00',
+      endTime: '23:00',
+      inviteAllGuests: true,
+    });
+
+    expect(vi.mocked(mockDb.transaction)).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not use a transaction when inviteAllGuests is false', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertFn = vi
+      .fn()
+      .mockReturnValue({ values: vi.fn().mockResolvedValue([]) });
+    const mockDb = createMockDb({ insert: insertFn });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    await createEvent({
+      name: 'Wedding',
+      eventDate: '2026-09-12',
+      startTime: '16:00',
+      endTime: '23:00',
+      inviteAllGuests: false,
+    });
+
+    expect(vi.mocked(mockDb.transaction)).not.toHaveBeenCalled();
   });
 });
 
