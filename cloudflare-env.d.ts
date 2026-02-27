@@ -24,7 +24,8 @@ declare namespace Cloudflare {
 		DB?: D1Database;
 		ANALYTICS?: AnalyticsEngineDataset;
 		ANALYTICS_ENABLED?: "true" | "false";
-		NEXTAUTH_URL?: "https://chrisandkatie.net" | "https://staging.chrisandkatie.net";
+		NEXTAUTH_URL?: "https://chrisandkatie.net" | "https://staging.chrisandkatie.net" | "http://localhost:8787";
+		AUTH_URL?: string;
 		ASSETS?: Fetcher;
 		AUTH_SECRET?: string; // Wrangler secret - not auto-generated
 	}

@@ -1,10 +1,10 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, inArray } from 'drizzle-orm';
 import { Button } from '@/components/Button';
 import { ScheduleCard } from '@/components/ScheduleCard';
-import { auth } from '@/lib/auth';
+import { auth, isGuestAuthenticated } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { events, guestEvents } from '@/lib/db/schema';
 import { isCurrentEvent } from '@/lib/schedule-utils';
@@ -25,34 +25,54 @@ const marcellus = Marcellus({
  * Schedule page displaying celebration events filtered by guest permissions.
  *
  * Protected route - redirects to login if not authenticated.
+ * Supports both name-based login (guestId) and invitation code login (invitationId).
  * Queries visible events from the guestEvents table joined with events.
  */
 export default async function SchedulePage() {
-  // Check authentication
   const session = await auth();
 
-  if (!session?.user?.guestId) {
+  if (!isGuestAuthenticated(session)) {
     redirect('/login?callbackUrl=/schedule');
   }
 
-  const guestId = session.user.guestId as string;
   const db = getDb();
+  let welcomeName: string;
+  let guestIds: string[];
 
-  // Get guest name for the welcome message
-  const guest = await db.query.guests.findFirst({
-    where: (table, { eq }) => eq(table.id, guestId),
-  });
+  if (session.user.guestId) {
+    // Name-based login: single known guest record
+    const guest = await db.query.guests.findFirst({
+      where: (table, { eq }) => eq(table.id, session.user.guestId as string),
+    });
 
-  if (!guest) {
-    redirect('/login?callbackUrl=/schedule');
+    if (!guest) {
+      redirect('/login?callbackUrl=/schedule');
+    }
+
+    welcomeName = guest.firstName;
+    guestIds = [guest.id];
+  } else {
+    // Invitation code login: whole party under one invitation
+    const invitation = await db.query.invitations.findFirst({
+      where: (table, { eq }) =>
+        eq(table.id, session.user.invitationId as string),
+      with: { guests: true },
+    });
+
+    if (!invitation || invitation.guests.length === 0) {
+      redirect('/login?callbackUrl=/schedule');
+    }
+
+    welcomeName = invitation.guests.map((g) => g.firstName).join(' & ');
+    guestIds = invitation.guests.map((g) => g.id);
   }
 
-  // Query visible events via guestEvents join, ordered by sortOrder
+  // Query events visible to any guest in the party, deduplicated and ordered
   const visibleEventRows = await db
-    .select({ event: events })
+    .selectDistinct({ event: events })
     .from(guestEvents)
     .innerJoin(events, eq(guestEvents.eventId, events.id))
-    .where(eq(guestEvents.guestId, guestId))
+    .where(inArray(guestEvents.guestId, guestIds))
     .orderBy(asc(events.sortOrder));
 
   const visibleEvents = visibleEventRows.map((row) => row.event);
@@ -67,7 +87,7 @@ export default async function SchedulePage() {
         </h1>
 
         <p className="mb-12 text-center text-xl text-[#6a5555]">
-          Welcome, {guest.firstName}! Here&apos;s your personalized schedule.
+          Welcome, {welcomeName}! Here&apos;s your personalized schedule.
         </p>
 
         <div className="mb-12 space-y-6">

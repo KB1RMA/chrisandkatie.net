@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { auth } from '@/lib/auth';
+import { auth, isGuestAuthenticated } from '@/lib/auth';
 
 type RsvpLayoutProps = {
   children: ReactNode;
@@ -17,7 +17,7 @@ type RsvpLayoutProps = {
 export default async function RsvpLayout({ children }: RsvpLayoutProps) {
   const session = await auth();
 
-  if (!session?.user?.guestId) {
+  if (!isGuestAuthenticated(session)) {
     redirect('/login?callbackUrl=/rsvp');
   }
 

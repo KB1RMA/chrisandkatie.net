@@ -9,6 +9,11 @@ compatibility_flags = [ "nodejs_compat" ]
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+[vars]
+# Base URL used by Auth.js when running via wrangler dev locally
+AUTH_URL = "http://localhost:8787"
+NEXTAUTH_URL = "http://localhost:8787"
+
 [images]
 binding = "IMAGES"
 
@@ -23,7 +28,7 @@ database_name = "prisma-demo-db-local"
 database_id = "adf4fe80-e376-4096-8655-8a7479ac844c"
 
 [env.production]
-vars = { ANALYTICS_ENABLED = "true", NEXTAUTH_URL = "https://chrisandkatie.net" }
+vars = { ANALYTICS_ENABLED = "true", AUTH_URL = "https://chrisandkatie.net", NEXTAUTH_URL = "https://chrisandkatie.net" }
 
 [[env.production.analytics_engine_datasets]]
 binding = "ANALYTICS"
@@ -35,7 +40,7 @@ database_name = "prisma-demo-db"
 database_id = "73260722-51d9-4a90-961e-00d066b5dbb4"
 
 [env.staging]
-vars = { ANALYTICS_ENABLED = "false", NEXTAUTH_URL = "https://staging.chrisandkatie.net" }
+vars = { ANALYTICS_ENABLED = "false", AUTH_URL = "https://staging.chrisandkatie.net", NEXTAUTH_URL = "https://staging.chrisandkatie.net" }
 
 [[env.staging.analytics_engine_datasets]]
 binding = "ANALYTICS"

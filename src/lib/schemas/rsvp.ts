@@ -49,6 +49,11 @@ export type GuestUpdate = z.infer<typeof guestUpdateSchema>;
 export const submitRsvpSchema = z.object({
   invitationId: z.string().min(1, 'Invitation ID is required'),
   guests: z.array(guestUpdateSchema).min(1, 'At least one guest is required'),
+  contactEmail: z
+    .string()
+    .email('Please enter a valid email address')
+    .optional()
+    .or(z.literal('')),
 });
 
 export type SubmitRsvpInput = z.infer<typeof submitRsvpSchema>;

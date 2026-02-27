@@ -15,11 +15,14 @@ vi.mock('@/lib/db', () => ({
 
 import { submitRsvp } from './actions';
 import { MEAL_OPTIONS } from '@/lib/constants';
-import { guests } from '@/lib/db/schema';
+import { guests, invitations } from '@/lib/db/schema';
 import { type DbClient } from '@/lib/db';
 
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
+
+type Invitation = InferSelectModel<typeof invitations>;
+type Guest = InferSelectModel<typeof guests>;
 
 type Guest = InferSelectModel<typeof guests>;
 
@@ -460,5 +463,251 @@ describe('submitRsvp', () => {
         ],
       }),
     ).rejects.toThrow('Invalid request data');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Email persistence tests (T007)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a full mock database for email persistence tests.
+ * Supports queries for both guests and invitations tables.
+ *
+ * @param guestFindFirstFn - Mock for guests.findFirst.
+ * @param invitationFindFirstFn - Mock for invitations.findFirst.
+ * @param updateFn - Optional mock for db.update.
+ * @returns Partial DbClient mock.
+ */
+function createEmailTestMockDb(
+  guestFindFirstFn: ReturnType<typeof vi.fn>,
+  invitationFindFirstFn: ReturnType<typeof vi.fn>,
+  updateFn?: ReturnType<typeof vi.fn>,
+): Partial<DbClient> {
+  const defaultUpdateFn = () => {
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+
+    return { set: setFn };
+  };
+
+  const effectiveUpdateFn =
+    updateFn ?? vi.fn().mockImplementation(defaultUpdateFn);
+
+  return {
+    query: {
+      guests: {
+        findFirst: guestFindFirstFn,
+      },
+      invitations: {
+        findFirst: invitationFindFirstFn,
+      },
+    },
+    update: effectiveUpdateFn,
+  } as unknown as Partial<DbClient>;
+}
+
+/** Minimal invitation fixture. */
+function makeInvitation(id = 'invitation-1'): Invitation {
+  return {
+    id,
+    relationshipToCouple: null,
+    totalInvited: 2,
+    address: null,
+    addressLine2: null,
+    city: null,
+    state: null,
+    zipCode: null,
+    country: null,
+    mailingAddress: null,
+    visibleEvents: '[0,1,2,3]',
+    invitationCode: 'swift-panda',
+    contactEmail: null,
+    userId: 'user-1',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+describe('submitRsvp — email persistence', () => {
+  const mockAuth = vi.mocked(auth);
+  const mockGetDb = vi.mocked(getDb);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('should update Invitation.contactEmail and User.email when contactEmail is provided', async () => {
+    const guestId = 'guest-1';
+    const invitationId = 'invitation-1';
+    const userId = 'user-1';
+
+    const mockSession: Session = {
+      user: { id: userId, guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId,
+      firstName: 'John',
+      lastName: 'Doe',
+      userId,
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const guestFindFirst = vi
+      .fn()
+      .mockResolvedValueOnce(mockGuest)
+      .mockResolvedValueOnce(mockGuest);
+    const mockDb = createEmailTestMockDb(
+      guestFindFirst,
+      vi.fn().mockResolvedValue(makeInvitation(invitationId)),
+      updateFn,
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    const result = await submitRsvp({
+      invitationId,
+      contactEmail: 'john@example.com',
+      guests: [
+        {
+          id: guestId,
+          attending: false,
+          mealChoice: null,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    expect(result).toEqual({ success: true });
+
+    // db.update should have been called for guest update + invitation email + user email
+    expect(updateFn).toHaveBeenCalledTimes(3);
+  });
+
+  test('should not update email tables when contactEmail is absent', async () => {
+    const guestId = 'guest-1';
+    const invitationId = 'invitation-1';
+
+    const mockSession: Session = {
+      user: { id: 'user-1', guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId,
+      firstName: 'John',
+      lastName: 'Doe',
+      userId: 'user-1',
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createEmailTestMockDb(
+      vi.fn().mockResolvedValue(mockGuest),
+      vi.fn().mockResolvedValue(makeInvitation(invitationId)),
+      updateFn,
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await submitRsvp({
+      invitationId,
+      guests: [
+        {
+          id: guestId,
+          attending: false,
+          mealChoice: null,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    // Only guest update — no email updates
+    expect(updateFn).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not update email tables when contactEmail is empty string', async () => {
+    const guestId = 'guest-1';
+    const invitationId = 'invitation-1';
+
+    const mockSession: Session = {
+      user: { id: 'user-1', guestId },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    mockAuth.mockResolvedValue(mockSession);
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+
+    const mockGuest: Guest = {
+      id: guestId,
+      invitationId,
+      firstName: 'Jane',
+      lastName: 'Doe',
+      userId: 'user-1',
+      type: 'adult',
+      attending: null,
+      mealChoice: null,
+      dietaryRestrictions: null,
+      notes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockDb = createEmailTestMockDb(
+      vi.fn().mockResolvedValue(mockGuest),
+      vi.fn().mockResolvedValue(makeInvitation(invitationId)),
+      updateFn,
+    );
+
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await submitRsvp({
+      invitationId,
+      contactEmail: '',
+      guests: [
+        {
+          id: guestId,
+          attending: false,
+          mealChoice: null,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    // Only guest update — empty email treated the same as absent
+    expect(updateFn).toHaveBeenCalledTimes(1);
   });
 });

@@ -5,13 +5,14 @@
  */
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guests, rsvpResponses } from '@/lib/db/schema';
+import { guests, invitations, users, rsvpResponses } from '@/lib/db/schema';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 /**
  * Update RSVP responses for all guests on an invitation.
+ * Optionally persists contactEmail to Invitation and User tables.
  *
  * @throws Error if user is not authenticated or not authorized
  */
@@ -20,7 +21,10 @@ export async function submitRsvp(input: SubmitRsvpInput) {
     // Check authentication
     const session = await auth();
 
-    if (!session?.user?.guestId) {
+    const hasGuestSession = !!session?.user?.guestId;
+    const hasInvitationSession = !!session?.user?.invitationId;
+
+    if (!hasGuestSession && !hasInvitationSession) {
       throw new Error('Unauthorized');
     }
 
@@ -29,16 +33,31 @@ export async function submitRsvp(input: SubmitRsvpInput) {
 
     const db = getDb();
 
-    // Verify logged-in guest belongs to this invitation
-    const loggedInGuest = await db.query.guests.findFirst({
-      where: (table, { eq }) => eq(table.id, session.user.guestId as string),
-    });
+    // Resolve the authorized invitation ID from session
+    let authorizedInvitationId: string;
 
-    if (
-      !loggedInGuest ||
-      loggedInGuest.invitationId !== validatedData.invitationId
-    ) {
-      throw new Error('Not authorized for this invitation');
+    if (hasInvitationSession) {
+      // Invitation-code flow: invitationId is directly in the session
+      authorizedInvitationId = session!.user.invitationId as string;
+
+      if (authorizedInvitationId !== validatedData.invitationId) {
+        throw new Error('Not authorized for this invitation');
+      }
+    } else {
+      // Legacy name-based flow: verify via guest lookup
+      const loggedInGuest = await db.query.guests.findFirst({
+        where: (table, { eq: eqFn }) =>
+          eqFn(table.id, session!.user.guestId as string),
+      });
+
+      if (
+        !loggedInGuest ||
+        loggedInGuest.invitationId !== validatedData.invitationId
+      ) {
+        throw new Error('Not authorized for this invitation');
+      }
+
+      authorizedInvitationId = loggedInGuest.invitationId;
     }
 
     // Update each guest
@@ -47,10 +66,10 @@ export async function submitRsvp(input: SubmitRsvpInput) {
     for (const guestUpdate of validatedData.guests) {
       // Verify guest belongs to this invitation
       const guest = await db.query.guests.findFirst({
-        where: (table, { eq }) => eq(table.id, guestUpdate.id),
+        where: (table, { eq: eqFn }) => eqFn(table.id, guestUpdate.id),
       });
 
-      if (!guest || guest.invitationId !== validatedData.invitationId) {
+      if (!guest || guest.invitationId !== authorizedInvitationId) {
         continue; // Skip guests not on this invitation
       }
 
@@ -78,6 +97,32 @@ export async function submitRsvp(input: SubmitRsvpInput) {
         .update(guests)
         .set(updateData)
         .where(eq(guests.id, guestUpdate.id));
+    }
+
+    // Persist contact email when provided
+    const contactEmail = validatedData.contactEmail?.trim();
+
+    if (contactEmail) {
+      try {
+        await db
+          .update(invitations)
+          .set({ contactEmail, updatedAt: now })
+          .where(eq(invitations.id, authorizedInvitationId));
+
+        const userId = session!.user.id;
+
+        if (userId) {
+          await db
+            .update(users)
+            .set({ email: contactEmail, updatedAt: now })
+            .where(eq(users.id, userId));
+        }
+      } catch (emailError) {
+        console.error(
+          '[submitRsvp] Failed to persist contact email:',
+          emailError,
+        );
+      }
     }
 
     return { success: true };

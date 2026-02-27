@@ -1,10 +1,11 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guestEvents } from '@/lib/db/schema';
+import { guestEvents, invitations } from '@/lib/db/schema';
+import { generateInvitationCode } from '@/lib/invitation-code';
 
 /**
  * Update visible events for an invitation by syncing the guestEvents table.
@@ -74,6 +75,72 @@ export async function updateInvitationVisibleEvents(
       success: false,
       error: 'Failed to update visible events',
     };
+  }
+}
+
+/**
+ * Bulk generate invitation codes for all invitations that are missing one.
+ *
+ * Iterates all invitations where `invitationCode IS NULL` and assigns a newly
+ * generated unique code to each. Tracks codes assigned in this batch to avoid
+ * in-memory collisions, and retries per-invitation up to MAX_ATTEMPTS times.
+ *
+ * @returns Count of invitations updated, or an error message.
+ * @throws Error if not authenticated as admin.
+ */
+export async function backfillInvitationCodes(): Promise<{
+  success: boolean;
+  updatedCount?: number;
+  error?: string;
+}> {
+  const session = await auth();
+
+  if (!session?.user?.roles?.includes('admin')) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    // Load all invitations that still need a code
+    const pending = await db.query.invitations.findMany({
+      where: isNull(invitations.invitationCode),
+      columns: { id: true, invitationCode: true },
+    });
+
+    if (pending.length === 0) {
+      return { success: true, updatedCount: 0 };
+    }
+
+    // Track codes assigned in this batch to avoid collisions
+    const batchCodes = new Set<string>();
+    let updatedCount = 0;
+
+    for (const invitation of pending) {
+      let code = await generateInvitationCode();
+
+      while (batchCodes.has(code)) {
+        code = await generateInvitationCode();
+      }
+
+      batchCodes.add(code);
+
+      await db
+        .update(invitations)
+        .set({ invitationCode: code, updatedAt: now })
+        .where(eq(invitations.id, invitation.id));
+
+      updatedCount += 1;
+    }
+
+    revalidatePath('/admin/invitations');
+
+    return { success: true, updatedCount };
+  } catch (error) {
+    console.error('Failed to backfill invitation codes:', error);
+
+    return { success: false, error: 'Failed to backfill invitation codes' };
   }
 }
 

@@ -38,6 +38,8 @@ export type InvitationTableRow = {
   availableEvents: AvailableEvent[];
   initialVisibleEventIds: string[];
   searchText: string;
+  /** Two-word invitation code, e.g. "swift-panda". Null for legacy invitations. */
+  invitationCode: string | null;
 };
 
 export type InvitationTableProps = {
@@ -195,6 +197,19 @@ export function InvitationTable({ data }: InvitationTableProps) {
           </div>
         </div>
 
+        {row.original.invitationCode && (
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-gray-700">
+              Invitation Code
+            </p>
+            <div className="rounded-md border border-gray-200 bg-white p-4">
+              <InvitationCodePanel
+                invitationCode={row.original.invitationCode}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <p className="text-sm font-semibold text-gray-700">Visible Events</p>
           <div className="rounded-md border border-gray-200 bg-white p-4">
@@ -225,6 +240,48 @@ export function InvitationTable({ data }: InvitationTableProps) {
       getRowCanExpand={(row) => row.guests.length > 0}
       renderSubComponent={renderGuestsTable}
     />
+  );
+}
+
+/**
+ * Displays the invitation code and a copyable deep-link URL for the invitation.
+ */
+function InvitationCodePanel({ invitationCode }: { invitationCode: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const origin =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_BASE_URL ?? '');
+  const deepLinkUrl = `${origin}/login?code=${encodeURIComponent(invitationCode)}`;
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(deepLinkUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">Code:</span>
+        <code className="rounded bg-gray-100 px-2 py-0.5 font-mono text-gray-800">
+          {invitationCode}
+        </code>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">Deep-link:</span>
+        <span className="font-mono text-xs break-all text-gray-700">
+          {deepLinkUrl}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+    </div>
   );
 }
 

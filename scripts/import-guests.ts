@@ -15,6 +15,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { InferInsertModel } from 'drizzle-orm';
 import { invitations, guests } from '@/lib/db/schema';
+import { generateInvitationCodeBatch } from '@/lib/invitation-code';
 
 type CSVRow = Record<string, string>;
 type InvitationInsert = InferInsertModel<typeof invitations>;
@@ -208,7 +209,11 @@ const buildInsertStatement = (
  * @param now - Current timestamp as ISO string
  * @returns Object with invitation and guest insert statements
  */
-const createRowInsertStatements = (row: CSVRow, now: string) => {
+const createRowInsertStatements = (
+  row: CSVRow,
+  now: string,
+  invitationCode: string,
+) => {
   const invitationId = randomUUID();
   const guestList = extractGuests(row);
   const hasChildren = guestList.some((g) => g.type === 'child');
@@ -221,6 +226,7 @@ const createRowInsertStatements = (row: CSVRow, now: string) => {
   // Build invitation insert
   const invitationData: InvitationInsert = {
     id: invitationId,
+    invitationCode,
     relationshipToCouple: row['Relationship To Couple'] || null,
     totalInvited,
     address: row['Street Address'] || null,
@@ -279,7 +285,7 @@ const createRowInsertStatements = (row: CSVRow, now: string) => {
  * @param row - CSV row object
  * @returns Object with statements array and row metadata
  */
-const processRow = (now: string) => (row: CSVRow) => {
+const processRow = (now: string) => (row: CSVRow, invitationCode: string) => {
   const firstName = row['First Name'];
   const lastName = row['Last Name'];
 
@@ -292,7 +298,11 @@ const processRow = (now: string) => (row: CSVRow) => {
     };
   }
 
-  const { statements, guestCount } = createRowInsertStatements(row, now);
+  const { statements, guestCount } = createRowInsertStatements(
+    row,
+    now,
+    invitationCode,
+  );
 
   return {
     success: true,
@@ -393,6 +403,10 @@ async function importGuests() {
 
   console.log(`📋 Found ${rows.length} invitation records in CSV\n`);
 
+  // Pre-fetch all invitation codes in one API request to minimise round-trips
+  console.log('🔑 Generating invitation codes from word API...\n');
+  const codes = await generateInvitationCodeBatch(rows.length);
+
   // Process all rows functionally
   const rowProcessor = processRow(now);
   const {
@@ -401,31 +415,59 @@ async function importGuests() {
     guestsCreated,
     skipped,
     logs,
-  } = rows.reduce((acc, row) => aggregateResults(acc, rowProcessor(row)), {
-    statements: [] as string[],
-    invitationsCreated: 0,
-    guestsCreated: 0,
-    skipped: 0,
-    logs: [] as string[],
-  });
+  } = rows.reduce(
+    (acc, row, index) => aggregateResults(acc, rowProcessor(row, codes[index])),
+    {
+      statements: [] as string[],
+      invitationsCreated: 0,
+      guestsCreated: 0,
+      skipped: 0,
+      logs: [] as string[],
+    },
+  );
 
   // Log processing results
   logs.forEach((log) => console.log(log));
 
   // Write seed file
   const seedFilePath = join(process.cwd(), 'seed-data', 'guests-import.sql');
+
+  // Delete order respects foreign-key relationships even with FK checks off:
+  // child tables first, then parent tables.
+  const clearStatements = [
+    'DELETE FROM "RsvpResponse";',
+    'DELETE FROM "GuestEvent";',
+    'DELETE FROM "Guest";',
+    'DELETE FROM "Invitation";',
+    'DELETE FROM "Account";',
+    'DELETE FROM "Session";',
+    'DELETE FROM "VerificationToken";',
+    'DELETE FROM "User";',
+  ];
+
+  // After all guests are inserted, assign every guest to every event.
+  // Uses a cross-join SELECT so no event IDs need to be known at generation time.
+  // hex(randomblob(16)) produces a unique 32-char primary key for each row.
+  const assignAllEventsStatement =
+    'INSERT INTO "GuestEvent" ("id", "guestId", "eventId") ' +
+    'SELECT hex(randomblob(16)), g."id", e."id" FROM "Guest" g CROSS JOIN "Event" e;';
+
   const sqlFileContents = [
     'PRAGMA foreign_keys=OFF;',
+    ...clearStatements,
     ...insertStatements,
+    assignAllEventsStatement,
     'PRAGMA foreign_keys=ON;',
   ].join('\n');
 
   writeFileSync(seedFilePath, sqlFileContents, 'utf-8');
 
   console.log(`\n🎊 Seed file created at ${seedFilePath}`);
+  console.log(`   Clears:      RSVPs, guests, invitations, auth users`);
   console.log(`   Invitations: ${invitationsCreated}`);
   console.log(`   Guests:      ${guestsCreated}`);
   console.log(`   Skipped:     ${skipped}`);
+  console.log(`   Events:      all guests assigned to all events`);
 
   if (!shouldExecute) {
     console.log('\nℹ️  Run with --remote or --local to import into D1.');

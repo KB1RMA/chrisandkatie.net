@@ -38,6 +38,8 @@ type RSVPFormProps = {
   isSubmitted?: boolean;
   submittedBy?: string;
   submittedAt?: string;
+  /** Pre-fill the contact email field if the invitation already has one stored. */
+  contactEmail?: string | null;
 };
 
 export function RSVPForm({
@@ -46,6 +48,7 @@ export function RSVPForm({
   isSubmitted = false,
   submittedBy,
   submittedAt,
+  contactEmail,
 }: RSVPFormProps) {
   const router = useRouter();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -61,6 +64,7 @@ export function RSVPForm({
     resolver: zodResolver(submitRsvpSchema),
     defaultValues: {
       invitationId,
+      contactEmail: contactEmail ?? '',
       guests: guests.map((g) => ({
         id: g.id,
         firstName: g.firstName,
@@ -71,7 +75,6 @@ export function RSVPForm({
         notes: g.notes,
       })),
     },
-    disabled: isSubmitted,
   });
 
   // Watch attending status for each guest to show meal selection conditionally
@@ -165,10 +168,7 @@ export function RSVPForm({
   );
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className={`space-y-6 ${isSubmitted ? 'opacity-60' : ''}`}
-    >
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {showSuccessMessage && (
         <div className="animate-in fade-in slide-in-from-top-4 rounded border border-green-400 bg-green-50 px-4 py-4 text-green-800 duration-500">
           <p className="mb-1 font-medium">🎉 RSVP Submitted Successfully!</p>
@@ -179,23 +179,19 @@ export function RSVPForm({
         </div>
       )}
 
-      {isSubmitted && submittedBy && submittedAt && (
-        <div className="rounded border border-blue-400 bg-blue-50 px-4 py-4 text-blue-800">
-          <p className="mb-1 font-medium">✓ RSVP Submitted</p>
+      {isSubmitted && !showSuccessMessage && submittedAt && (
+        <div className="rounded border border-amber-400 bg-amber-50 px-4 py-4 text-amber-800">
+          <p className="mb-1 font-medium">✓ You&#39;ve already submitted</p>
           <p className="text-sm">
-            Submitted by <strong>{submittedBy}</strong> on{' '}
+            Your responses were last updated on{' '}
             <strong>
               {new Date(submittedAt).toLocaleDateString('en-US', {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
               })}
             </strong>
-          </p>
-          <p className="mt-2 text-xs text-blue-600">
-            To make changes, please contact us.
+            . You can update your responses below.
           </p>
         </div>
       )}
@@ -387,6 +383,32 @@ export function RSVPForm({
         })}
       </div>
 
+      {/* Optional contact email for the household */}
+      <div>
+        <label
+          htmlFor="contactEmail"
+          className="mb-2 block text-base font-medium text-gray-700 sm:text-sm"
+        >
+          Contact Email (optional)
+        </label>
+        <p className="mb-2 text-xs text-gray-500">
+          We&#39;ll only use this to follow up about your RSVP if needed.
+        </p>
+        <input
+          id="contactEmail"
+          type="email"
+          autoComplete="email"
+          {...register('contactEmail')}
+          className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none sm:text-sm"
+          placeholder="your@email.com"
+        />
+        {errors.contactEmail && (
+          <p className="mt-1 text-sm text-red-600">
+            {errors.contactEmail.message}
+          </p>
+        )}
+      </div>
+
       <div className="rounded-lg bg-gray-50 p-4">
         <h4 className="mb-2 font-medium text-gray-900">Summary</h4>
         <div className="space-y-1 text-sm text-gray-700">
@@ -406,15 +428,11 @@ export function RSVPForm({
       </div>
 
       <div className="flex gap-4">
-        <Button
-          type="submit"
-          disabled={isSubmitting || isSubmitted}
-          className="flex-1"
-        >
-          {isSubmitted
-            ? 'RSVP Already Submitted'
-            : isSubmitting
-              ? 'Submitting...'
+        <Button type="submit" disabled={isSubmitting} className="flex-1">
+          {isSubmitting
+            ? 'Submitting...'
+            : isSubmitted
+              ? 'Update RSVP'
               : 'Submit RSVP'}
         </Button>
       </div>

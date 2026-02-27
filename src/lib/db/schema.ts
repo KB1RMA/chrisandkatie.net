@@ -78,21 +78,35 @@ export const verificationTokens = sqliteTable(
   }),
 );
 
-export const invitations = sqliteTable('Invitation', {
-  id: text('id').primaryKey(),
-  relationshipToCouple: text('relationshipToCouple'),
-  totalInvited: integer('totalInvited').notNull().default(1),
-  address: text('address'),
-  addressLine2: text('addressLine2'),
-  city: text('city'),
-  state: text('state'),
-  zipCode: text('zipCode'),
-  country: text('country'),
-  mailingAddress: text('mailingAddress'),
-  visibleEvents: text('visibleEvents').notNull().default('[0,1,2,3]'),
-  createdAt: text('createdAt').notNull().default(timestampDefault),
-  updatedAt: text('updatedAt').notNull().default(timestampDefault),
-});
+export const invitations = sqliteTable(
+  'Invitation',
+  {
+    id: text('id').primaryKey(),
+    relationshipToCouple: text('relationshipToCouple'),
+    totalInvited: integer('totalInvited').notNull().default(1),
+    address: text('address'),
+    addressLine2: text('addressLine2'),
+    city: text('city'),
+    state: text('state'),
+    zipCode: text('zipCode'),
+    country: text('country'),
+    mailingAddress: text('mailingAddress'),
+    visibleEvents: text('visibleEvents').notNull().default('[0,1,2,3]'),
+    invitationCode: text('invitationCode').unique(),
+    contactEmail: text('contactEmail'),
+    userId: text('userId').references(() => users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+    updatedAt: text('updatedAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    invitationCodeIndex: uniqueIndex('Invitation_invitationCode_unique').on(
+      table.invitationCode,
+    ),
+  }),
+);
 
 export const guests = sqliteTable(
   'Guest',
@@ -138,8 +152,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
 }));
 
-export const invitationsRelations = relations(invitations, ({ many }) => ({
+export const invitationsRelations = relations(invitations, ({ one, many }) => ({
   guests: many(guests),
+  user: one(users, {
+    fields: [invitations.userId],
+    references: [users.id],
+  }),
 }));
 
 export const guestsRelations = relations(guests, ({ one, many }) => ({

@@ -13,6 +13,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 - SQLite (local dev via Drizzle), Cloudflare D1 (production) (003-admin-layout-events-db)
 - TypeScript 5.x — Next.js 16, React 19 + Next.js Auth v5 (`next-auth`), Drizzle ORM, Cloudflare D1 (SQLite) (001-fix-rsvp-login-bugs)
 - SQLite via Cloudflare D1 — no schema changes required (001-fix-rsvp-login-bugs)
+- TypeScript 5, Node.js 20 (Cloudflare Workers runtime) + Next.js 16.1.6 (App Router), React 19, Auth.js v5 (next-auth), Drizzle ORM, Zod v4, Vitest v4 (001-invitation-code)
+- SQLite (local dev via Drizzle) / Cloudflare D1 (production) (001-invitation-code)
 
 - TypeScript 5.9, React 19, Next.js 16.1 + Next.js App Router, Auth.js v5, Drizzle ORM + D1 adapter, Zod, react-hook-form, Tailwind CSS, OpenNext (Cloudflare) (001-wedding-rsvp-portal)
 
@@ -32,9 +34,9 @@ npm test && npm run lint
 TypeScript 5.9, React 19, Next.js 16.1: Follow standard conventions
 
 ## Recent Changes
+- 001-invitation-code: Added TypeScript 5, Node.js 20 (Cloudflare Workers runtime) + Next.js 16.1.6 (App Router), React 19, Auth.js v5 (next-auth), Drizzle ORM, Zod v4, Vitest v4
 - 001-fix-rsvp-login-bugs: Added TypeScript 5.x — Next.js 16, React 19 + Next.js Auth v5 (`next-auth`), Drizzle ORM, Cloudflare D1 (SQLite)
 - 001-fix-rsvp-login-bugs: Added TypeScript 5.x — Next.js 16, React 19 + Next.js Auth v5 (`next-auth`), Drizzle ORM, Cloudflare D1 (SQLite)
-- 003-admin-layout-events-db: Added TypeScript 5 / Next.js v16 (App Router) / React v19 + Next.js Auth v5, Drizzle ORM, `crypto.randomUUID()`
 
 
 <!-- MANUAL ADDITIONS START -->
