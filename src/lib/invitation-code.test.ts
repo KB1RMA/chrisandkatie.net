@@ -7,8 +7,6 @@ import {
   generateInvitationCode,
   generateInvitationCodeBatch,
   generateUniqueInvitationCode,
-  MIN_WORD_LENGTH,
-  MAX_WORD_LENGTH,
 } from '@/lib/invitation-code';
 import type { DbClient } from '@/lib/db';
 
@@ -171,30 +169,6 @@ describe('generateInvitationCode', () => {
 
     await expect(generateInvitationCode()).rejects.toThrow(/unexpected/i);
   });
-
-  test('should throw when the API does not return enough words after filtering', async () => {
-    // All single-char words are below MIN_WORD_LENGTH and will be filtered out
-    mockFetchWords(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
-
-    await expect(generateInvitationCode()).rejects.toThrow(
-      /too few usable words/i,
-    );
-  });
-
-  test('should filter out words longer than MAX_WORD_LENGTH', async () => {
-    // First two words are too long; last two are valid
-    mockFetchWords(['methylases', 'epicardia', 'swift', 'panda']);
-
-    const code = await generateInvitationCode();
-
-    expect(code).toBe('swift-panda');
-  });
-
-  test('should enforce MIN_WORD_LENGTH and MAX_WORD_LENGTH constants', () => {
-    expect(MIN_WORD_LENGTH).toBeLessThanOrEqual(MAX_WORD_LENGTH);
-    expect(MIN_WORD_LENGTH).toBeGreaterThanOrEqual(2);
-    expect(MAX_WORD_LENGTH).toBeLessThanOrEqual(10);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -221,25 +195,25 @@ describe('generateInvitationCodeBatch', () => {
   test('should use a single fetch call for the whole batch', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      // Return enough valid-length words (≥MIN_WORD_LENGTH) to satisfy the filter
+      // The API is called once with count * 2 words; use WORD_LENGTH (4) letter words
       json: () =>
         Promise.resolve([
-          'cat',
-          'dog',
-          'fox',
-          'owl',
-          'ant',
-          'elk',
-          'hen',
-          'jay',
-          'ram',
-          'bee',
-          'cod',
-          'eel',
-          'gnu',
-          'koi',
-          'rat',
-          'yak',
+          'calm',
+          'bold',
+          'dark',
+          'fast',
+          'gray',
+          'hard',
+          'jazz',
+          'keen',
+          'lush',
+          'math',
+          'news',
+          'open',
+          'pink',
+          'quad',
+          'rust',
+          'safe',
         ]),
     });
 

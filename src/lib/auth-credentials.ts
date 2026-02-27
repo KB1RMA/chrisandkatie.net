@@ -1,103 +1,46 @@
 /**
- * Credential authorization logic for the guest and admin login flows.
+ * Administrator credential authorization logic.
  *
  * Kept separate from auth.ts to allow unit testing without importing the
  * full NextAuth stack (which depends on next/server at runtime).
  */
-import { eq, sql } from 'drizzle-orm';
-import { getDb } from '@/lib/db';
-import { guests, users } from '@/lib/db/schema';
 
 /**
- * Handles credential authorization — first checks admin env vars, then falls
- * through to guest name lookup in the database.
+ * Handles administrator credential authorization.
  *
- * @param credentials - The submitted first name and last name credentials.
- * @returns Authorized user object, or null if unauthorized.
+ * Accepts username and password credentials and validates them against the
+ * ADMIN_USERNAME and ADMIN_PASSWORD environment variables.
+ * Returns null for any non-admin or missing credential submission.
+ *
+ * @param credentials - The submitted username and password credentials.
+ * @returns Authorized admin user object, or null if unauthorized.
  */
 export async function authorizeCredentials(
-  credentials: Partial<Record<'firstName' | 'lastName', unknown>>,
+  credentials: Partial<Record<'username' | 'password', unknown>>,
 ) {
-  if (!credentials?.firstName || !credentials?.lastName) {
+  if (!credentials?.username || !credentials?.password) {
     return null;
   }
 
-  // Admin credential check — runs before guest lookup
   const adminUsername = process.env.ADMIN_USERNAME;
   const adminPassword = process.env.ADMIN_PASSWORD;
 
-  if (
-    adminUsername &&
-    adminPassword &&
-    credentials.firstName === adminUsername &&
-    credentials.lastName === adminPassword
-  ) {
-    return {
-      id: 'admin',
-      name: 'Admin',
-      email: null,
-      roles: ['admin'],
-    };
-  }
-
-  const db = getDb();
-
-  // Case-insensitive name match
-  const firstName = (credentials.firstName as string).trim();
-  const lastName = (credentials.lastName as string).trim();
-
-  const guest = await db.query.guests.findFirst({
-    where: (table) =>
-      sql`${table.firstName} = ${firstName} COLLATE NOCASE AND ${table.lastName} = ${lastName} COLLATE NOCASE`,
-  });
-
-  if (!guest) {
+  if (!adminUsername || !adminPassword) {
     return null;
   }
 
-  let userId = guest.userId;
-  let userName = `${guest.firstName} ${guest.lastName}`;
-  let userEmail: string | null = null;
-
-  if (userId) {
-    const existingUser = await db.query.users.findFirst({
-      where: (table) => eq(table.id, userId as string),
-    });
-
-    if (existingUser) {
-      userName = existingUser.name ?? userName;
-      userEmail = existingUser.email ?? null;
-    } else {
-      userId = null;
-    }
-  }
-
-  if (!userId) {
-    const newUserId = crypto.randomUUID();
-
-    const now = new Date().toISOString();
-
-    await db.insert(users).values({
-      id: newUserId,
-      name: userName,
-      email: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await db
-      .update(guests)
-      .set({ userId: newUserId })
-      .where(eq(guests.id, guest.id));
-
-    userId = newUserId;
+  if (
+    credentials.username !== adminUsername ||
+    credentials.password !== adminPassword
+  ) {
+    return null;
   }
 
   return {
-    id: userId,
-    name: userName,
-    email: userEmail,
-    guestId: guest.id,
-    firstName: guest.firstName,
+    id: 'admin',
+    name: 'Admin',
+    email: null,
+    username: adminUsername,
+    roles: ['admin'],
   };
 }

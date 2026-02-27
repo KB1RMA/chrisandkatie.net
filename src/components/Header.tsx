@@ -71,10 +71,6 @@ export function Header() {
               <div className="text-sm text-[#7a6666]">Loading...</div>
             ) : session?.user ? (
               <>
-                <span className="text-sm text-[#6a5555]">
-                  Hello,{' '}
-                  {session.user.firstName || session.user.name?.split(' ')[0]}!
-                </span>
                 <button
                   onClick={() => signOut({ callbackUrl: '/' })}
                   className="rounded-md bg-[#9e3f3f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#b76565] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-offset-2 focus:outline-none"

@@ -3,11 +3,11 @@
 /**
  * Server actions for RSVP submission and data retrieval.
  */
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { guests, invitations, users, rsvpResponses } from '@/lib/db/schema';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 /**
@@ -21,44 +21,29 @@ export async function submitRsvp(input: SubmitRsvpInput) {
     // Check authentication
     const session = await auth();
 
-    const hasGuestSession = !!session?.user?.guestId;
-    const hasInvitationSession = !!session?.user?.invitationId;
+    const identity = getAuthIdentity(session);
 
-    if (!hasGuestSession && !hasInvitationSession) {
+    if (!identity) {
       throw new Error('Unauthorized');
     }
 
     // Validate input
     const validatedData = submitRsvpSchema.parse(input);
 
-    const db = getDb();
-
-    // Resolve the authorized invitation ID from session
-    let authorizedInvitationId: string;
-
-    if (hasInvitationSession) {
-      // Invitation-code flow: invitationId is directly in the session
-      authorizedInvitationId = session!.user.invitationId as string;
-
-      if (authorizedInvitationId !== validatedData.invitationId) {
-        throw new Error('Not authorized for this invitation');
-      }
-    } else {
-      // Legacy name-based flow: verify via guest lookup
-      const loggedInGuest = await db.query.guests.findFirst({
-        where: (table, { eq: eqFn }) =>
-          eqFn(table.id, session!.user.guestId as string),
-      });
-
-      if (
-        !loggedInGuest ||
-        loggedInGuest.invitationId !== validatedData.invitationId
-      ) {
-        throw new Error('Not authorized for this invitation');
-      }
-
-      authorizedInvitationId = loggedInGuest.invitationId;
+    // Guests can only submit for their own invitation; admins can submit for any
+    if (
+      identity.type === 'guest' &&
+      identity.invitationId !== validatedData.invitationId
+    ) {
+      throw new Error('Not authorized for this invitation');
     }
+
+    const authorizedInvitationId =
+      identity.type === 'guest'
+        ? identity.invitationId
+        : validatedData.invitationId;
+
+    const db = getDb();
 
     // Update each guest
     const now = new Date().toISOString();
@@ -109,7 +94,7 @@ export async function submitRsvp(input: SubmitRsvpInput) {
           .set({ contactEmail, updatedAt: now })
           .where(eq(invitations.id, authorizedInvitationId));
 
-        const userId = session!.user.id;
+        const userId = session?.user.id;
 
         if (userId) {
           await db
@@ -146,32 +131,60 @@ export async function submitRsvp(input: SubmitRsvpInput) {
  */
 export async function fetchGuestEvents() {
   const session = await auth();
+  const identity = getAuthIdentity(session);
 
-  if (!session?.user?.guestId) {
+  if (identity?.type !== 'guest') {
     throw new Error('Unauthorized');
   }
 
   const db = getDb();
-  const guestId = session.user.guestId as string;
 
-  // Fetch all events guest is invited to via junction table
-  const guestEventRows = await db.query.guestEvents.findMany({
-    where: (table, { eq: eqFn }) => eqFn(table.guestId, guestId),
-    with: {
-      event: true,
-    },
+  // Load all guests for this invitation to query their events
+  const invitation = await db.query.invitations.findFirst({
+    where: (table, { eq: eqFn }) => eqFn(table.id, identity.invitationId),
+    with: { guests: true },
   });
 
-  // Fetch existing RSVP responses for this guest
+  if (!invitation) {
+    throw new Error('Invitation not found');
+  }
+
+  const guestIds = invitation.guests.map((g) => g.id);
+
+  if (guestIds.length === 0) {
+    return [];
+  }
+
+  // Fetch all events guests are invited to via junction table
+  const guestEventRows = await db.query.guestEvents.findMany({
+    where: (table, { inArray: inArrayFn }) =>
+      inArrayFn(table.guestId, guestIds),
+    with: { event: true },
+  });
+
+  // Fetch existing RSVP responses for all guests on this invitation
   const rsvpRows = await db
     .select()
     .from(rsvpResponses)
-    .where(eq(rsvpResponses.guestId, guestId));
+    .where(inArray(rsvpResponses.guestId, guestIds));
 
   const rsvpByEventId = new Map(rsvpRows.map((r) => [r.eventId, r]));
 
-  return guestEventRows.map(({ event: eventRow }) => ({
-    event: eventRow,
-    rsvp: rsvpByEventId.get(eventRow.id) ?? null,
-  }));
+  // Deduplicate events (multiple guests may be assigned to the same event)
+  const seenEventIds = new Set<string>();
+
+  return guestEventRows
+    .filter(({ event }) => {
+      if (seenEventIds.has(event.id)) {
+        return false;
+      }
+
+      seenEventIds.add(event.id);
+
+      return true;
+    })
+    .map(({ event }) => ({
+      event,
+      rsvp: rsvpByEventId.get(event.id) ?? null,
+    }));
 }

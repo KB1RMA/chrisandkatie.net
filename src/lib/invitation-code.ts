@@ -13,35 +13,24 @@ import { invitations } from '@/lib/db/schema';
 export const MAX_ATTEMPTS = 10;
 
 /**
- * Word length bounds applied after fetching from the API.
- * Filters out overly short words (e.g. "ax") and long/obscure ones
- * (e.g. "methylases", "epicardia").
+ * Fixed word length passed to the API via the `length` query parameter.
+ * All returned words are exactly this many characters.
  */
-export const MIN_WORD_LENGTH = 3;
-export const MAX_WORD_LENGTH = 8;
-
-/**
- * Fetch this many × extra words per required word so we have enough after
- * filtering by length.
- */
-const OVERSAMPLE_FACTOR = 4;
+export const WORD_LENGTH = 4;
 
 const RANDOM_WORD_API_BASE =
   process.env.RANDOM_WORD_API_URL ?? 'https://random-word-api.herokuapp.com';
 
 /**
- * Fetches `count` random lowercase words from the word API, filtered to
- * common word lengths (MIN_WORD_LENGTH–MAX_WORD_LENGTH characters).
- *
- * Oversamples by OVERSAMPLE_FACTOR to ensure enough words survive the filter.
+ * Fetches `count` random lowercase words from the word API, requesting
+ * exactly WORD_LENGTH characters via the `length` query parameter.
  *
  * @param count - Number of words to fetch.
- * @returns Array of filtered lowercase words.
- * @throws Error if the API request fails, returns an unexpected shape, or does
- *   not yield enough words after filtering.
+ * @returns Array of lowercase words, each exactly WORD_LENGTH characters.
+ * @throws Error if the API request fails or returns an unexpected shape.
  */
 async function fetchRandomWords(count: number): Promise<string[]> {
-  const url = `${RANDOM_WORD_API_BASE}/word?number=${count * OVERSAMPLE_FACTOR}`;
+  const url = `${RANDOM_WORD_API_BASE}/word?number=${count}&length=${WORD_LENGTH}&diff=1`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -58,22 +47,7 @@ async function fetchRandomWords(count: number): Promise<string[]> {
     );
   }
 
-  const filtered = (words as string[])
-    .map((w) => w.toLowerCase())
-    .filter(
-      (w) =>
-        w.length >= MIN_WORD_LENGTH &&
-        w.length <= MAX_WORD_LENGTH &&
-        /^[a-z]+$/.test(w),
-    );
-
-  if (filtered.length < count) {
-    throw new Error(
-      `Word API returned too few usable words after filtering (got ${filtered.length}, need ${count}). Consider increasing OVERSAMPLE_FACTOR.`,
-    );
-  }
-
-  return filtered.slice(0, count);
+  return (words as string[]).map((w) => w.toLowerCase());
 }
 
 /**

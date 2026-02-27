@@ -4,10 +4,11 @@ import type { Metadata } from 'next';
 import { eq, asc, inArray } from 'drizzle-orm';
 import { Button } from '@/components/Button';
 import { ScheduleCard } from '@/components/ScheduleCard';
-import { auth, isGuestAuthenticated } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { events, guestEvents } from '@/lib/db/schema';
 import { isCurrentEvent } from '@/lib/schedule-utils';
+import type { WeddingEvent } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,40 +23,35 @@ const marcellus = Marcellus({
 });
 
 /**
- * Schedule page displaying celebration events filtered by guest permissions.
+ * Schedule page displaying celebration events.
  *
- * Protected route - redirects to login if not authenticated.
- * Supports both name-based login (guestId) and invitation code login (invitationId).
- * Queries visible events from the guestEvents table joined with events.
+ * Protected route — redirects to login if not authenticated.
+ * Admins see all events with their username as the welcome name.
+ * Guests see only their party's assigned events via invitationId lookup.
  */
 export default async function SchedulePage() {
   const session = await auth();
+  const identity = getAuthIdentity(session);
 
-  if (!isGuestAuthenticated(session)) {
+  if (!identity) {
     redirect('/login?callbackUrl=/schedule');
   }
 
   const db = getDb();
+
   let welcomeName: string;
-  let guestIds: string[];
+  let displayEvents: WeddingEvent[];
 
-  if (session.user.guestId) {
-    // Name-based login: single known guest record
-    const guest = await db.query.guests.findFirst({
-      where: (table, { eq }) => eq(table.id, session.user.guestId as string),
-    });
-
-    if (!guest) {
-      redirect('/login?callbackUrl=/schedule');
-    }
-
-    welcomeName = guest.firstName;
-    guestIds = [guest.id];
+  if (identity.type === 'admin') {
+    welcomeName = identity.username;
+    displayEvents = await db
+      .select()
+      .from(events)
+      .orderBy(asc(events.sortOrder));
   } else {
-    // Invitation code login: whole party under one invitation
+    // Guest path: look up invitation and filter events for the whole party
     const invitation = await db.query.invitations.findFirst({
-      where: (table, { eq }) =>
-        eq(table.id, session.user.invitationId as string),
+      where: (table, { eq: eqFn }) => eqFn(table.id, identity.invitationId),
       with: { guests: true },
     });
 
@@ -64,18 +60,18 @@ export default async function SchedulePage() {
     }
 
     welcomeName = invitation.guests.map((g) => g.firstName).join(' & ');
-    guestIds = invitation.guests.map((g) => g.id);
+
+    const guestIds = invitation.guests.map((g) => g.id);
+
+    const visibleEventRows = await db
+      .selectDistinct({ event: events })
+      .from(guestEvents)
+      .innerJoin(events, eq(guestEvents.eventId, events.id))
+      .where(inArray(guestEvents.guestId, guestIds))
+      .orderBy(asc(events.sortOrder));
+
+    displayEvents = visibleEventRows.map((row) => row.event);
   }
-
-  // Query events visible to any guest in the party, deduplicated and ordered
-  const visibleEventRows = await db
-    .selectDistinct({ event: events })
-    .from(guestEvents)
-    .innerJoin(events, eq(guestEvents.eventId, events.id))
-    .where(inArray(guestEvents.guestId, guestIds))
-    .orderBy(asc(events.sortOrder));
-
-  const visibleEvents = visibleEventRows.map((row) => row.event);
 
   return (
     <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:justify-center sm:p-8">
@@ -91,12 +87,12 @@ export default async function SchedulePage() {
         </p>
 
         <div className="mb-12 space-y-6">
-          {visibleEvents.length === 0 ? (
+          {displayEvents.length === 0 ? (
             <p className="text-center text-[#6a5555]">
               No events have been added to your schedule yet.
             </p>
           ) : (
-            visibleEvents.map((item) => (
+            displayEvents.map((item) => (
               <ScheduleCard
                 key={item.id}
                 item={item}

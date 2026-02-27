@@ -1,7 +1,7 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { auth, isGuestAuthenticated } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { RSVPForm, type GuestRSVP } from '@/components/RSVPForm';
 import { EventRsvpCard } from '@/components/EventRsvpCard';
@@ -23,50 +23,27 @@ export const metadata: Metadata = {
 /**
  * RSVP page for guests to respond to invitation.
  *
- * Supports two authentication paths:
- * - Invitation code flow: session.user.invitationId (new)
- * - Name-based flow: session.user.guestId (legacy)
+ * Authenticated via invitation code — identity is guaranteed to be a guest
+ * by the rsvp/layout.tsx wrapper. Loads invitation and guest records using
+ * the invitationId from the session identity.
  *
  * Protected route — redirects unauthenticated requests to /login.
  */
 export default async function RSVPPage() {
-  // Check authentication
   const session = await auth();
+  const identity = getAuthIdentity(session);
 
-  const hasGuestSession = !!session?.user?.guestId;
-  const hasInvitationSession = !!session?.user?.invitationId;
-
-  if (!isGuestAuthenticated(session)) {
+  // Redirect if not a guest (layout should have already handled this)
+  if (identity?.type !== 'guest') {
     redirect('/login?callbackUrl=/rsvp');
   }
 
   const db = getDb();
 
-  // Load invitation with guests via whichever auth path was used
-  const loadInvitationWithGuests = async () => {
-    if (hasInvitationSession) {
-      const invitationId = session.user.invitationId as string;
-
-      return db.query.invitations.findFirst({
-        where: (table, { eq }) => eq(table.id, invitationId),
-        with: { guests: true },
-      });
-    }
-
-    const guestId = session.user.guestId as string;
-    const loggedInGuest = await db.query.guests.findFirst({
-      where: (table, { eq }) => eq(table.id, guestId),
-      with: {
-        invitation: {
-          with: { guests: true },
-        },
-      },
-    });
-
-    return loggedInGuest?.invitation ?? undefined;
-  };
-
-  const invitation = await loadInvitationWithGuests();
+  const invitation = await db.query.invitations.findFirst({
+    where: (table, { eq }) => eq(table.id, identity.invitationId),
+    with: { guests: true },
+  });
 
   if (!invitation) {
     redirect('/login?callbackUrl=/rsvp');

@@ -46,7 +46,6 @@ export function RSVPForm({
   invitationId,
   guests,
   isSubmitted = false,
-  submittedBy,
   submittedAt,
   contactEmail,
 }: RSVPFormProps) {

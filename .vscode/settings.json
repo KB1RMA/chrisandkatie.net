@@ -23,6 +23,7 @@
         "git fetch": true,
         "git ls-remote": true,
         "mkdir": true,
-        "npx eslint": true
+        "npx eslint": true,
+        "nocorrect": true
     }
 }

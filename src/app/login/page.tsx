@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: 'Login',
   description: 'Login to access your wedding celebration details',
 };
-import { auth, isGuestAuthenticated } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,14 +27,20 @@ const marcellus = Marcellus({
 export default async function LoginPage(props: {
   searchParams: Promise<{ callbackUrl?: string; code?: string }>;
 }) {
-  // Check if user is already authenticated
+  // Resolve identity and redirect already-authenticated users
   const session = await auth();
+  const identity = getAuthIdentity(session);
   const searchParams = await props.searchParams;
 
-  if (isGuestAuthenticated(session)) {
-    // User is already logged in — redirect to RSVP or callback URL
+  if (identity?.type === 'admin') {
+    const callbackUrl = searchParams.callbackUrl || '/admin/invitations';
+    // @ts-expect-error - We don't have runtime type checking on the route. Accept the risk
+    redirect(callbackUrl);
+  }
+
+  if (identity?.type === 'guest') {
     const callbackUrl = searchParams.callbackUrl || '/rsvp';
-    // @ts-expect-error - callbackUrl is a dynamic route from query params, not a literal type
+    // @ts-expect-error - We don't have runtime type checking on the route. Accept the risk
     redirect(callbackUrl);
   }
 
@@ -51,4 +57,3 @@ export default async function LoginPage(props: {
     </div>
   );
 }
-

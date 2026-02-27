@@ -1,10 +1,13 @@
 /**
- * Auth.js v5 configuration for guest authentication.
+ * Auth.js v5 configuration for guest and admin authentication.
  *
- * Uses custom credentials providers that authenticate guests by name lookup
- * or invitation code. Sessions are handled via JWT — no database adapter is
- * used because both authorize functions manage user records manually and there
- * are no OAuth providers requiring account linking.
+ * Uses two custom credentials providers:
+ * - `admin-credentials`: Validates admin username/password against env vars.
+ * - `invitation-code`: Authenticates guests by two-word invitation code.
+ *
+ * Sessions are handled via JWT — no database adapter is used because both
+ * authorize functions manage user records manually and there are no OAuth
+ * providers requiring account linking.
  */
 import NextAuth, { type DefaultSession, type Session } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
@@ -16,21 +19,29 @@ import { authorizeCredentials } from '@/lib/auth-credentials';
 import { authorizeInvitationCode } from '@/lib/auth-invitation-code';
 
 /**
- * Extends the default session to include guest ID, first name, and roles.
+ * Discriminated union representing the resolved identity of the current user.
+ *
+ * - `admin` — authenticated administrator (from admin-credentials provider)
+ * - `guest` — authenticated wedding guest (from invitation-code provider)
+ */
+export type AuthIdentity =
+  | { type: 'admin'; username: string }
+  | { type: 'guest'; invitationId: string };
+
+/**
+ * Extends the default session to include username, invitationId, and roles.
  */
 declare module 'next-auth' {
   interface Session {
     user: {
-      guestId?: string;
-      firstName?: string;
+      username?: string;
       roles?: string[];
       invitationId?: string;
     } & DefaultSession['user'];
   }
 
   interface User {
-    guestId?: string;
-    firstName?: string;
+    username?: string;
     roles?: string[];
     invitationId?: string;
   }
@@ -64,16 +75,15 @@ export function createAuth(env?: CloudflareEnv) {
 
     providers: [
       Credentials({
-        id: 'credentials',
-        name: 'Guest Login',
+        id: 'admin-credentials',
+        name: 'Admin Login',
         credentials: {
-          firstName: { label: 'First Name', type: 'text' },
-          lastName: { label: 'Last Name', type: 'text' },
+          username: { label: 'Username', type: 'text' },
+          password: { label: 'Password', type: 'password' },
         },
 
         /**
-         * Authenticates a user — first checks admin credentials, then falls
-         * through to guest name lookup.
+         * Authenticates an administrator via env-var credential check.
          */
         async authorize(credentials) {
           return authorizeCredentials(credentials);
@@ -100,15 +110,11 @@ export function createAuth(env?: CloudflareEnv) {
 
     callbacks: {
       /**
-       * Adds guestId, firstName, and roles to JWT token when user signs in.
+       * Adds username, roles, and invitationId to JWT token when user signs in.
        */
       async jwt({ token, user }) {
-        if (user?.guestId) {
-          token.guestId = user.guestId;
-        }
-
-        if (user?.firstName) {
-          token.firstName = user.firstName;
+        if (user?.username) {
+          token.username = user.username;
         }
 
         if (user?.roles) {
@@ -123,15 +129,11 @@ export function createAuth(env?: CloudflareEnv) {
       },
 
       /**
-       * Adds guestId, firstName, and roles to session object from JWT token.
+       * Adds username, roles, and invitationId to session object from JWT token.
        */
       async session({ session, token }) {
-        if (token.guestId && session.user) {
-          session.user.guestId = token.guestId as string;
-        }
-
-        if (token.firstName && session.user) {
-          session.user.firstName = token.firstName as string;
+        if (token.username && session.user) {
+          session.user.username = token.username as string;
         }
 
         if (token.roles && session.user) {
@@ -207,20 +209,26 @@ export async function signOut(
 }
 
 /**
- * Returns true if the session contains a valid guest identity.
+ * Resolves the caller's identity from a session.
  *
- * Guests authenticate via one of two paths:
- * - Name-based login → `session.user.guestId`
- * - Invitation code login → `session.user.invitationId`
- *
- * Use this instead of checking either field directly so that adding
- * a new auth path only requires updating this one function.
+ * Replaces `isGuestAuthenticated`. Call this in every server component or
+ * server action that needs to gate behaviour on authentication status.
  *
  * @param session - The session object returned by `auth()`, or null.
- * @returns Whether the user has a recognised guest session.
+ * @returns The resolved identity, or null if the user is unauthenticated.
  */
-export function isGuestAuthenticated(
-  session: Session | null,
-): session is Session {
-  return !!session?.user?.guestId || !!session?.user?.invitationId;
+export function getAuthIdentity(session: Session | null): AuthIdentity | null {
+  if (!session?.user) {
+    return null;
+  }
+
+  if (session.user.roles?.includes('admin') && session.user.username) {
+    return { type: 'admin', username: session.user.username };
+  }
+
+  if (session.user.invitationId) {
+    return { type: 'guest', invitationId: session.user.invitationId };
+  }
+
+  return null;
 }

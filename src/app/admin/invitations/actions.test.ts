@@ -4,6 +4,7 @@
 
 vi.mock('@/lib/auth', () => ({
   auth: vi.fn(),
+  getAuthIdentity: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -15,15 +16,16 @@ vi.mock('next/cache', () => ({
 }));
 
 import { expect, test, describe, beforeEach, vi } from 'vitest';
-import { type Session } from 'next-auth';
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { updateInvitationVisibleEvents } from './actions';
 import { guestEvents } from '@/lib/db/schema';
+import { makeSession } from '@/tests/helpers';
 
 const mockAuth = vi.mocked(auth);
+const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
 const mockGetDb = vi.mocked(getDb);
 const mockRevalidatePath = vi.mocked(revalidatePath);
 
@@ -64,22 +66,6 @@ function createMockDb(
   } as unknown as DbClient;
 }
 
-/** Creates a test session with guestId. */
-function makeSession(guestId = 'guest-1'): Session {
-  return {
-    user: { id: 'user-1', guestId },
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
-}
-
-/** Creates a test admin session with roles: ['admin'] and no guestId. */
-function makeAdminSession(): Session {
-  return {
-    user: { id: 'admin', roles: ['admin'] },
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
-}
-
 /** Creates a minimal guest fixture. */
 function makeGuest(id: string) {
   return {
@@ -105,27 +91,25 @@ describe('updateInvitationVisibleEvents', () => {
 
   test('should return Unauthorized when session is null', async () => {
     mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
 
     const result = await updateInvitationVisibleEvents('invitation-1', []);
 
     expect(result).toEqual({ success: false, error: 'Unauthorized' });
   });
 
-  test('should return Unauthorized when session has no guestId', async () => {
-    const session: Session = {
-      user: { id: 'user-1' },
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    };
-
-    mockAuth.mockResolvedValue(session);
+  test('should return Unauthorized when identity is null', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
 
     const result = await updateInvitationVisibleEvents('invitation-1', []);
 
     expect(result).toEqual({ success: false, error: 'Unauthorized' });
   });
 
-  test('should allow admin session (roles: admin) to update visible events', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+  test('should allow admin identity to update visible events', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       invitationFindFirst: vi.fn().mockResolvedValue({
@@ -143,8 +127,12 @@ describe('updateInvitationVisibleEvents', () => {
     expect(result).toEqual({ success: true });
   });
 
-  test('should return Unauthorized when session has guestId but no admin role', async () => {
-    mockAuth.mockResolvedValue(makeSession('guest-1'));
+  test('should return Unauthorized when identity is a guest', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
 
     const result = await updateInvitationVisibleEvents('invitation-1', []);
 
@@ -152,7 +140,8 @@ describe('updateInvitationVisibleEvents', () => {
   });
 
   test('should delete existing guestEvents rows and insert new ones for each guest', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const deleteWhereFn = vi.fn().mockResolvedValue(undefined);
     const deleteFn = vi.fn().mockReturnValue({ where: deleteWhereFn });
@@ -207,7 +196,8 @@ describe('updateInvitationVisibleEvents', () => {
   });
 
   test('should handle empty eventIds by deleting all guestEvents rows for each guest', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const deleteWhereFn = vi.fn().mockResolvedValue(undefined);
     const deleteFn = vi.fn().mockReturnValue({ where: deleteWhereFn });
@@ -242,7 +232,8 @@ describe('updateInvitationVisibleEvents', () => {
   });
 
   test('should revalidate /admin/invitations and /schedule paths on success', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       invitationFindFirst: vi.fn().mockResolvedValue({
@@ -260,7 +251,8 @@ describe('updateInvitationVisibleEvents', () => {
   });
 
   test('should return error when invitation is not found', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       invitationFindFirst: vi.fn().mockResolvedValue(null),
@@ -277,7 +269,8 @@ describe('updateInvitationVisibleEvents', () => {
   });
 
   test('should return error when DB throws', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       invitationFindFirst: vi.fn().mockRejectedValue(new Error('DB error')),
