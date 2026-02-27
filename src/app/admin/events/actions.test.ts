@@ -173,17 +173,19 @@ describe('createEvent', () => {
     expect(mockRevalidatePath).toHaveBeenCalledWith('/schedule');
   });
 
-  test('should insert a guestEvents row for every guest when inviteAllGuests is true', async () => {
+  test('should insert a separate guestEvents row per guest when inviteAllGuests is true', async () => {
     mockAuth.mockResolvedValue(makeAdminSession());
 
     const insertValuesFn = vi.fn().mockResolvedValue([]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
+    const batchFn = vi.fn().mockResolvedValue([]);
     const guestFindManyFn = vi
       .fn()
       .mockResolvedValue([{ id: 'guest-1' }, { id: 'guest-2' }]);
     const mockDb = createMockDb({
       insert: insertFn,
       guestFindMany: guestFindManyFn,
+      batch: batchFn,
     });
 
     mockGetDb.mockReturnValue(mockDb);
@@ -197,16 +199,21 @@ describe('createEvent', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(insertFn).toHaveBeenCalledTimes(2);
 
-    const guestEventValues = insertValuesFn.mock.calls[1][0] as Array<{
+    // 1 insert for the event + 1 single-row insert per guest (avoids D1 multi-variable limit)
+    expect(insertFn).toHaveBeenCalledTimes(3);
+
+    const guestCall1 = insertValuesFn.mock.calls[1][0] as {
       guestId: string;
       eventId: string;
-    }>;
+    };
+    const guestCall2 = insertValuesFn.mock.calls[2][0] as {
+      guestId: string;
+      eventId: string;
+    };
 
-    expect(guestEventValues).toHaveLength(2);
-    expect(guestEventValues[0]).toMatchObject({ guestId: 'guest-1' });
-    expect(guestEventValues[1]).toMatchObject({ guestId: 'guest-2' });
+    expect(guestCall1).toMatchObject({ guestId: 'guest-1' });
+    expect(guestCall2).toMatchObject({ guestId: 'guest-2' });
   });
 
   test('should not insert guestEvents when inviteAllGuests is false', async () => {
@@ -255,13 +262,17 @@ describe('createEvent', () => {
     expect(insertFn).toHaveBeenCalledTimes(1);
   });
 
-  test('should use batch when inviteAllGuests is true', async () => {
+  test('should use a single batch call for 100 or fewer guests', async () => {
     mockAuth.mockResolvedValue(makeAdminSession());
 
     const insertFn = vi
       .fn()
       .mockReturnValue({ values: vi.fn().mockResolvedValue([]) });
-    const guestFindManyFn = vi.fn().mockResolvedValue([{ id: 'guest-1' }]);
+    const guestFindManyFn = vi
+      .fn()
+      .mockResolvedValue(
+        Array.from({ length: 100 }, (_, i) => ({ id: `guest-${i}` })),
+      );
     const batchFn = vi.fn().mockResolvedValue([]);
     const mockDb = createMockDb({
       insert: insertFn,
@@ -280,6 +291,46 @@ describe('createEvent', () => {
     });
 
     expect(vi.mocked(mockDb.batch)).toHaveBeenCalledTimes(1);
+  });
+
+  test('should split guest inserts across multiple batch calls when more than 100 guests exist', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertFn = vi
+      .fn()
+      .mockReturnValue({ values: vi.fn().mockResolvedValue([]) });
+    // 150 guests → chunk of 100 + chunk of 50 = 2 batch calls
+    const guestFindManyFn = vi
+      .fn()
+      .mockResolvedValue(
+        Array.from({ length: 150 }, (_, i) => ({ id: `guest-${i}` })),
+      );
+    const batchFn = vi.fn().mockResolvedValue([]);
+    const mockDb = createMockDb({
+      insert: insertFn,
+      guestFindMany: guestFindManyFn,
+      batch: batchFn,
+    });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    await createEvent({
+      name: 'Wedding',
+      eventDate: '2026-09-12',
+      startTime: '16:00',
+      endTime: '23:00',
+      inviteAllGuests: true,
+    });
+
+    expect(vi.mocked(mockDb.batch)).toHaveBeenCalledTimes(2);
+
+    const firstBatchArgs = vi.mocked(mockDb.batch).mock
+      .calls[0][0] as unknown as unknown[];
+    const secondBatchArgs = vi.mocked(mockDb.batch).mock
+      .calls[1][0] as unknown as unknown[];
+
+    expect(firstBatchArgs).toHaveLength(100);
+    expect(secondBatchArgs).toHaveLength(50);
   });
 
   test('should not use batch when inviteAllGuests is false', async () => {

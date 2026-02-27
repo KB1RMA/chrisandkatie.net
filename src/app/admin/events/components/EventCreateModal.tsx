@@ -1,11 +1,12 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { useForm, type Resolver } from 'react-hook-form';
+import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { eventFormSchema, type EventFormData } from '@/lib/schemas/event';
 import { createEvent } from '../actions';
+import LocationAutocomplete from './LocationAutocomplete';
 
 type EventCreateModalProps = {
   onClose: () => void;
@@ -33,6 +34,7 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema) as Resolver<EventFormData>,
@@ -134,11 +136,17 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
             <label htmlFor="create-location" className={LABEL_CLASS}>
               Location
             </label>
-            <input
-              id="create-location"
-              type="text"
-              {...register('location')}
-              className={INPUT_CLASS}
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <LocationAutocomplete
+                  id="create-location"
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  className={INPUT_CLASS}
+                />
+              )}
             />
             {errors.location && (
               <p className={ERROR_CLASS}>{errors.location.message}</p>
