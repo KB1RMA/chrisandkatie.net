@@ -27,18 +27,30 @@ export const WEDDING_DISPLAY_TEXT = format(
  * Meal options for RSVP
  */
 export const MEAL_OPTIONS = {
-  PRIME_RIB: 'prime-rib',
-  CHICKEN: 'chicken',
-  VEGETARIAN: 'vegetarian',
+  SHORT_RIB: 'short-rib',
+  ROASTED_CHICKEN: 'roasted-chicken',
+  PASTA_PRIMAVERA: 'pasta-primavera',
 } as const;
 
 export const MEAL_CHOICE_LABELS: Record<
   (typeof MEAL_OPTIONS)[keyof typeof MEAL_OPTIONS],
   string
 > = {
-  [MEAL_OPTIONS.PRIME_RIB]: 'Prime Rib',
-  [MEAL_OPTIONS.CHICKEN]: 'Chicken',
-  [MEAL_OPTIONS.VEGETARIAN]: 'Vegetarian',
+  [MEAL_OPTIONS.SHORT_RIB]: 'Short Rib',
+  [MEAL_OPTIONS.ROASTED_CHICKEN]: 'Roasted Chicken',
+  [MEAL_OPTIONS.PASTA_PRIMAVERA]: 'Pasta Primavera (Vegetarian)',
+};
+
+export const MEAL_CHOICE_DESCRIPTIONS: Record<
+  (typeof MEAL_OPTIONS)[keyof typeof MEAL_OPTIONS],
+  string
+> = {
+  [MEAL_OPTIONS.SHORT_RIB]:
+    'Slow-braised beef short rib in a rich red wine reduction, served with creamy mashed potatoes and roasted seasonal vegetables.',
+  [MEAL_OPTIONS.ROASTED_CHICKEN]:
+    'Herb-roasted airline chicken breast with a golden pan sauce, served over fragrant coconut rice with sautéed broccolini.',
+  [MEAL_OPTIONS.PASTA_PRIMAVERA]:
+    'Housemade pappardelle tossed with garden-fresh spring vegetables, cherry tomatoes, and a light lemon-herb olive oil.',
 };
 
 export type MealOption = (typeof MEAL_OPTIONS)[keyof typeof MEAL_OPTIONS];
