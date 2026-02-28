@@ -3,11 +3,10 @@ import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { eq, asc, inArray } from 'drizzle-orm';
 import { Button } from '@/components/Button';
-import { ScheduleCard } from '@/components/ScheduleCard';
+import { ScheduleMapLayout } from '@/components/ScheduleMapLayout';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { events, guestEvents } from '@/lib/db/schema';
-import { isCurrentEvent } from '@/lib/schedule-utils';
 import type { WeddingEvent } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
@@ -75,7 +74,7 @@ export default async function SchedulePage() {
 
   return (
     <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:justify-center sm:p-8">
-      <div className="w-full max-w-3xl">
+      <div className="w-full max-w-5xl">
         <h1
           className={`${marcellus.className} mb-4 text-center text-5xl font-bold text-[#9e3f3f] sm:text-6xl`}
         >
@@ -86,19 +85,13 @@ export default async function SchedulePage() {
           Welcome, {welcomeName}! Here&apos;s your personalized schedule.
         </p>
 
-        <div className="mb-12 space-y-6">
+        <div className="mb-12">
           {displayEvents.length === 0 ? (
             <p className="text-center text-[#6a5555]">
               No events have been added to your schedule yet.
             </p>
           ) : (
-            displayEvents.map((item) => (
-              <ScheduleCard
-                key={item.id}
-                item={item}
-                isCurrentEvent={isCurrentEvent(item)}
-              />
-            ))
+            <ScheduleMapLayout displayEvents={displayEvents} />
           )}
         </div>
 
