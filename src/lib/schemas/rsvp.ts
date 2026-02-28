@@ -15,12 +15,13 @@ export const guestUpdateSchema = z
     id: z.string().min(1, 'Guest ID is required'),
     firstName: z.string().optional(),
     lastName: z.string().optional(),
+    type: z.enum(['adult', 'child']).optional(),
     attending: z.boolean(),
     mealChoice: z
       .enum([
-        MEAL_OPTIONS.PRIME_RIB,
-        MEAL_OPTIONS.CHICKEN,
-        MEAL_OPTIONS.VEGETARIAN,
+        MEAL_OPTIONS.SHORT_RIB,
+        MEAL_OPTIONS.ROASTED_CHICKEN,
+        MEAL_OPTIONS.PASTA_PRIMAVERA,
       ])
       .nullable(),
     dietaryRestrictions: z.string().nullable(),
@@ -28,8 +29,12 @@ export const guestUpdateSchema = z
   })
   .refine(
     (data) => {
-      // If attending, meal choice is required
-      if (data.attending === true && !data.mealChoice) {
+      // If attending and an adult, meal choice is required
+      if (
+        data.attending === true &&
+        data.type !== 'child' &&
+        !data.mealChoice
+      ) {
         return false;
       }
 

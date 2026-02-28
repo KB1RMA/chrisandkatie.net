@@ -101,7 +101,7 @@ describe('submitRsvp', () => {
         {
           id: guestId,
           attending: true,
-          mealChoice: MEAL_OPTIONS.PRIME_RIB,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
           dietaryRestrictions: null,
           notes: null,
         },
@@ -123,7 +123,7 @@ describe('submitRsvp', () => {
           {
             id: 'guest-1',
             attending: true,
-            mealChoice: MEAL_OPTIONS.CHICKEN,
+            mealChoice: MEAL_OPTIONS.ROASTED_CHICKEN,
             dietaryRestrictions: null,
             notes: null,
           },
@@ -143,7 +143,7 @@ describe('submitRsvp', () => {
           {
             id: 'guest-1',
             attending: true,
-            mealChoice: MEAL_OPTIONS.CHICKEN,
+            mealChoice: MEAL_OPTIONS.ROASTED_CHICKEN,
             dietaryRestrictions: null,
             notes: null,
           },
@@ -167,7 +167,7 @@ describe('submitRsvp', () => {
           {
             id: 'guest-1',
             attending: true,
-            mealChoice: MEAL_OPTIONS.CHICKEN,
+            mealChoice: MEAL_OPTIONS.ROASTED_CHICKEN,
             dietaryRestrictions: null,
             notes: null,
           },
@@ -231,7 +231,7 @@ describe('submitRsvp', () => {
         {
           id: guestId,
           attending: true,
-          mealChoice: MEAL_OPTIONS.PRIME_RIB,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
           dietaryRestrictions: null,
           notes: null,
         },
@@ -266,7 +266,7 @@ describe('submitRsvp', () => {
         {
           id: guestId,
           attending: true,
-          mealChoice: MEAL_OPTIONS.PRIME_RIB,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
           dietaryRestrictions: null,
           notes: null,
         },
@@ -344,7 +344,7 @@ describe('submitRsvp', () => {
           {
             id: 'guest-1',
             attending: true,
-            mealChoice: MEAL_OPTIONS.CHICKEN,
+            mealChoice: MEAL_OPTIONS.ROASTED_CHICKEN,
             dietaryRestrictions: null,
             notes: null,
           },

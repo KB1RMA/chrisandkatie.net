@@ -17,6 +17,7 @@ import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
 import {
   MEAL_OPTIONS,
   MEAL_CHOICE_LABELS,
+  MEAL_CHOICE_DESCRIPTIONS,
   type MealOption,
 } from '@/lib/constants';
 import { Button } from '@/components/Button';
@@ -68,6 +69,7 @@ export function RSVPForm({
         id: g.id,
         firstName: g.firstName,
         lastName: g.lastName,
+        type: g.type,
         attending: g.attending ?? undefined,
         mealChoice: g.mealChoice,
         dietaryRestrictions: g.dietaryRestrictions || null,
@@ -204,6 +206,7 @@ export function RSVPForm({
       <div className="space-y-4">
         {guests.map((guest, index) => {
           const isAttending = watchedAttending[index]?.attending === true;
+          const isChild = guest.type === 'child';
 
           return (
             <div
@@ -293,46 +296,58 @@ export function RSVPForm({
 
               {isAttending && (
                 <div className="space-y-4">
-                  <div>
-                    <label className="mb-3 block text-base font-medium text-gray-700 sm:text-sm">
-                      Meal Choice *
-                    </label>
-                    <Controller
-                      name={`guests.${index}.mealChoice`}
-                      control={control}
-                      render={({ field }) => (
-                        <div
-                          className={`space-y-2 sm:space-y-3 ${
-                            errors.guests?.[index]?.mealChoice
-                              ? 'rounded-md border-2 border-red-300 bg-red-50 p-3'
-                              : ''
-                          }`}
-                        >
-                          {Object.entries(MEAL_OPTIONS).map(([, value]) => (
-                            <label
-                              key={value}
-                              className="flex cursor-pointer items-center rounded border border-transparent p-3 hover:border-gray-200 hover:bg-gray-50 sm:p-2"
-                            >
-                              <input
-                                type="radio"
-                                checked={field.value === value}
-                                onChange={() => field.onChange(value)}
-                                className="form-radio h-5 w-5 flex-shrink-0 text-[#9e3f3f]"
-                              />
-                              <span className="ml-3 text-base font-medium text-gray-900 sm:text-sm">
-                                {MEAL_CHOICE_LABELS[value]}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
+                  {isChild ? (
+                    <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Kids&#39; food options will be available to choose the
+                      night of the event.
+                    </p>
+                  ) : (
+                    <div>
+                      <label className="mb-3 block text-base font-medium text-gray-700 sm:text-sm">
+                        Meal Choice *
+                      </label>
+                      <Controller
+                        name={`guests.${index}.mealChoice`}
+                        control={control}
+                        render={({ field }) => (
+                          <div
+                            className={`space-y-2 sm:space-y-3 ${
+                              errors.guests?.[index]?.mealChoice
+                                ? 'rounded-md border-2 border-red-300 bg-red-50 p-3'
+                                : ''
+                            }`}
+                          >
+                            {Object.entries(MEAL_OPTIONS).map(([, value]) => (
+                              <label
+                                key={value}
+                                className="flex cursor-pointer items-start rounded border border-transparent p-3 hover:border-gray-200 hover:bg-gray-50 sm:p-2"
+                              >
+                                <input
+                                  type="radio"
+                                  checked={field.value === value}
+                                  onChange={() => field.onChange(value)}
+                                  className="form-radio mt-1 h-5 w-5 flex-shrink-0 text-[#9e3f3f]"
+                                />
+                                <span className="ml-3">
+                                  <span className="block text-base font-medium text-gray-900 sm:text-sm">
+                                    {MEAL_CHOICE_LABELS[value]}
+                                  </span>
+                                  <span className="block text-sm text-gray-500 sm:text-xs">
+                                    {MEAL_CHOICE_DESCRIPTIONS[value]}
+                                  </span>
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      />
+                      {errors.guests?.[index]?.mealChoice && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.guests[index]?.mealChoice?.message}
+                        </p>
                       )}
-                    />
-                    {errors.guests?.[index]?.mealChoice && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.guests[index]?.mealChoice?.message}
-                      </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div>
                     <label
