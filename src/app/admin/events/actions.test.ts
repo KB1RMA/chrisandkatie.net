@@ -354,6 +354,60 @@ describe('createEvent', () => {
 
     expect(vi.mocked(mockDb.batch)).not.toHaveBeenCalled();
   });
+
+  test('should persist rsvpRequired: true when provided', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertValuesFn = vi.fn().mockResolvedValue([{ id: 'new-event-id' }]);
+    const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
+    const mockDb = createMockDb({ insert: insertFn });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await createEvent({
+      name: 'Rehearsal Dinner',
+      eventDate: '2026-09-11',
+      startTime: '18:30',
+      endTime: '20:30',
+      rsvpRequired: true,
+    });
+
+    expect(result.success).toBe(true);
+
+    const insertedValues = insertValuesFn.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+
+    expect(insertedValues.rsvpRequired).toBe(true);
+  });
+
+  test('should persist rsvpRequired: false when provided', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const insertValuesFn = vi.fn().mockResolvedValue([{ id: 'new-event-id' }]);
+    const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
+    const mockDb = createMockDb({ insert: insertFn });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await createEvent({
+      name: 'Brunch',
+      eventDate: '2026-09-13',
+      startTime: '10:00',
+      endTime: '12:00',
+      rsvpRequired: false,
+    });
+
+    expect(result.success).toBe(true);
+
+    const insertedValues = insertValuesFn.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+
+    expect(insertedValues.rsvpRequired).toBe(false);
+  });
 });
 
 describe('updateEvent', () => {
@@ -421,6 +475,32 @@ describe('updateEvent', () => {
     });
 
     expect(updateFn).toHaveBeenCalled();
+  });
+
+  test('should persist a changed rsvpRequired value on update', async () => {
+    mockAuth.mockResolvedValue(makeAdminSession());
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+    const mockDb = createMockDb({ update: updateFn });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    await updateEvent({
+      id: 'event-123',
+      name: 'Rehearsal Dinner',
+      eventDate: '2026-09-11',
+      startTime: '18:30',
+      endTime: '20:30',
+      type: 'rehearsal',
+      sortOrder: 1,
+      rsvpRequired: true,
+    });
+
+    const setPayload = setFn.mock.calls[0][0] as Record<string, unknown>;
+
+    expect(setPayload.rsvpRequired).toBe(true);
   });
 });
 

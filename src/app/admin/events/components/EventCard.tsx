@@ -99,6 +99,16 @@ export function EventCard({ event, rsvpSummary }: EventCardProps) {
               >
                 {typeLabel}
               </span>
+
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  event.rsvpRequired
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {event.rsvpRequired ? 'RSVP Required' : 'No RSVP'}
+              </span>
             </div>
 
             <div className="space-y-1 text-sm text-gray-600">

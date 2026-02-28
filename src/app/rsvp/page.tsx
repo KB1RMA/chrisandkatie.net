@@ -69,10 +69,7 @@ export default async function RSVPPage() {
   let additionalEvents: Awaited<ReturnType<typeof fetchGuestEvents>> = [];
 
   try {
-    const allGuestEvents = await fetchGuestEvents();
-    additionalEvents = allGuestEvents.filter(
-      ({ event }) => event.type !== 'main',
-    );
+    additionalEvents = await fetchGuestEvents();
   } catch {
     // Non-critical: continue without additional events if query fails
   }

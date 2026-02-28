@@ -24,6 +24,7 @@
         "git ls-remote": true,
         "mkdir": true,
         "npx eslint": true,
-        "nocorrect": true
+        "nocorrect": true,
+        "npx drizzle-kit": true
     }
 }

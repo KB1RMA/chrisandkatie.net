@@ -151,4 +151,52 @@ describe('eventFormSchema', () => {
       expect(result.data.sortOrder).toBe(0);
     });
   });
+
+  describe('rsvpRequired', () => {
+    test('should default rsvpRequired to false when omitted', () => {
+      const result = eventFormSchema.safeParse(validRequiredOnlyEvent);
+
+      expect(result.success).toBe(true);
+      assert(result.success);
+
+      expect(result.data.rsvpRequired).toBe(false);
+    });
+
+    test('should pass validation when rsvpRequired is true', () => {
+      const result = eventFormSchema.safeParse({
+        ...validRequiredOnlyEvent,
+        rsvpRequired: true,
+      });
+
+      expect(result.success).toBe(true);
+      assert(result.success);
+
+      expect(result.data.rsvpRequired).toBe(true);
+    });
+
+    test('should pass validation when rsvpRequired is false', () => {
+      const result = eventFormSchema.safeParse({
+        ...validRequiredOnlyEvent,
+        rsvpRequired: false,
+      });
+
+      expect(result.success).toBe(true);
+      assert(result.success);
+
+      expect(result.data.rsvpRequired).toBe(false);
+    });
+
+    test('should coerce rsvpRequired to false when type is main regardless of input', () => {
+      const result = eventFormSchema.safeParse({
+        ...validRequiredOnlyEvent,
+        type: 'main',
+        rsvpRequired: true,
+      });
+
+      expect(result.success).toBe(true);
+      assert(result.success);
+
+      expect(result.data.rsvpRequired).toBe(false);
+    });
+  });
 });
