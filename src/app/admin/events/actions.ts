@@ -5,30 +5,18 @@
  *
  * All actions require admin authentication and return a structured result.
  */
-import { eq, and, count } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
-import { auth } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { events, guestEvents, rsvpResponses } from '@/lib/db/schema';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { eventFormSchema } from '@/lib/schemas/event';
 import type { EventFormData } from '@/lib/schemas/event';
 import { geocodeLocation } from '@/lib/geocoding';
+import * as EventRepository from '@/lib/db/repositories/events';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 
 type ActionResult<T = void> =
   | { success: true; data?: T }
   | { success: false; error: string };
-
-/**
- * Check that the current session belongs to an admin user.
- *
- * @returns The session if admin, or null if unauthorized.
- */
-async function requireAdmin(): Promise<boolean> {
-  const session = await auth();
-
-  return (session?.user?.roles ?? []).includes('admin');
-}
 
 /**
  * Create a new wedding event.
@@ -39,9 +27,9 @@ async function requireAdmin(): Promise<boolean> {
 export async function createEvent(
   input: Partial<EventFormData>,
 ): Promise<ActionResult<{ id: string }>> {
-  const isAdmin = await requireAdmin();
+  const identity = getAuthIdentity(await auth());
 
-  if (!isAdmin) {
+  if (!identity || identity.type !== 'admin') {
     return { success: false, error: 'Unauthorized' };
   }
 
@@ -55,63 +43,34 @@ export async function createEvent(
   }
 
   const data = parsed.data;
-  const db = getDb();
   const id = randomUUID();
   const now = new Date().toISOString();
 
   // Geocode the location so coordinates are stored and ready for the map
   const coords = data.location ? await geocodeLocation(data.location) : null;
 
-  const eventValues = {
-    id,
-    name: data.name,
-    description: data.description,
-    location: data.location,
-    eventDate: data.eventDate,
-    startTime: data.startTime,
-    endTime: data.endTime,
-    type: data.type,
-    dressCode: data.dressCode,
-    parkingInfo: data.parkingInfo,
-    locationLat: coords?.lat ?? null,
-    locationLng: coords?.lng ?? null,
-    sortOrder: data.sortOrder,
-    rsvpRequired: data.rsvpRequired,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  // D1's SQLite enforces ~100 bound variables per statement and 100 statements
-  // per batch call. Each guestEvents row uses 3 columns, so we insert every row
-  // as its own single-row statement and flush in batches of 100.
-  const D1_BATCH_STATEMENT_LIMIT = 100;
-
   try {
-    await db.insert(events).values(eventValues);
+    await EventRepository.insertEvent({
+      id,
+      name: data.name,
+      description: data.description,
+      location: data.location,
+      eventDate: data.eventDate,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      type: data.type,
+      dressCode: data.dressCode,
+      parkingInfo: data.parkingInfo,
+      locationLat: coords?.lat ?? null,
+      locationLng: coords?.lng ?? null,
+      sortOrder: data.sortOrder,
+      rsvpRequired: data.rsvpRequired,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     if (data.inviteAllGuests) {
-      const allGuests = await db.query.guests.findMany({
-        columns: { id: true },
-      });
-
-      // Build one INSERT statement per guest row (3 variables each — safely under D1's limit)
-      const statements = allGuests.map((guest) =>
-        db.insert(guestEvents).values({
-          id: randomUUID(),
-          guestId: guest.id,
-          eventId: id,
-        }),
-      );
-
-      // Flush in batches of 100 to stay within D1's per-batch statement limit
-      for (let i = 0; i < statements.length; i += D1_BATCH_STATEMENT_LIMIT) {
-        const [first, ...rest] = statements.slice(
-          i,
-          i + D1_BATCH_STATEMENT_LIMIT,
-        );
-
-        await db.batch([first, ...rest]);
-      }
+      await EventRepository.addAllGuestsToEvent(id);
     }
   } catch (error) {
     console.error('Failed to create event:', error);
@@ -137,9 +96,9 @@ export async function createEvent(
 export async function updateEvent(
   input: Partial<EventFormData> & { id: string },
 ): Promise<ActionResult> {
-  const isAdmin = await requireAdmin();
+  const identity = getAuthIdentity(await auth());
 
-  if (!isAdmin) {
+  if (!identity || identity.type !== 'admin') {
     return { success: false, error: 'Unauthorized' };
   }
 
@@ -154,31 +113,27 @@ export async function updateEvent(
   }
 
   const data = parsed.data;
-  const db = getDb();
 
   // Re-geocode whenever the event is updated in case the location changed
   const coords = data.location ? await geocodeLocation(data.location) : null;
 
   try {
-    await db
-      .update(events)
-      .set({
-        name: data.name,
-        description: data.description,
-        location: data.location,
-        eventDate: data.eventDate,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        type: data.type,
-        dressCode: data.dressCode,
-        parkingInfo: data.parkingInfo,
-        locationLat: coords?.lat ?? null,
-        locationLng: coords?.lng ?? null,
-        sortOrder: data.sortOrder,
-        rsvpRequired: data.rsvpRequired,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(events.id, id));
+    await EventRepository.updateEventById(id, {
+      name: data.name,
+      description: data.description,
+      location: data.location,
+      eventDate: data.eventDate,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      type: data.type,
+      dressCode: data.dressCode,
+      parkingInfo: data.parkingInfo,
+      locationLat: coords?.lat ?? null,
+      locationLng: coords?.lng ?? null,
+      sortOrder: data.sortOrder,
+      rsvpRequired: data.rsvpRequired,
+      updatedAt: new Date().toISOString(),
+    });
   } catch (error) {
     console.error('Failed to update event:', error);
 
@@ -207,15 +162,13 @@ export async function deleteEvent({
 }: {
   id: string;
 }): Promise<ActionResult> {
-  const isAdmin = await requireAdmin();
+  const identity = getAuthIdentity(await auth());
 
-  if (!isAdmin) {
+  if (!identity || identity.type !== 'admin') {
     return { success: false, error: 'Unauthorized' };
   }
 
-  const db = getDb();
-
-  await db.delete(events).where(eq(events.id, id));
+  await EventRepository.deleteEventById(id);
 
   revalidatePath('/admin/events');
   revalidatePath('/schedule');
@@ -244,46 +197,13 @@ export async function getEventRsvpSummary({
     total: number;
   }>
 > {
-  const isAdmin = await requireAdmin();
+  const identity = getAuthIdentity(await auth());
 
-  if (!isAdmin) {
+  if (!identity || identity.type !== 'admin') {
     return { success: false, error: 'Unauthorized' };
   }
 
-  const db = getDb();
+  const summary = await RsvpRepository.getRsvpSummaryForEvent(eventId);
 
-  const [totalResult, attendingResult, notAttendingResult] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(guestEvents)
-      .where(eq(guestEvents.eventId, eventId)),
-    db
-      .select({ count: count() })
-      .from(rsvpResponses)
-      .where(
-        and(
-          eq(rsvpResponses.eventId, eventId),
-          eq(rsvpResponses.attendanceStatus, 'attending'),
-        ),
-      ),
-    db
-      .select({ count: count() })
-      .from(rsvpResponses)
-      .where(
-        and(
-          eq(rsvpResponses.eventId, eventId),
-          eq(rsvpResponses.attendanceStatus, 'not_attending'),
-        ),
-      ),
-  ]);
-
-  const total = totalResult[0]?.count ?? 0;
-  const attending = attendingResult[0]?.count ?? 0;
-  const notAttending = notAttendingResult[0]?.count ?? 0;
-  const noResponse = total - attending - notAttending;
-
-  return {
-    success: true,
-    data: { attending, notAttending, noResponse, total },
-  };
+  return { success: true, data: summary };
 }

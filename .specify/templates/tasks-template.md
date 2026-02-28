@@ -68,6 +68,8 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T007 Create base models/entities that all stories depend on
 - [ ] T008 Configure error handling and logging infrastructure
 - [ ] T009 Setup environment configuration management
+- [ ] T009a [P] Create repository module(s) in `src/lib/db/repositories/` for entities introduced by this feature
+- [ ] T009b [P] Define Zod validation schemas for all server action inputs introduced by this feature
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -92,7 +94,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
 - [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
 - [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T016 [US1] Add validation and error handling
+- [ ] T016 [US1] Add validation (Zod schema) and auth check to server action; delegate data access to repository module
 - [ ] T017 [US1] Add logging for user story 1 operations
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently

@@ -1,11 +1,12 @@
 'use server';
 
-import { eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guestEvents, invitations } from '@/lib/db/schema';
 import { generateUniqueInvitationCode } from '@/lib/invitation-code';
+import * as InvitationRepository from '@/lib/db/repositories/invitations';
+import * as GuestRepository from '@/lib/db/repositories/guests';
+import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
 
 /**
  * Update visible events for an invitation by syncing the guestEvents table.
@@ -30,15 +31,8 @@ export async function updateInvitationVisibleEvents(
   }
 
   try {
-    const db = getDb();
-
-    // Fetch all guests for this invitation
-    const invitation = await db.query.invitations.findFirst({
-      where: (table, { eq }) => eq(table.id, invitationId),
-      with: {
-        guests: true,
-      },
-    });
+    const invitation =
+      await InvitationRepository.findInvitationWithGuests(invitationId);
 
     if (!invitation) {
       return { success: false, error: 'Invitation not found' };
@@ -49,17 +43,15 @@ export async function updateInvitationVisibleEvents(
 
     // Sync guestEvents for each guest: delete existing rows, insert granted ones
     for (const guest of invitation.guests) {
-      await db.delete(guestEvents).where(eq(guestEvents.guestId, guest.id));
+      await GuestEventRepository.deleteGuestEventsForGuest(guest.id);
 
-      if (uniqueEventIds.length > 0) {
-        await db.insert(guestEvents).values(
-          uniqueEventIds.map((eventId) => ({
-            id: crypto.randomUUID(),
-            guestId: guest.id,
-            eventId,
-          })),
-        );
-      }
+      await GuestEventRepository.insertGuestEvents(
+        uniqueEventIds.map((eventId) => ({
+          id: crypto.randomUUID(),
+          guestId: guest.id,
+          eventId,
+        })),
+      );
     }
 
     // Revalidate admin and schedule pages
@@ -99,14 +91,11 @@ export async function backfillInvitationCodes(): Promise<{
   }
 
   try {
+    // generateUniqueInvitationCode requires a db client to check for collisions
     const db = getDb();
     const now = new Date().toISOString();
 
-    // Load all invitations that still need a code
-    const pending = await db.query.invitations.findMany({
-      where: isNull(invitations.invitationCode),
-      columns: { id: true, invitationCode: true },
-    });
+    const pending = await InvitationRepository.findInvitationsWithoutCode();
 
     if (pending.length === 0) {
       return { success: true, updatedCount: 0 };
@@ -117,10 +106,10 @@ export async function backfillInvitationCodes(): Promise<{
     for (const invitation of pending) {
       const code = await generateUniqueInvitationCode(db);
 
-      await db
-        .update(invitations)
-        .set({ invitationCode: code, updatedAt: now })
-        .where(eq(invitations.id, invitation.id));
+      await InvitationRepository.updateInvitation(invitation.id, {
+        invitationCode: code,
+        updatedAt: now,
+      });
 
       updatedCount += 1;
     }
@@ -152,37 +141,18 @@ export async function resetInvitationRSVP(
   }
 
   try {
-    const db = getDb();
-
-    // Get all guests for this invitation
-    const invitation = await db.query.invitations.findFirst({
-      where: (table, { eq }) => eq(table.id, invitationId),
-      with: {
-        guests: true,
-      },
-    });
+    const invitation =
+      await InvitationRepository.findInvitationWithGuests(invitationId);
 
     if (!invitation) {
       return { success: false, error: 'Invitation not found' };
     }
 
-    // Import guests table dynamically to avoid circular dependency
-    const { guests } = await import('@/lib/db/schema');
-
-    // Reset all guests' RSVP data
     const now = new Date().toISOString();
 
+    // Reset all guests' RSVP data
     for (const guest of invitation.guests) {
-      await db
-        .update(guests)
-        .set({
-          attending: null,
-          mealChoice: null,
-          dietaryRestrictions: null,
-          notes: null,
-          updatedAt: now,
-        })
-        .where(eq(guests.id, guest.id));
+      await GuestRepository.resetGuestRsvpFields(guest.id, now);
     }
 
     // Revalidate admin pages

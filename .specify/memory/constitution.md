@@ -1,12 +1,12 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 -> 1.2.0
-- Modified principles: Technology Constraints (added Cloudflare D1 batch API constraint)
-- Added sections: none
+- Version change: 1.2.0 -> 1.3.0
+- Modified principles: none
+- Added sections: Principle VI – Repository Pattern and Server Action Integrity
 - Removed sections: none
 - Templates requiring updates:
-    ✅ no change needed .specify/templates/plan-template.md
-    ✅ no change needed .specify/templates/tasks-template.md
+    ✅ updated .specify/templates/plan-template.md (constitution check bullet added)
+    ✅ updated .specify/templates/tasks-template.md (repository/action guidance in foundational phase)
     ✅ no change needed .specify/templates/spec-template.md
     ✅ no change needed .specify/templates/checklist-template.md
     ✅ no change needed .specify/templates/agent-file-template.md
@@ -38,20 +38,36 @@ frameworks MUST only be introduced after three concrete, similar uses exist.
 
 ### V. Quality Gates And Reliability
 Features MUST meet the defined linting, formatting, and type-checking gates.
-Unit tests MUST be written for all server-side logic, server actions, and
-utility functions introduced by a feature. Test scope MUST be documented in
-the implementation plan before coding begins. Tests MUST be authored before
-their corresponding implementation (TDD) and MUST fail before the
-implementation is written.
+Unit tests MUST be written for all server-side logic, server actions, utility
+functions, and repository modules introduced by a feature. Test scope MUST be
+documented in the implementation plan before coding begins. Tests MUST be
+authored before their corresponding implementation (TDD) and MUST fail before
+the implementation is written.
+
+### VI. Repository Pattern and Server Action Integrity
+All database query and mutation logic MUST be encapsulated in Drizzle-backed
+repository modules (e.g., `src/lib/db/repositories/`). Server actions MUST NOT
+contain inline Drizzle queries; they MUST delegate all data access to the
+repository layer. Server actions MUST validate all incoming input with a Zod
+schema and MUST authenticate and authorize the caller (via the `auth()` session)
+before executing any data operation. This separation ensures the data layer is
+independently testable and that authorization cannot be bypassed through direct
+repository calls from the UI.
 
 ## Technology Constraints
 
 - The product stack is Next.js v16 (App Router), React v19, and TypeScript.
 - Formatting MUST match Prettier v3 rules and ESLint configuration.
 - Database access MUST use the Drizzle ORM layer and shared schema definitions.
+- All Drizzle queries MUST live in repository modules under `src/lib/db/repositories/`;
+  server actions MUST import from those modules and MUST NOT construct queries inline.
 - Authentication MUST use Next.js Auth v5 with guest-based authorization.
 - Logging MUST use the project logger for any server-side diagnostics.
-- Cloudflare D1 does NOT support interactive transactions (`db.transaction()` / `BEGIN`). Multi-statement atomicity MUST use the [D1 batch API](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch) (`db.batch([...])`) instead. Sequential reads followed by a batched write are the required pattern when multiple statements must succeed or fail together.
+- Cloudflare D1 does NOT support interactive transactions (`db.transaction()` /
+  `BEGIN`). Multi-statement atomicity MUST use the
+  [D1 batch API](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch)
+  (`db.batch([...])`) instead. Sequential reads followed by a batched write are
+  the required pattern when multiple statements must succeed or fail together.
 
 ## Development Workflow
 
@@ -69,4 +85,4 @@ implementation is written.
 	changes, MINOR for new principles or sections, PATCH for clarifications.
 - All plans and reviews MUST include a constitution compliance check.
 
-**Version**: 1.2.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-27
+**Version**: 1.3.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-28

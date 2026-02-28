@@ -5,10 +5,14 @@
  */
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { guests, invitations, users, rsvpResponses } from '@/lib/db/schema';
+import { users } from '@/lib/db/schema';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import * as GuestRepository from '@/lib/db/repositories/guests';
+import * as InvitationRepository from '@/lib/db/repositories/invitations';
+import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 
 /**
  * Update RSVP responses for all guests on an invitation.
@@ -43,16 +47,12 @@ export async function submitRsvp(input: SubmitRsvpInput) {
         ? identity.invitationId
         : validatedData.invitationId;
 
-    const db = getDb();
-
     // Update each guest
     const now = new Date().toISOString();
 
     for (const guestUpdate of validatedData.guests) {
       // Verify guest belongs to this invitation
-      const guest = await db.query.guests.findFirst({
-        where: (table, { eq: eqFn }) => eqFn(table.id, guestUpdate.id),
-      });
+      const guest = await GuestRepository.findGuestById(guestUpdate.id);
 
       if (!guest || guest.invitationId !== authorizedInvitationId) {
         continue; // Skip guests not on this invitation
@@ -78,10 +78,7 @@ export async function submitRsvp(input: SubmitRsvpInput) {
         }
       }
 
-      await db
-        .update(guests)
-        .set(updateData)
-        .where(eq(guests.id, guestUpdate.id));
+      await GuestRepository.updateGuestFields(guestUpdate.id, updateData);
     }
 
     // Persist contact email when provided
@@ -89,14 +86,16 @@ export async function submitRsvp(input: SubmitRsvpInput) {
 
     if (contactEmail) {
       try {
-        await db
-          .update(invitations)
-          .set({ contactEmail, updatedAt: now })
-          .where(eq(invitations.id, authorizedInvitationId));
+        await InvitationRepository.updateInvitation(authorizedInvitationId, {
+          contactEmail,
+          updatedAt: now,
+        });
 
         const userId = session?.user.id;
 
         if (userId) {
+          const db = getDb();
+
           await db
             .update(users)
             .set({ email: contactEmail, updatedAt: now })
@@ -137,13 +136,10 @@ export async function fetchGuestEvents() {
     throw new Error('Unauthorized');
   }
 
-  const db = getDb();
-
   // Load all guests for this invitation to query their events
-  const invitation = await db.query.invitations.findFirst({
-    where: (table, { eq: eqFn }) => eqFn(table.id, identity.invitationId),
-    with: { guests: true },
-  });
+  const invitation = await InvitationRepository.findInvitationWithGuests(
+    identity.invitationId,
+  );
 
   if (!invitation) {
     throw new Error('Invitation not found');
@@ -156,17 +152,11 @@ export async function fetchGuestEvents() {
   }
 
   // Fetch all events guests are invited to via junction table
-  const guestEventRows = await db.query.guestEvents.findMany({
-    where: (table, { inArray: inArrayFn }) =>
-      inArrayFn(table.guestId, guestIds),
-    with: { event: true },
-  });
+  const guestEventRows =
+    await GuestEventRepository.findGuestEventsForGuestIds(guestIds);
 
   // Fetch existing RSVP responses for all guests on this invitation
-  const rsvpRows = await db
-    .select()
-    .from(rsvpResponses)
-    .where(inArray(rsvpResponses.guestId, guestIds));
+  const rsvpRows = await RsvpRepository.findRsvpsByGuestIds(guestIds);
 
   const rsvpByEventId = new Map(rsvpRows.map((r) => [r.eventId, r]));
 

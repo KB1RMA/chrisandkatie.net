@@ -1,30 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, and } from 'drizzle-orm';
-import { auth } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import {
-  guests,
-  events,
-  guestEvents,
-  rsvpResponses,
-  attendees,
-} from '@/lib/db/schema';
+import { auth, getAuthIdentity } from '@/lib/auth';
+import * as GuestRepository from '@/lib/db/repositories/guests';
+import * as EventRepository from '@/lib/db/repositories/events';
+import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
+import * as AttendeeRepository from '@/lib/db/repositories/attendees';
 
 type ActionResult = { success: true } | { success: false; error: string };
-
-/**
- * Verifies the current session has the admin role.
- * Throws 'Unauthorized' if the session is absent or lacks admin.
- */
-async function requireAdmin(): Promise<void> {
-  const session = await auth();
-
-  if (!(session?.user?.roles ?? []).includes('admin')) {
-    throw new Error('Unauthorized');
-  }
-}
 
 /**
  * Updates a guest's attendance status for a specific event.
@@ -39,35 +23,31 @@ export async function updateRsvpAttendance(input: {
   eventId: string;
   attendanceStatus: 'attending' | 'not_attending';
 }): Promise<ActionResult> {
-  await requireAdmin();
+  const identity = getAuthIdentity(await auth());
 
-  const db = getDb();
+  if (!identity || identity.type !== 'admin') {
+    throw new Error('Unauthorized');
+  }
 
   // Validate guest exists
-  const guest = await db.query.guests.findFirst({
-    where: eq(guests.id, input.guestId),
-  });
+  const guest = await GuestRepository.findGuestById(input.guestId);
 
   if (!guest) {
     return { success: false, error: 'Guest not found.' };
   }
 
   // Validate event exists
-  const event = await db.query.events.findFirst({
-    where: eq(events.id, input.eventId),
-  });
+  const event = await EventRepository.findEventById(input.eventId);
 
   if (!event) {
     return { success: false, error: 'Event not found.' };
   }
 
   // Validate guest is invited to this event
-  const guestEvent = await db.query.guestEvents.findFirst({
-    where: and(
-      eq(guestEvents.guestId, input.guestId),
-      eq(guestEvents.eventId, input.eventId),
-    ),
-  });
+  const guestEvent = await GuestEventRepository.findGuestEventByGuestAndEvent(
+    input.guestId,
+    input.eventId,
+  );
 
   if (!guestEvent) {
     return { success: false, error: 'Guest is not invited to this event.' };
@@ -76,20 +56,19 @@ export async function updateRsvpAttendance(input: {
   const now = new Date().toISOString();
 
   // Upsert: update existing row or create a new one
-  const existing = await db.query.rsvpResponses.findFirst({
-    where: and(
-      eq(rsvpResponses.guestId, input.guestId),
-      eq(rsvpResponses.eventId, input.eventId),
-    ),
-  });
+  const existing = await RsvpRepository.findRsvpByGuestAndEvent(
+    input.guestId,
+    input.eventId,
+  );
 
   if (existing) {
-    await db
-      .update(rsvpResponses)
-      .set({ attendanceStatus: input.attendanceStatus, updatedAt: now })
-      .where(eq(rsvpResponses.id, existing.id));
+    await RsvpRepository.updateRsvpAttendanceStatus(
+      existing.id,
+      input.attendanceStatus,
+      now,
+    );
   } else {
-    await db.insert(rsvpResponses).values({
+    await RsvpRepository.insertRsvpResponse({
       id: crypto.randomUUID(),
       guestId: input.guestId,
       eventId: input.eventId,
@@ -117,14 +96,14 @@ export async function cascadeRsvpNotAttending(input: {
   guestId: string;
   cascadeToEvents: boolean;
 }): Promise<ActionResult> {
-  await requireAdmin();
+  const identity = getAuthIdentity(await auth());
 
-  const db = getDb();
+  if (!identity || identity.type !== 'admin') {
+    throw new Error('Unauthorized');
+  }
 
   // Validate guest exists
-  const guest = await db.query.guests.findFirst({
-    where: eq(guests.id, input.guestId),
-  });
+  const guest = await GuestRepository.findGuestById(input.guestId);
 
   if (!guest) {
     return { success: false, error: 'Guest not found.' };
@@ -134,26 +113,17 @@ export async function cascadeRsvpNotAttending(input: {
 
   if (input.cascadeToEvents) {
     // Update all rsvpResponses for this guest in one statement
-    await db
-      .update(rsvpResponses)
-      .set({ attendanceStatus: 'not_attending', updatedAt: now })
-      .where(eq(rsvpResponses.guestId, input.guestId));
+    await RsvpRepository.updateAllRsvpsNotAttendingForGuest(input.guestId, now);
   } else {
     // Find the main wedding event and update only that response
-    const mainEvent = await db.query.events.findFirst({
-      where: eq(events.type, 'main'),
-    });
+    const mainEvent = await EventRepository.findMainEvent();
 
     if (mainEvent) {
-      await db
-        .update(rsvpResponses)
-        .set({ attendanceStatus: 'not_attending', updatedAt: now })
-        .where(
-          and(
-            eq(rsvpResponses.guestId, input.guestId),
-            eq(rsvpResponses.eventId, mainEvent.id),
-          ),
-        );
+      await RsvpRepository.updateRsvpNotAttendingForGuestAndEvent(
+        input.guestId,
+        mainEvent.id,
+        now,
+      );
     }
   }
 
@@ -178,14 +148,14 @@ export async function updateAttendeeDetails(input: {
     dietaryRestrictions?: string;
   }>;
 }): Promise<ActionResult> {
-  await requireAdmin();
+  const identity = getAuthIdentity(await auth());
 
-  const db = getDb();
+  if (!identity || identity.type !== 'admin') {
+    throw new Error('Unauthorized');
+  }
 
   // Validate rsvpResponse exists
-  const rsvpResponse = await db.query.rsvpResponses.findFirst({
-    where: eq(rsvpResponses.id, input.rsvpResponseId),
-  });
+  const rsvpResponse = await RsvpRepository.findRsvpById(input.rsvpResponseId);
 
   if (!rsvpResponse) {
     return { success: false, error: 'RSVP response not found.' };
@@ -193,30 +163,20 @@ export async function updateAttendeeDetails(input: {
 
   const now = new Date().toISOString();
 
-  // Delete all existing attendees for this response
-  await db
-    .delete(attendees)
-    .where(eq(attendees.rsvpResponseId, input.rsvpResponseId));
+  // Replace attendees and bump the parent response timestamp
+  await AttendeeRepository.replaceAttendees(
+    input.rsvpResponseId,
+    input.attendees.map((attendee, index) => ({
+      id: crypto.randomUUID(),
+      rsvpResponseId: input.rsvpResponseId,
+      name: attendee.name,
+      mealOption: attendee.mealOption,
+      dietaryRestrictions: attendee.dietaryRestrictions ?? null,
+      sortOrder: index,
+    })),
+  );
 
-  // Reinsert the provided list
-  if (input.attendees.length > 0) {
-    await db.insert(attendees).values(
-      input.attendees.map((attendee, index) => ({
-        id: crypto.randomUUID(),
-        rsvpResponseId: input.rsvpResponseId,
-        name: attendee.name,
-        mealOption: attendee.mealOption,
-        dietaryRestrictions: attendee.dietaryRestrictions ?? null,
-        sortOrder: index,
-      })),
-    );
-  }
-
-  // Bump updatedAt on the parent rsvpResponse
-  await db
-    .update(rsvpResponses)
-    .set({ updatedAt: now })
-    .where(eq(rsvpResponses.id, input.rsvpResponseId));
+  await RsvpRepository.updateRsvpTimestamp(input.rsvpResponseId, now);
 
   revalidatePath('/admin/rsvp');
 

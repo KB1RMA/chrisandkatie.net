@@ -4,6 +4,7 @@
 
 vi.mock('@/lib/auth', () => ({
   auth: vi.fn(),
+  getAuthIdentity: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -14,12 +15,17 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock('@/lib/db/repositories/rsvpResponses', () => ({
+  getRsvpSummaryForEvent: vi.fn(),
+}));
+
 import { expect, test, describe, beforeEach, vi } from 'vitest';
-import type { Session } from 'next-auth';
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
+import { makeSession } from '@/tests/helpers';
 import {
   createEvent,
   updateEvent,
@@ -28,15 +34,9 @@ import {
 } from './actions';
 
 const mockAuth = vi.mocked(auth);
+const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
 const mockGetDb = vi.mocked(getDb);
 const mockRevalidatePath = vi.mocked(revalidatePath);
-
-function makeAdminSession(): Session {
-  return {
-    user: { roles: ['admin'] },
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
-}
 
 function createMockDb(
   overrides: Partial<{
@@ -93,6 +93,7 @@ describe('createEvent', () => {
 
   test('should return { success: false, error: "Unauthorized" } when session is null', async () => {
     mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
 
     const result = await createEvent({
       name: 'Rehearsal Dinner',
@@ -105,10 +106,8 @@ describe('createEvent', () => {
   });
 
   test('should return { success: false, error: "Unauthorized" } when user is not admin', async () => {
-    mockAuth.mockResolvedValue({
-      user: { roles: [] },
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    });
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
 
     const result = await createEvent({
       name: 'Rehearsal Dinner',
@@ -121,7 +120,8 @@ describe('createEvent', () => {
   });
 
   test('should return { success: false, error: ... } when input is invalid', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const result = await createEvent({} as Parameters<typeof createEvent>[0]);
 
@@ -132,7 +132,8 @@ describe('createEvent', () => {
   });
 
   test('should insert record and return { success: true, data: { id } } with valid input', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue([{ id: 'new-event-id' }]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -154,7 +155,8 @@ describe('createEvent', () => {
   });
 
   test('should call revalidatePath for /admin/events and /schedule on success', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue([{ id: 'new-event-id' }]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -174,7 +176,8 @@ describe('createEvent', () => {
   });
 
   test('should insert a separate guestEvents row per guest when inviteAllGuests is true', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue([]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -217,7 +220,8 @@ describe('createEvent', () => {
   });
 
   test('should not insert guestEvents when inviteAllGuests is false', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue([]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -238,7 +242,8 @@ describe('createEvent', () => {
   });
 
   test('should not insert guestEvents when inviteAllGuests is true but no guests exist', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue([]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -263,7 +268,8 @@ describe('createEvent', () => {
   });
 
   test('should use a single batch call for 100 or fewer guests', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertFn = vi
       .fn()
@@ -294,7 +300,8 @@ describe('createEvent', () => {
   });
 
   test('should split guest inserts across multiple batch calls when more than 100 guests exist', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertFn = vi
       .fn()
@@ -334,7 +341,8 @@ describe('createEvent', () => {
   });
 
   test('should not use batch when inviteAllGuests is false', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertFn = vi
       .fn()
@@ -356,7 +364,8 @@ describe('createEvent', () => {
   });
 
   test('should persist rsvpRequired: true when provided', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue([{ id: 'new-event-id' }]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -383,7 +392,8 @@ describe('createEvent', () => {
   });
 
   test('should persist rsvpRequired: false when provided', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue([{ id: 'new-event-id' }]);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -417,6 +427,7 @@ describe('updateEvent', () => {
 
   test('should return { success: false, error: "Unauthorized" } when session is null', async () => {
     mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
 
     const result = await updateEvent({
       id: 'event-123',
@@ -432,7 +443,8 @@ describe('updateEvent', () => {
   });
 
   test('should return { success: true } and update record with valid input', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const whereFn = vi.fn().mockResolvedValue(undefined);
     const setFn = vi.fn().mockReturnValue({ where: whereFn });
@@ -455,7 +467,8 @@ describe('updateEvent', () => {
   });
 
   test('should update updatedAt timestamp on successful update', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const whereFn = vi.fn().mockResolvedValue(undefined);
     const setFn = vi.fn().mockReturnValue({ where: whereFn });
@@ -478,7 +491,8 @@ describe('updateEvent', () => {
   });
 
   test('should persist a changed rsvpRequired value on update', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const whereFn = vi.fn().mockResolvedValue(undefined);
     const setFn = vi.fn().mockReturnValue({ where: whereFn });
@@ -511,6 +525,7 @@ describe('deleteEvent', () => {
 
   test('should return { success: false, error: "Unauthorized" } when session is null', async () => {
     mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
 
     const result = await deleteEvent({ id: 'event-123' });
 
@@ -518,7 +533,8 @@ describe('deleteEvent', () => {
   });
 
   test('should delete record and return { success: true } with valid id', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const deleteFn = vi
       .fn()
@@ -533,7 +549,8 @@ describe('deleteEvent', () => {
   });
 
   test('should call revalidatePath for /admin/events and /schedule on successful delete', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const deleteFn = vi
       .fn()
@@ -550,23 +567,21 @@ describe('deleteEvent', () => {
 });
 
 describe('getEventRsvpSummary', () => {
+  const mockGetRsvpSummary = vi.mocked(RsvpRepository.getRsvpSummaryForEvent);
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  test('should return attending/notAttending/noResponse counts matching DB state', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
-
-    const selectWhereFn = vi
-      .fn()
-      .mockResolvedValueOnce([{ count: 10 }])
-      .mockResolvedValueOnce([{ count: 6 }])
-      .mockResolvedValueOnce([{ count: 2 }]);
-    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
-    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
-    const mockDb = createMockDb({ select: selectFn });
-
-    mockGetDb.mockReturnValue(mockDb);
+  test('should return attending/notAttending/noResponse counts from the repository', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockGetRsvpSummary.mockResolvedValue({
+      attending: 6,
+      notAttending: 2,
+      noResponse: 2,
+      total: 10,
+    });
 
     const result = await getEventRsvpSummary({ eventId: 'event-123' });
 
@@ -574,21 +589,18 @@ describe('getEventRsvpSummary', () => {
       success: true,
       data: { attending: 6, notAttending: 2, noResponse: 2, total: 10 },
     });
+    expect(mockGetRsvpSummary).toHaveBeenCalledWith('event-123');
   });
 
   test('should return all zeros for event with no RSVPs', async () => {
-    mockAuth.mockResolvedValue(makeAdminSession());
-
-    const selectWhereFn = vi
-      .fn()
-      .mockResolvedValueOnce([{ count: 0 }])
-      .mockResolvedValueOnce([{ count: 0 }])
-      .mockResolvedValueOnce([{ count: 0 }]);
-    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
-    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
-    const mockDb = createMockDb({ select: selectFn });
-
-    mockGetDb.mockReturnValue(mockDb);
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockGetRsvpSummary.mockResolvedValue({
+      attending: 0,
+      notAttending: 0,
+      noResponse: 0,
+      total: 0,
+    });
 
     const result = await getEventRsvpSummary({ eventId: 'event-123' });
 
@@ -600,9 +612,11 @@ describe('getEventRsvpSummary', () => {
 
   test('should return { success: false, error: "Unauthorized" } when session is null', async () => {
     mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
 
     const result = await getEventRsvpSummary({ eventId: 'event-123' });
 
     expect(result).toEqual({ success: false, error: 'Unauthorized' });
+    expect(mockGetRsvpSummary).not.toHaveBeenCalled();
   });
 });

@@ -35,7 +35,8 @@
 - Functional core approach identified with side effects isolated.
 - Specification-first scope is concise and traceable to delivery.
 - Simplicity check passes (no premature abstraction; Rule of Three).
-- Quality gates defined (linting/formatting/type checks; unit tests REQUIRED for all server-side logic, actions, and utilities — test scope documented here).
+- Quality gates defined (linting/formatting/type checks; unit tests REQUIRED for all server-side logic, actions, repository modules, and utilities — test scope documented here).
+- Repository pattern enforced: all Drizzle queries scoped to `src/lib/db/repositories/`; server actions delegate to repositories, validate input with Zod, and authenticate/authorize via `auth()` before any data operation.
 
 ## Project Structure
 
