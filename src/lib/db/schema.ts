@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { index, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 
@@ -189,6 +189,8 @@ export const events = sqliteTable(
       .default('main'),
     dressCode: text('dressCode'),
     parkingInfo: text('parkingInfo'),
+    locationLat: real('locationLat'),
+    locationLng: real('locationLng'),
     sortOrder: integer('sortOrder').notNull().default(0),
     rsvpRequired: integer('rsvpRequired', { mode: 'boolean' })
       .notNull()

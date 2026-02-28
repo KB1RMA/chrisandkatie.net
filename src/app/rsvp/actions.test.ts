@@ -572,6 +572,8 @@ describe('fetchGuestEvents', () => {
       type: 'other',
       dressCode: null,
       parkingInfo: null,
+      locationLat: null,
+      locationLng: null,
       sortOrder: 0,
       rsvpRequired,
       createdAt: new Date().toISOString(),

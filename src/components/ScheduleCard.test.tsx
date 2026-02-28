@@ -21,6 +21,8 @@ function makeEvent(overrides: Partial<WeddingEvent> = {}): WeddingEvent {
     type: 'main',
     dressCode: null,
     parkingInfo: null,
+    locationLat: null,
+    locationLng: null,
     sortOrder: 0,
     rsvpRequired: false,
     createdAt: new Date().toISOString(),

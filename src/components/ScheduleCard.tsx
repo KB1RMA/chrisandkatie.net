@@ -19,9 +19,9 @@ type ScheduleCardProps = {
   /** Called when the location pin is clicked. Only rendered when provided and location is non-null. */
   onLocationClick?: () => void;
   /**
-   * Optional map content rendered in a right-hand column on desktop.
-   * When provided, the location pin is hidden on lg+ viewports since
-   * the map is already visible inline.
+   * Optional map content. Stacks below the event details on mobile and
+   * renders in a right-hand column on desktop. When provided, the location
+   * pin is hidden on lg+ viewports since the map is already visible inline.
    */
   mapSlot?: ReactNode;
 };
@@ -111,9 +111,9 @@ export function ScheduleCard({
           </div>
         </div>
 
-        {/* Inline map column — desktop only */}
+        {/* Map — stacks below the details on mobile, side column on desktop */}
         {mapSlot && (
-          <div className="hidden border-l border-[#f3dedb] lg:flex lg:flex-col">
+          <div className="border-t border-[#f3dedb] lg:flex lg:flex-col lg:border-t-0 lg:border-l">
             {mapSlot}
           </div>
         )}

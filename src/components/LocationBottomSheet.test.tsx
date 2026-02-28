@@ -6,8 +6,14 @@ import type { WeddingEvent } from '@/lib/db/schema';
 // Stub next/dynamic so LeafletMap renders synchronously in jsdom
 vi.mock('next/dynamic', () => ({
   default: (_importFn: unknown, _opts?: unknown) =>
-    function LeafletMapStub({ location }: { location: string }) {
-      return <div data-testid="leaflet-map" data-location={location} />;
+    function LeafletMapStub({
+      label,
+    }: {
+      lat: number;
+      lng: number;
+      label: string;
+    }) {
+      return <div data-testid="leaflet-map" data-location={label} />;
     },
 }));
 
@@ -29,6 +35,8 @@ function makeEvent(overrides: Partial<WeddingEvent> = {}): WeddingEvent {
     type: 'main',
     dressCode: null,
     parkingInfo: null,
+    locationLat: 42.3601,
+    locationLng: -71.0589,
     sortOrder: 0,
     rsvpRequired: false,
     createdAt: new Date().toISOString(),
@@ -62,7 +70,11 @@ describe('LocationBottomSheet', () => {
   });
 
   test('should render a LeafletMap with the correct location attribute when open', () => {
-    const event = makeEvent({ location: 'The Grand Chapel, Boston, MA' });
+    const event = makeEvent({
+      location: 'The Grand Chapel, Boston, MA',
+      locationLat: 42.3601,
+      locationLng: -71.0589,
+    });
 
     render(<LocationBottomSheet open={true} event={event} onClose={vi.fn()} />);
 
@@ -73,6 +85,18 @@ describe('LocationBottomSheet', () => {
       'data-location',
       'The Grand Chapel, Boston, MA',
     );
+  });
+
+  test('should not render a LeafletMap when geocoded coordinates are missing', () => {
+    const event = makeEvent({
+      location: 'The Grand Chapel, Boston, MA',
+      locationLat: null,
+      locationLng: null,
+    });
+
+    render(<LocationBottomSheet open={true} event={event} onClose={vi.fn()} />);
+
+    expect(screen.queryByTestId('leaflet-map')).not.toBeInTheDocument();
   });
 
   test('should render a Get Directions link with the correct href when open', () => {

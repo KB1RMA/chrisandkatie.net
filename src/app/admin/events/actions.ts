@@ -13,6 +13,7 @@ import { getDb } from '@/lib/db';
 import { events, guestEvents, rsvpResponses } from '@/lib/db/schema';
 import { eventFormSchema } from '@/lib/schemas/event';
 import type { EventFormData } from '@/lib/schemas/event';
+import { geocodeLocation } from '@/lib/geocoding';
 
 type ActionResult<T = void> =
   | { success: true; data?: T }
@@ -58,6 +59,9 @@ export async function createEvent(
   const id = randomUUID();
   const now = new Date().toISOString();
 
+  // Geocode the location so coordinates are stored and ready for the map
+  const coords = data.location ? await geocodeLocation(data.location) : null;
+
   const eventValues = {
     id,
     name: data.name,
@@ -69,6 +73,8 @@ export async function createEvent(
     type: data.type,
     dressCode: data.dressCode,
     parkingInfo: data.parkingInfo,
+    locationLat: coords?.lat ?? null,
+    locationLng: coords?.lng ?? null,
     sortOrder: data.sortOrder,
     rsvpRequired: data.rsvpRequired,
     createdAt: now,
@@ -150,23 +156,37 @@ export async function updateEvent(
   const data = parsed.data;
   const db = getDb();
 
-  await db
-    .update(events)
-    .set({
-      name: data.name,
-      description: data.description,
-      location: data.location,
-      eventDate: data.eventDate,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      type: data.type,
-      dressCode: data.dressCode,
-      parkingInfo: data.parkingInfo,
-      sortOrder: data.sortOrder,
-      rsvpRequired: data.rsvpRequired,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(events.id, id));
+  // Re-geocode whenever the event is updated in case the location changed
+  const coords = data.location ? await geocodeLocation(data.location) : null;
+
+  try {
+    await db
+      .update(events)
+      .set({
+        name: data.name,
+        description: data.description,
+        location: data.location,
+        eventDate: data.eventDate,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        type: data.type,
+        dressCode: data.dressCode,
+        parkingInfo: data.parkingInfo,
+        locationLat: coords?.lat ?? null,
+        locationLng: coords?.lng ?? null,
+        sortOrder: data.sortOrder,
+        rsvpRequired: data.rsvpRequired,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(events.id, id));
+  } catch (error) {
+    console.error('Failed to update event:', error);
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update event',
+    };
+  }
 
   revalidatePath('/admin/events');
   revalidatePath('/schedule');
