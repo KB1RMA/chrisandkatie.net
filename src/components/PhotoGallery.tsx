@@ -70,6 +70,13 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
         render={{ image: renderNextImage }}
         onClick={({ index: current }) => setIndex(current)}
         spacing={3}
+        columns={(containerWidth) => {
+          if (containerWidth < 330) return 1;
+          if (containerWidth < 460) return 2;
+          if (containerWidth < 800) return 3;
+
+          return 4;
+        }}
       />
 
       <Lightbox
