@@ -190,6 +190,9 @@ export const events = sqliteTable(
     dressCode: text('dressCode'),
     parkingInfo: text('parkingInfo'),
     sortOrder: integer('sortOrder').notNull().default(0),
+    rsvpRequired: integer('rsvpRequired', { mode: 'boolean' })
+      .notNull()
+      .default(false),
     createdAt: text('createdAt').notNull().default(timestampDefault),
     updatedAt: text('updatedAt').notNull().default(timestampDefault),
   },

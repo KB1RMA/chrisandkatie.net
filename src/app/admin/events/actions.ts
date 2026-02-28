@@ -70,6 +70,7 @@ export async function createEvent(
     dressCode: data.dressCode,
     parkingInfo: data.parkingInfo,
     sortOrder: data.sortOrder,
+    rsvpRequired: data.rsvpRequired,
     createdAt: now,
     updatedAt: now,
   };
@@ -162,6 +163,7 @@ export async function updateEvent(
       dressCode: data.dressCode,
       parkingInfo: data.parkingInfo,
       sortOrder: data.sortOrder,
+      rsvpRequired: data.rsvpRequired,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(events.id, id));

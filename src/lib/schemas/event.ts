@@ -33,11 +33,18 @@ export const eventFormSchema = z
     dressCode: z.string().optional(),
     parkingInfo: z.string().optional(),
     sortOrder: z.coerce.number().default(0),
+    rsvpRequired: z.boolean().default(false),
     inviteAllGuests: z.boolean().default(false),
   })
   .refine((data) => data.endTime > data.startTime, {
     message: 'End time must be after start time',
     path: ['endTime'],
-  });
+  })
+  .transform((data) => ({
+    ...data,
+    // Main events never require an RSVP — enforce this at the schema level so
+    // both client validation and server-side safeParse coerce the value together.
+    rsvpRequired: data.type === 'main' ? false : data.rsvpRequired,
+  }));
 
 export type EventFormData = z.infer<typeof eventFormSchema>;

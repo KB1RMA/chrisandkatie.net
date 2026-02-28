@@ -39,6 +39,7 @@ export default function EventEditModal({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema) as Resolver<EventFormData>,
@@ -53,8 +54,11 @@ export default function EventEditModal({
       dressCode: event.dressCode ?? '',
       parkingInfo: event.parkingInfo ?? '',
       sortOrder: event.sortOrder ?? 0,
+      rsvpRequired: event.rsvpRequired ?? false,
     },
   });
+
+  const eventType = watch('type');
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -266,6 +270,22 @@ export default function EventEditModal({
               <p className={ERROR_CLASS}>{errors.sortOrder.message}</p>
             )}
           </div>
+
+          {/* RSVP Required toggle — hidden for main-type events; unregistered
+               when hidden so the field is absent from the submit payload. */}
+          {eventType !== 'main' && (
+            <div className="flex items-center gap-3">
+              <input
+                id="edit-rsvpRequired"
+                type="checkbox"
+                {...register('rsvpRequired', { shouldUnregister: true })}
+                className="h-4 w-4 rounded border-gray-300 text-[#9e3f3f] focus:ring-[#9e3f3f]"
+              />
+              <label htmlFor="edit-rsvpRequired" className={LABEL_CLASS}>
+                RSVP Required
+              </label>
+            </div>
+          )}
         </div>
 
         {submitError && (

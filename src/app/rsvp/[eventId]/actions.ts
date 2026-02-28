@@ -283,6 +283,10 @@ export async function retrieveEventRsvp(
     throw new Error('Not invited to this event');
   }
 
+  if (!event.rsvpRequired) {
+    throw new Error('Not invited to this event');
+  }
+
   // Fetch attendees only when an existing RSVP is present
   const attendeeRows = existingRsvp
     ? await db.query.attendees.findMany({

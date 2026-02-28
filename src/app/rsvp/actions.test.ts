@@ -14,9 +14,9 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }));
 
-import { submitRsvp } from './actions';
+import { submitRsvp, fetchGuestEvents } from './actions';
 import { MEAL_OPTIONS } from '@/lib/constants';
-import { guests } from '@/lib/db/schema';
+import { guests, events } from '@/lib/db/schema';
 import { type DbClient } from '@/lib/db';
 
 import { auth, getAuthIdentity } from '@/lib/auth';
@@ -539,5 +539,116 @@ describe('submitRsvp — email persistence', () => {
 
     // Guest update + invitation email, but NOT user email (no userId in session)
     expect(updateFn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('fetchGuestEvents', () => {
+  type WeddingEvent = typeof events.$inferSelect;
+
+  const mockAuth = vi.mocked(auth);
+  const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
+  const mockGetDb = vi.mocked(getDb);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /**
+   * Creates a minimal WeddingEvent fixture.
+   *
+   * @param id - Event identifier.
+   * @param rsvpRequired - Whether RSVP is required for this event.
+   * @returns Minimal WeddingEvent object.
+   */
+  function makeEvent(id: string, rsvpRequired: boolean): WeddingEvent {
+    return {
+      id,
+      name: `Event ${id}`,
+      description: null,
+      location: null,
+      eventDate: '2026-09-12',
+      startTime: '10:00',
+      endTime: '11:00',
+      type: 'other',
+      dressCode: null,
+      parkingInfo: null,
+      sortOrder: 0,
+      rsvpRequired,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Creates a mock DB for fetchGuestEvents tests.
+   *
+   * @param guestEventRows - Rows returned by guestEvents.findMany.
+   * @param guestIds - Guest IDs to include on the invitation.
+   * @returns Partial DbClient with all required methods mocked.
+   */
+  function createFetchGuestEventsMockDb(
+    guestEventRows: Array<{ event: WeddingEvent }>,
+    guestIds: string[],
+  ): DbClient {
+    const rsvpWhereFn = vi.fn().mockResolvedValue([]);
+    const rsvpFromFn = vi.fn().mockReturnValue({ where: rsvpWhereFn });
+    const rsvpSelectFn = vi.fn().mockReturnValue({ from: rsvpFromFn });
+
+    return {
+      query: {
+        invitations: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: 'invite-1',
+            guests: guestIds.map((id) => ({ id })),
+          }),
+        },
+        guestEvents: {
+          findMany: vi.fn().mockResolvedValue(guestEventRows),
+        },
+      },
+      select: rsvpSelectFn,
+    } as unknown as DbClient;
+  }
+
+  test('should return only events where rsvpRequired is true', async () => {
+    const invitationId = 'invite-1';
+
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'guest', invitationId });
+
+    const rsvpRequiredEvent = makeEvent('event-rsvp', true);
+    const optOutEvent = makeEvent('event-opt', false);
+
+    const mockDb = createFetchGuestEventsMockDb(
+      [{ event: rsvpRequiredEvent }, { event: optOutEvent }],
+      ['guest-1'],
+    );
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await fetchGuestEvents();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].event.id).toBe('event-rsvp');
+  });
+
+  test('should exclude events where rsvpRequired is false', async () => {
+    const invitationId = 'invite-1';
+
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'guest', invitationId });
+
+    const optOutEvent = makeEvent('event-opt', false);
+
+    const mockDb = createFetchGuestEventsMockDb(
+      [{ event: optOutEvent }],
+      ['guest-1'],
+    );
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await fetchGuestEvents();
+
+    expect(result).toHaveLength(0);
   });
 });

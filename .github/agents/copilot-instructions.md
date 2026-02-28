@@ -17,6 +17,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 - SQLite (local dev via Drizzle) / Cloudflare D1 (production) (001-invitation-code)
 - TypeScript 5.x + Next.js 16 (App Router), React 19, Next Auth v5 (`next-auth@^5.0.0-beta.30`), Drizzle ORM 0.44, Zod 4, react-hook-form 7, Vitest 4 (004-invitation-auth-refactor)
 - Cloudflare D1 (SQLite) via Drizzle ORM — no schema changes (004-invitation-auth-refactor)
+- TypeScript 5.x + Next.js v16 (App Router), React v19, Drizzle ORM, Zod, react-hook-form, @hookform/resolvers/zod (001-event-rsvp)
+- SQLite (local dev) / Cloudflare D1 (production) via Drizzle ORM (001-event-rsvp)
 
 - TypeScript 5.9, React 19, Next.js 16.1 + Next.js App Router, Auth.js v5, Drizzle ORM + D1 adapter, Zod, react-hook-form, Tailwind CSS, OpenNext (Cloudflare) (001-wedding-rsvp-portal)
 
@@ -36,9 +38,9 @@ npm test && npm run lint
 TypeScript 5.9, React 19, Next.js 16.1: Follow standard conventions
 
 ## Recent Changes
+- 001-event-rsvp: Added TypeScript 5.x + Next.js v16 (App Router), React v19, Drizzle ORM, Zod, react-hook-form, @hookform/resolvers/zod
 - 004-invitation-auth-refactor: Added TypeScript 5.x + Next.js 16 (App Router), React 19, Next Auth v5 (`next-auth@^5.0.0-beta.30`), Drizzle ORM 0.44, Zod 4, react-hook-form 7, Vitest 4
 - 004-invitation-auth-refactor: Added TypeScript 5.x + Next.js 16 (App Router), React 19, Next Auth v5 (`next-auth@^5.0.0-beta.30`), Drizzle ORM 0.44, Zod 4, react-hook-form 7, Vitest 4
-- 004-invitation-auth-refactor: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 
 <!-- MANUAL ADDITIONS START -->

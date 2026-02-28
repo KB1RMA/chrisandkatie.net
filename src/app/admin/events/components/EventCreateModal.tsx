@@ -35,6 +35,7 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
     register,
     handleSubmit,
     control,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema) as Resolver<EventFormData>,
@@ -49,9 +50,12 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
       dressCode: '',
       parkingInfo: '',
       sortOrder: 0,
+      rsvpRequired: false,
       inviteAllGuests: false,
     },
   });
+
+  const eventType = watch('type');
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -284,6 +288,22 @@ export default function EventCreateModal({ onClose }: EventCreateModalProps) {
               Invite all guests
             </label>
           </div>
+
+          {/* RSVP Required toggle — hidden for main-type events; unregistered
+               when hidden so the field is absent from the submit payload. */}
+          {eventType !== 'main' && (
+            <div className="flex items-center gap-3">
+              <input
+                id="create-rsvpRequired"
+                type="checkbox"
+                {...register('rsvpRequired', { shouldUnregister: true })}
+                className="h-4 w-4 rounded border-gray-300 text-[#9e3f3f] focus:ring-[#9e3f3f]"
+              />
+              <label htmlFor="create-rsvpRequired" className={LABEL_CLASS}>
+                RSVP Required
+              </label>
+            </div>
+          )}
         </div>
 
         {submitError && (

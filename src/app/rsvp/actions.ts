@@ -171,10 +171,15 @@ export async function fetchGuestEvents() {
   const rsvpByEventId = new Map(rsvpRows.map((r) => [r.eventId, r]));
 
   // Deduplicate events (multiple guests may be assigned to the same event)
+  // and exclude events where rsvpRequired is not true
   const seenEventIds = new Set<string>();
 
   return guestEventRows
     .filter(({ event }) => {
+      if (!event.rsvpRequired) {
+        return false;
+      }
+
       if (seenEventIds.has(event.id)) {
         return false;
       }
