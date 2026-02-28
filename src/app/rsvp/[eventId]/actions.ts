@@ -6,18 +6,7 @@
  * Handles submitting and retrieving RSVP responses for a given event,
  * enforcing authentication, invitation validation, and deadline checks.
  */
-import { and, asc, eq } from 'drizzle-orm';
-
 import { auth } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import type { DbClient } from '@/lib/db';
-import {
-  attendees,
-  events,
-  guestEvents,
-  guests,
-  rsvpResponses,
-} from '@/lib/db/schema';
 import type { Guest, WeddingEvent } from '@/lib/db/schema';
 import {
   isDeadlinePassed,
@@ -28,6 +17,11 @@ import type {
   EventRsvpResponse,
   SubmitEventRsvpInput,
 } from '@/lib/schemas/rsvp';
+import * as EventRepository from '@/lib/db/repositories/events';
+import * as GuestRepository from '@/lib/db/repositories/guests';
+import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
+import * as AttendeeRepository from '@/lib/db/repositories/attendees';
 
 /**
  * Return type for retrieveEventRsvp.
@@ -40,27 +34,6 @@ type RetrieveEventRsvpResult = {
   invitationGuests: Guest[];
   deadlinePassed: boolean;
 };
-
-/**
- * Query all guests invited to a specific event via the junction table.
- *
- * @param eventId - The event ID to look up invitees for.
- * @param db - Drizzle database client.
- * @returns Array of Guest rows for all guests invited to the event.
- */
-async function getEventInvitees(
-  eventId: string,
-  db: DbClient,
-): Promise<Guest[]> {
-  const guestEventRows = await db.query.guestEvents.findMany({
-    where: eq(guestEvents.eventId, eventId),
-    with: {
-      guest: true,
-    },
-  });
-
-  return guestEventRows.map((row) => row.guest);
-}
 
 /**
  * Submit or update an RSVP response for a specific event.
@@ -83,12 +56,8 @@ export async function submitEventRsvp(
     throw new Error('Unauthorized');
   }
 
-  const db = getDb();
-
   // Verify the submitted guestId belongs to the session's invitation
-  const submittedGuest = await db.query.guests.findFirst({
-    where: eq(guests.id, input.guestId),
-  });
+  const submittedGuest = await GuestRepository.findGuestById(input.guestId);
 
   if (submittedGuest?.invitationId !== session.user.invitationId) {
     throw new Error('Unauthorized');
@@ -99,28 +68,18 @@ export async function submitEventRsvp(
   }
 
   // Confirm guest is invited to this event
-  const guestEvent = await db.query.guestEvents.findFirst({
-    where: and(
-      eq(guestEvents.guestId, input.guestId),
-      eq(guestEvents.eventId, input.eventId),
-    ),
-  });
+  const guestEvent = await GuestEventRepository.findGuestEventByGuestAndEvent(
+    input.guestId,
+    input.eventId,
+  );
 
   if (!guestEvent) {
     throw new Error('Not invited to this event');
   }
 
   // Fetch guest with their invitation and all guests on that invitation
-  const guestWithInvitation = await db.query.guests.findFirst({
-    where: eq(guests.id, input.guestId),
-    with: {
-      invitation: {
-        with: {
-          guests: true,
-        },
-      },
-    },
-  });
+  const guestWithInvitation =
+    await GuestRepository.findGuestWithInvitationAndPeers(input.guestId);
 
   if (!guestWithInvitation?.invitation) {
     throw new Error('Not invited to this event');
@@ -141,9 +100,7 @@ export async function submitEventRsvp(
   }
 
   // Fetch event record for building the response
-  const event = await db.query.events.findFirst({
-    where: eq(events.id, input.eventId),
-  });
+  const event = await EventRepository.findEventById(input.eventId);
 
   if (!event) {
     throw new Error('Not invited to this event');
@@ -152,9 +109,8 @@ export async function submitEventRsvp(
   const now = new Date().toISOString();
 
   // Upsert the RSVP response row
-  await db
-    .insert(rsvpResponses)
-    .values({
+  await RsvpRepository.upsertRsvpResponse(
+    {
       id: crypto.randomUUID(),
       guestId: input.guestId,
       eventId: input.eventId,
@@ -163,32 +119,26 @@ export async function submitEventRsvp(
       specialRequests: input.specialRequests ?? null,
       submittedAt: now,
       updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: [rsvpResponses.guestId, rsvpResponses.eventId],
-      set: {
-        attendanceStatus: input.attendanceStatus,
-        numberOfAttending: input.attendees.length,
-        specialRequests: input.specialRequests ?? null,
-        updatedAt: now,
-      },
-    });
+    },
+    {
+      attendanceStatus: input.attendanceStatus,
+      numberOfAttending: input.attendees.length,
+      specialRequests: input.specialRequests ?? null,
+      updatedAt: now,
+    },
+  );
 
   // Re-fetch to get the canonical ID (may differ from generated UUID on update)
-  const savedRsvp = await db.query.rsvpResponses.findFirst({
-    where: and(
-      eq(rsvpResponses.guestId, input.guestId),
-      eq(rsvpResponses.eventId, input.eventId),
-    ),
-  });
+  const savedRsvp = await RsvpRepository.findRsvpByGuestAndEvent(
+    input.guestId,
+    input.eventId,
+  );
 
   if (!savedRsvp) {
     throw new Error('Failed to save RSVP');
   }
 
   // Replace attendees: delete existing, then insert fresh rows
-  await db.delete(attendees).where(eq(attendees.rsvpResponseId, savedRsvp.id));
-
   const newAttendeeRows = input.attendees.map((attendee, index) => ({
     id: crypto.randomUUID(),
     rsvpResponseId: savedRsvp.id,
@@ -198,9 +148,7 @@ export async function submitEventRsvp(
     sortOrder: index,
   }));
 
-  if (newAttendeeRows.length > 0) {
-    await db.insert(attendees).values(newAttendeeRows);
-  }
+  await AttendeeRepository.replaceAttendees(savedRsvp.id, newAttendeeRows);
 
   const attendeeOutputs: AttendeeOutput[] = newAttendeeRows.map((a) => ({
     id: a.id,
@@ -246,15 +194,10 @@ export async function retrieveEventRsvp(
   }
 
   const invitationId = session.user.invitationId;
-  const db = getDb();
 
   // Find guests for this invitation who are also invited to this event
-  const invitationGuestEvents = await db.query.guestEvents.findMany({
-    where: eq(guestEvents.eventId, eventId),
-    with: {
-      guest: true,
-    },
-  });
+  const invitationGuestEvents =
+    await GuestEventRepository.findGuestEventsForEvent(eventId);
 
   const matchingGuestEvent = invitationGuestEvents.find(
     (row) => row.guest.invitationId === invitationId,
@@ -268,15 +211,8 @@ export async function retrieveEventRsvp(
 
   // Fetch event details and existing RSVP in parallel
   const [event, existingRsvp] = await Promise.all([
-    db.query.events.findFirst({
-      where: eq(events.id, eventId),
-    }),
-    db.query.rsvpResponses.findFirst({
-      where: and(
-        eq(rsvpResponses.guestId, guestId),
-        eq(rsvpResponses.eventId, eventId),
-      ),
-    }),
+    EventRepository.findEventById(eventId),
+    RsvpRepository.findRsvpByGuestAndEvent(guestId, eventId),
   ]);
 
   if (!event) {
@@ -289,10 +225,7 @@ export async function retrieveEventRsvp(
 
   // Fetch attendees only when an existing RSVP is present
   const attendeeRows = existingRsvp
-    ? await db.query.attendees.findMany({
-        where: eq(attendees.rsvpResponseId, existingRsvp.id),
-        orderBy: asc(attendees.sortOrder),
-      })
+    ? await AttendeeRepository.findAttendeesByRsvpResponseId(existingRsvp.id)
     : [];
 
   const attendeeOutputs: AttendeeOutput[] = attendeeRows.map((a) => ({
@@ -320,10 +253,9 @@ export async function retrieveEventRsvp(
     : null;
 
   // Filter to all guests on the same invitation who are also invited to this event
-  const allEventInvitees = await getEventInvitees(eventId, db);
-  const invitationGuests: Guest[] = allEventInvitees.filter(
-    (g) => g.invitationId === invitationId,
-  );
+  const invitationGuests: Guest[] = invitationGuestEvents
+    .map((row) => row.guest)
+    .filter((g) => g.invitationId === invitationId);
 
   return {
     event,

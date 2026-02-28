@@ -4,6 +4,7 @@
 
 vi.mock('@/lib/auth', () => ({
   auth: vi.fn(),
+  getAuthIdentity: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -15,10 +16,10 @@ vi.mock('next/cache', () => ({
 }));
 
 import { expect, test, describe, beforeEach, vi } from 'vitest';
-import { type Session } from 'next-auth';
-import { auth } from '@/lib/auth';
+import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
+import { makeSession } from '@/tests/helpers';
 import {
   updateRsvpAttendance,
   cascadeRsvpNotAttending,
@@ -26,6 +27,7 @@ import {
 } from './actions';
 
 const mockAuth = vi.mocked(auth);
+const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
 const mockGetDb = vi.mocked(getDb);
 
 // ---------------------------------------------------------------------------
@@ -83,19 +85,6 @@ function createMockDb(
   } as unknown as DbClient;
 }
 
-/**
- * Creates a mock session for testing.
- *
- * @param roles - Roles to assign to the session user.
- * @returns Mock session object.
- */
-function makeSession(roles?: string[]): Session {
-  return {
-    user: { roles },
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // updateRsvpAttendance
 // ---------------------------------------------------------------------------
@@ -107,6 +96,7 @@ describe('updateRsvpAttendance', () => {
 
   test('should throw Unauthorized when session is null', async () => {
     mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
 
     await expect(
       updateRsvpAttendance({
@@ -118,7 +108,8 @@ describe('updateRsvpAttendance', () => {
   });
 
   test('should throw Unauthorized when session roles array does not include "admin"', async () => {
-    mockAuth.mockResolvedValue(makeSession(['guest']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
 
     await expect(
       updateRsvpAttendance({
@@ -130,7 +121,8 @@ describe('updateRsvpAttendance', () => {
   });
 
   test('should create a new RsvpResponse row when none exists for the guestId/eventId pair', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       guestFindFirst: vi.fn().mockResolvedValue({ id: 'g1' }),
@@ -152,7 +144,8 @@ describe('updateRsvpAttendance', () => {
   });
 
   test('should update attendanceStatus on an existing RsvpResponse', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       guestFindFirst: vi.fn().mockResolvedValue({ id: 'g1' }),
@@ -179,7 +172,8 @@ describe('updateRsvpAttendance', () => {
   });
 
   test('should return { success: false } when the guest does not exist', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       guestFindFirst: vi.fn().mockResolvedValue(null),
@@ -197,7 +191,8 @@ describe('updateRsvpAttendance', () => {
   });
 
   test('should return { success: false } when the guest is not invited to the event (no GuestEvent row)', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       guestFindFirst: vi.fn().mockResolvedValue({ id: 'g1' }),
@@ -227,7 +222,8 @@ describe('cascadeRsvpNotAttending', () => {
   });
 
   test('should throw Unauthorized when session lacks admin role', async () => {
-    mockAuth.mockResolvedValue(makeSession([]));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
 
     await expect(
       cascadeRsvpNotAttending({ guestId: 'g1', cascadeToEvents: false }),
@@ -235,7 +231,8 @@ describe('cascadeRsvpNotAttending', () => {
   });
 
   test('should update only the main wedding RsvpResponse when cascadeToEvents is false', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const updateWhereFn = vi.fn().mockResolvedValue(undefined);
     const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
@@ -260,7 +257,8 @@ describe('cascadeRsvpNotAttending', () => {
   });
 
   test('should update the wedding RsvpResponse and all per-event RsvpResponses when cascadeToEvents is true', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const updateWhereFn = vi.fn().mockResolvedValue(undefined);
     const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
@@ -284,7 +282,8 @@ describe('cascadeRsvpNotAttending', () => {
   });
 
   test('should update all rsvpResponses directly when cascadeToEvents is true', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const updateWhereFn = vi.fn().mockResolvedValue(undefined);
     const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
@@ -306,7 +305,8 @@ describe('cascadeRsvpNotAttending', () => {
   });
 
   test('should return { success: false } when the guest does not exist', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       guestFindFirst: vi.fn().mockResolvedValue(null),
@@ -333,7 +333,8 @@ describe('updateAttendeeDetails', () => {
   });
 
   test('should throw Unauthorized when session lacks admin role', async () => {
-    mockAuth.mockResolvedValue(makeSession(undefined));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
 
     await expect(
       updateAttendeeDetails({ rsvpResponseId: 'rsvp1', attendees: [] }),
@@ -341,7 +342,8 @@ describe('updateAttendeeDetails', () => {
   });
 
   test('should delete all existing Attendee rows for the rsvpResponseId before reinserting', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const deleteFn = vi.fn().mockReturnValue({
       where: vi.fn().mockResolvedValue(undefined),
@@ -363,7 +365,8 @@ describe('updateAttendeeDetails', () => {
   });
 
   test('should insert the provided attendees list with correct field values', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const insertValuesFn = vi.fn().mockResolvedValue(undefined);
     const insertFn = vi.fn().mockReturnValue({ values: insertValuesFn });
@@ -401,7 +404,8 @@ describe('updateAttendeeDetails', () => {
   });
 
   test('should update rsvpResponse.updatedAt on success', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const updateWhereFn = vi.fn().mockResolvedValue(undefined);
     const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
@@ -423,7 +427,8 @@ describe('updateAttendeeDetails', () => {
   });
 
   test('should return { success: false } when rsvpResponseId does not exist', async () => {
-    mockAuth.mockResolvedValue(makeSession(['admin']));
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 
     const mockDb = createMockDb({
       rsvpFindFirst: vi.fn().mockResolvedValue(null),
