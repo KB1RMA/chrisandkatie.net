@@ -1,5 +1,5 @@
-import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { expect, test, describe } from 'vitest';
+import { render, screen } from '@testing-library/react';
 
 // Mock react-leaflet to avoid DOM/canvas errors in jsdom
 vi.mock('react-leaflet', () => ({
@@ -34,103 +34,47 @@ vi.mock('leaflet', () => ({
   },
 }));
 
+import { vi } from 'vitest';
 import { LeafletMap } from './LeafletMap';
 
-const mockFetch = vi.fn();
-
 describe('LeafletMap', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', mockFetch);
+  test('should render the map container with the provided coordinates', () => {
+    render(<LeafletMap lat={42.3601} lng={-71.0589} label="Boston, MA" />);
+
+    expect(screen.getByTestId('map-container')).toBeInTheDocument();
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.clearAllMocks();
+  test('should render a marker for the location', () => {
+    render(<LeafletMap lat={42.3601} lng={-71.0589} label="Boston, MA" />);
+
+    expect(screen.getByTestId('map-marker')).toBeInTheDocument();
   });
 
-  test('should show a loading state while geocoding', () => {
-    // Never resolves, stays in loading state
-    mockFetch.mockReturnValue(new Promise(() => {}));
+  test('should display the venue label in the popup', () => {
+    render(
+      <LeafletMap lat={42.3601} lng={-71.0589} label="The Grand Chapel" />,
+    );
 
-    render(<LeafletMap location="The Grand Chapel, Boston, MA" />);
-
-    expect(screen.getByText('Loading map…')).toBeInTheDocument();
+    expect(screen.getByTestId('map-popup')).toHaveTextContent(
+      'The Grand Chapel',
+    );
   });
 
-  test('should render the map container when geocoding succeeds', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([{ lat: '42.3601', lon: '-71.0589' }]),
-    });
+  test('should apply the given height to the map wrapper', () => {
+    const { container } = render(
+      <LeafletMap lat={42.3601} lng={-71.0589} label="Test" height="400px" />,
+    );
 
-    render(<LeafletMap location="Boston, MA" />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('map-container')).toBeInTheDocument();
-    });
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(container.firstChild).toHaveStyle({ height: '400px' });
   });
 
-  test('should render a marker with the location name in a popup', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([{ lat: '42.3601', lon: '-71.0589' }]),
-    });
+  test('should default to 300px height when none is provided', () => {
+    const { container } = render(
+      <LeafletMap lat={42.3601} lng={-71.0589} label="Test" />,
+    );
 
-    render(<LeafletMap location="Boston, MA" />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('map-popup')).toHaveTextContent('Boston, MA');
-    });
-  });
-
-  test('should show an unavailable state when geocoding returns no results', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
-
-    render(<LeafletMap location="Nonexistent Place XYZ" />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Map unavailable')).toBeInTheDocument();
-    });
-  });
-
-  test('should show an unavailable state when the geocoding fetch fails', async () => {
-    mockFetch.mockRejectedValue(new Error('network error'));
-
-    render(<LeafletMap location="Some Location" />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Map unavailable')).toBeInTheDocument();
-    });
-  });
-
-  test('should show an unavailable state when the geocoding response is not ok (e.g. 429)', async () => {
-    mockFetch.mockResolvedValue({ ok: false, status: 429 });
-
-    render(<LeafletMap location="Some Location" />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Map unavailable')).toBeInTheDocument();
-    });
-  });
-
-  test('should geocode using the Nominatim API with the encoded location', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([{ lat: '42.3601', lon: '-71.0589' }]),
-    });
-
-    render(<LeafletMap location="The Grand Chapel, Boston, MA" />);
-
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `q=${encodeURIComponent('The Grand Chapel, Boston, MA')}`,
-        ),
-        expect.objectContaining({ headers: { 'Accept-Language': 'en' } }),
-      );
-    });
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(container.firstChild).toHaveStyle({ height: '300px' });
   });
 });

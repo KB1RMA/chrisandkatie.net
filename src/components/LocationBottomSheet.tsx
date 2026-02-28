@@ -111,10 +111,17 @@ export function LocationBottomSheet({
           </button>
         </div>
 
-        {/* Map */}
-        {event.location && (
-          <LeafletMap location={event.location} height="260px" />
-        )}
+        {/* Map — only rendered when geocoded coordinates are available */}
+        {event.location &&
+          event.locationLat != null &&
+          event.locationLng != null && (
+            <LeafletMap
+              lat={event.locationLat}
+              lng={event.locationLng}
+              label={event.location}
+              height="260px"
+            />
+          )}
 
         {/* Directions link */}
         {directionsSrc && (
