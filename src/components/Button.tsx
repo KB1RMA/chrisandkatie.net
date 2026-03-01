@@ -4,7 +4,6 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
-import { trackNavigateToPath } from '@/lib/analytics';
 
 const baseButtonClassName = [
   'inline-block',
@@ -76,10 +75,6 @@ export function Button({
   );
 
   const handleClick = () => {
-    if (href) {
-      trackNavigateToPath(href);
-    }
-
     onClick?.();
   };
 
