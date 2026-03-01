@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
@@ -14,6 +14,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './vitest.setup.ts',
     css: false,
+    // Extend Vitest's built-in excludes rather than replacing them, so that
+    // generated directories (.next, .open-next, etc.) are still ignored.
+    // Adds exclusion for Playwright E2E specs — run via `npm run test:e2e`.
+    exclude: [...configDefaults.exclude, 'tests/e2e/**'],
     reporters: process.env.GITHUB_ACTIONS
       ? ['default', 'github-actions', 'junit']
       : ['default', 'junit'],

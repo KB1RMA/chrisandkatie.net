@@ -6,14 +6,14 @@
       "idx": 0,
       "version": "6",
       "when": 1771970938367,
-      "tag": "20260224_full_schema_bootstrap",
+      "tag": "0000_full_schema_bootstrap",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "6",
       "when": 1771971000000,
-      "tag": "20260224_mark_bootstrap_applied",
+      "tag": "0001_mark_bootstrap_applied",
       "breakpoints": true
     },
     {
