@@ -7,7 +7,7 @@
  * Uses react-hook-form for state management and server action for submission.
  * Validates with Zod schemas shared with server action.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -39,8 +39,8 @@ type RSVPFormProps = {
   isSubmitted?: boolean;
   submittedBy?: string;
   submittedAt?: string;
-  /** Pre-fill the contact email field if the invitation already has one stored. */
-  contactEmail?: string | null;
+  /** Called after a successful submission — used by RSVPWizard to advance steps. */
+  onSubmitSuccess?: () => void;
 };
 
 export function RSVPForm({
@@ -48,7 +48,7 @@ export function RSVPForm({
   guests,
   isSubmitted = false,
   submittedAt,
-  contactEmail,
+  onSubmitSuccess,
 }: RSVPFormProps) {
   const router = useRouter();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -64,7 +64,6 @@ export function RSVPForm({
     resolver: zodResolver(submitRsvpSchema),
     defaultValues: {
       invitationId,
-      contactEmail: contactEmail ?? '',
       guests: guests.map((g) => ({
         id: g.id,
         firstName: g.firstName,
@@ -80,19 +79,6 @@ export function RSVPForm({
 
   // Watch attending status for each guest to show meal selection conditionally
   const watchedAttending = watch('guests');
-
-  // Calculate summary counts
-  const summary = useMemo(() => {
-    const attending = watchedAttending.filter(
-      (g) => g.attending === true,
-    ).length;
-    const declined = watchedAttending.filter(
-      (g) => g.attending === false,
-    ).length;
-    const pending = watchedAttending.filter((g) => g.attending === null).length;
-
-    return { attending, declined, pending };
-  }, [watchedAttending]);
 
   /**
    * Trigger confetti animation.
@@ -159,13 +145,16 @@ export function RSVPForm({
 
         // Refresh the page to show updated data
         router.refresh();
+
+        // Advance to the next wizard step if a callback is provided
+        onSubmitSuccess?.();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Failed to submit RSVP';
         setError('root', { message: errorMessage });
       }
     },
-    [router, setError, triggerConfetti],
+    [router, setError, triggerConfetti, onSubmitSuccess],
   );
 
   return (
@@ -354,12 +343,12 @@ export function RSVPForm({
                       htmlFor={`dietary-${guest.id}`}
                       className="mb-2 block text-base font-medium text-gray-700 sm:text-sm"
                     >
-                      Dietary Restrictions (optional)
+                      Allergies (optional)
                     </label>
                     <input
                       id={`dietary-${guest.id}`}
                       type="text"
-                      placeholder="e.g., Gluten-free, Nut allergy, Vegan"
+                      placeholder="e.g., Nuts, Shellfish, Gluten"
                       {...register(`guests.${index}.dietaryRestrictions`)}
                       className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
                     />
@@ -369,76 +358,11 @@ export function RSVPForm({
                       </p>
                     )}
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor={`notes-${guest.id}`}
-                      className="mb-2 block text-base font-medium text-gray-700 sm:text-sm"
-                    >
-                      Additional Notes (optional)
-                    </label>
-                    <textarea
-                      id={`notes-${guest.id}`}
-                      placeholder="Any special requests or information"
-                      rows={3}
-                      {...register(`guests.${index}.notes`)}
-                      className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
-                    />
-                    {errors.guests?.[index]?.notes && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.guests[index]?.notes?.message}
-                      </p>
-                    )}
-                  </div>
                 </div>
               )}
             </div>
           );
         })}
-      </div>
-
-      {/* Optional contact email for the household */}
-      <div>
-        <label
-          htmlFor="contactEmail"
-          className="mb-2 block text-base font-medium text-gray-700 sm:text-sm"
-        >
-          Contact Email (optional)
-        </label>
-        <p className="mb-2 text-xs text-gray-500">
-          We&#39;ll only use this to follow up about your RSVP if needed.
-        </p>
-        <input
-          id="contactEmail"
-          type="email"
-          autoComplete="email"
-          {...register('contactEmail')}
-          className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none sm:text-sm"
-          placeholder="your@email.com"
-        />
-        {errors.contactEmail && (
-          <p className="mt-1 text-sm text-red-600">
-            {errors.contactEmail.message}
-          </p>
-        )}
-      </div>
-
-      <div className="rounded-lg bg-gray-50 p-4">
-        <h4 className="mb-2 font-medium text-gray-900">Summary</h4>
-        <div className="space-y-1 text-sm text-gray-700">
-          <p>
-            <span className="font-medium">{summary.attending}</span> attending
-          </p>
-          <p>
-            <span className="font-medium">{summary.declined}</span> declining
-          </p>
-          {summary.pending > 0 && (
-            <p>
-              <span className="font-medium">{summary.pending}</span> not yet
-              responded
-            </p>
-          )}
-        </div>
       </div>
 
       <div className="flex gap-4">

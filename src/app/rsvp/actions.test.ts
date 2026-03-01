@@ -14,7 +14,11 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }));
 
-import { submitRsvp, fetchGuestEvents } from './actions';
+import {
+  submitRsvp,
+  fetchGuestEvents,
+  updateInvitationAddress,
+} from './actions';
 import { MEAL_OPTIONS } from '@/lib/constants';
 import { guests, events } from '@/lib/db/schema';
 import { type DbClient } from '@/lib/db';
@@ -652,5 +656,234 @@ describe('fetchGuestEvents', () => {
     const result = await fetchGuestEvents();
 
     expect(result).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateInvitationAddress tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a mock DB for updateInvitationAddress tests.
+ * Supports db.update().set().where() calls for both invitations and users tables.
+ *
+ * @param updateFn - Optional custom mock for db.update.
+ * @returns Partial DbClient with mocked update chain.
+ */
+function createAddressMockDb(
+  updateFn?: ReturnType<typeof vi.fn>,
+): Partial<DbClient> {
+  const whereFn = vi.fn().mockResolvedValue(undefined);
+  const setFn = vi.fn().mockReturnValue({ where: whereFn });
+  const effectiveUpdateFn = updateFn ?? vi.fn().mockReturnValue({ set: setFn });
+
+  return { update: effectiveUpdateFn } as unknown as Partial<DbClient>;
+}
+
+/** Minimal address payload shared across tests. */
+const BASE_ADDRESS_INPUT = {
+  invitationId: 'invitation-1',
+  mailingAddress: 'The Smith Family',
+  address: '123 Main St',
+  addressLine2: null,
+  city: 'Boston',
+  state: 'MA',
+  zipCode: '02101',
+} as const;
+
+describe('updateInvitationAddress', () => {
+  const mockAuth = vi.mocked(auth);
+  const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
+  const mockGetDb = vi.mocked(getDb);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('should throw when user is not authenticated', async () => {
+    mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
+
+    await expect(updateInvitationAddress(BASE_ADDRESS_INPUT)).rejects.toThrow(
+      'Unauthorized',
+    );
+  });
+
+  test('should throw when identity is null', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
+
+    await expect(updateInvitationAddress(BASE_ADDRESS_INPUT)).rejects.toThrow(
+      'Unauthorized',
+    );
+  });
+
+  test('should throw when a guest attempts to update a different invitation', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-2',
+    });
+
+    await expect(updateInvitationAddress(BASE_ADDRESS_INPUT)).rejects.toThrow(
+      'Not authorized for this invitation',
+    );
+  });
+
+  test('should throw when invitationId is empty', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    await expect(
+      updateInvitationAddress({ ...BASE_ADDRESS_INPUT, invitationId: '' }),
+    ).rejects.toThrow('Invalid request data');
+  });
+
+  test('should throw when an address field exceeds the maximum length', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    await expect(
+      updateInvitationAddress({
+        ...BASE_ADDRESS_INPUT,
+        address: 'A'.repeat(201),
+      }),
+    ).rejects.toThrow('Invalid request data');
+  });
+
+  test('should throw when contactEmail is not a valid email address', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    await expect(
+      updateInvitationAddress({
+        ...BASE_ADDRESS_INPUT,
+        contactEmail: 'not-an-email',
+      }),
+    ).rejects.toThrow('Invalid request data');
+  });
+
+  test('should successfully update address fields and return success', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const mockDb = createAddressMockDb();
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    const result = await updateInvitationAddress(BASE_ADDRESS_INPUT);
+
+    expect(result).toEqual({ success: true });
+    // One db.update call — the invitation address update
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+  });
+
+  test('should allow admin to update any invitation', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+
+    const mockDb = createAddressMockDb();
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    const result = await updateInvitationAddress(BASE_ADDRESS_INPUT);
+
+    expect(result).toEqual({ success: true });
+  });
+
+  test('should persist contactEmail to invitation and user when provided', async () => {
+    const userId = 'user-1';
+
+    mockAuth.mockResolvedValue(makeSession({ id: userId }));
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+    const mockDb = createAddressMockDb(updateFn);
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await updateInvitationAddress({
+      ...BASE_ADDRESS_INPUT,
+      contactEmail: 'jane@example.com',
+    });
+
+    // Two db.update calls: invitation address + user email
+    expect(updateFn).toHaveBeenCalledTimes(2);
+  });
+
+  test('should not update user email when contactEmail is absent', async () => {
+    mockAuth.mockResolvedValue(makeSession({ id: 'user-1' }));
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+    const mockDb = createAddressMockDb(updateFn);
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await updateInvitationAddress(BASE_ADDRESS_INPUT);
+
+    // Only the invitation update — no email updates
+    expect(updateFn).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not update user email when contactEmail is an empty string', async () => {
+    mockAuth.mockResolvedValue(makeSession({ id: 'user-1' }));
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+    const mockDb = createAddressMockDb(updateFn);
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await updateInvitationAddress({ ...BASE_ADDRESS_INPUT, contactEmail: '' });
+
+    // Only the invitation update — empty string treated the same as absent
+    expect(updateFn).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not update user email when session has no user id', async () => {
+    // makeSession() produces a session without a userId — simulates
+    // an authenticated session where the user record has no id set
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+    const mockDb = createAddressMockDb(updateFn);
+    mockGetDb.mockReturnValue(mockDb as DbClient);
+
+    await updateInvitationAddress({
+      ...BASE_ADDRESS_INPUT,
+      contactEmail: 'test@example.com',
+    });
+
+    // Invitation update only — user update skipped because userId is undefined
+    expect(updateFn).toHaveBeenCalledTimes(1);
   });
 });

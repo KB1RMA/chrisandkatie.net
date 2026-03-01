@@ -3,10 +3,10 @@ import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { RSVPForm, type GuestRSVP } from '@/components/RSVPForm';
-import { EventRsvpCard } from '@/components/EventRsvpCard';
+import { RSVPWizard, type InvitationAddress } from '@/components/RSVPWizard';
 import { WEDDING_DATE_DISPLAY, type MealOption } from '@/lib/constants';
 import { fetchGuestEvents } from '@/app/rsvp/actions';
+import type { GuestRSVP } from '@/components/RSVPForm';
 
 const marcellus = Marcellus({
   subsets: ['latin'],
@@ -89,52 +89,25 @@ export default async function RSVPPage() {
         </p>
 
         <div className="rounded-lg bg-[#fffdfb] p-4 shadow-lg sm:p-8">
-          <div className="mb-6">
-            <h2 className="mb-2 text-2xl font-medium text-[#9e3f3f]">
-              Your Invitation
-            </h2>
-            <div className="space-y-0 text-sm text-gray-600">
-              {invitation.mailingAddress && (
-                <p className="font-medium">{invitation.mailingAddress}</p>
-              )}
-              {invitation.address && <p>{invitation.address}</p>}
-              {invitation.addressLine2 && <p>{invitation.addressLine2}</p>}
-              {invitation.city && invitation.state && (
-                <p>
-                  {invitation.city}, {invitation.state} {invitation.zipCode}
-                </p>
-              )}
-              <p className="pt-3 text-xs text-gray-500">
-                {invitation.guests.length}{' '}
-                {invitation.guests.length === 1 ? 'guest' : 'guests'} invited
-              </p>
-            </div>
-          </div>
-
-          <RSVPForm
+          <RSVPWizard
             invitationId={invitation.id}
+            address={
+              {
+                mailingAddress: invitation.mailingAddress,
+                address: invitation.address,
+                addressLine2: invitation.addressLine2,
+                city: invitation.city,
+                state: invitation.state,
+                zipCode: invitation.zipCode,
+              } satisfies InvitationAddress
+            }
             guests={guestsForForm}
             isSubmitted={isSubmitted}
             submittedAt={submittedAt}
             contactEmail={invitation.contactEmail}
+            additionalEvents={additionalEvents}
           />
         </div>
-
-        {/* Additional events section */}
-        {additionalEvents.length > 0 && (
-          <div className="mt-6">
-            <h2
-              className={`${marcellus.className} mb-4 text-2xl font-bold text-[#9e3f3f]`}
-            >
-              Additional Events
-            </h2>
-            <div className="space-y-3">
-              {additionalEvents.map(({ event, rsvp }) => (
-                <EventRsvpCard key={event.id} event={event} rsvp={rsvp} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
