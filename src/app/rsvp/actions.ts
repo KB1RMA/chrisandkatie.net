@@ -10,6 +10,7 @@ import {
   submitRsvpSchema,
   updateInvitationAddressSchema,
   type SubmitRsvpInput,
+  type UpdateInvitationAddressInput,
 } from '@/lib/schemas/rsvp';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -194,16 +195,9 @@ export async function fetchGuestEvents() {
  * @param input - The updated address fields.
  * @throws Error if the user is not authenticated or not authorized for this invitation.
  */
-export async function updateInvitationAddress(input: {
-  invitationId: string;
-  mailingAddress: string | null;
-  address: string | null;
-  addressLine2: string | null;
-  city: string | null;
-  state: string | null;
-  zipCode: string | null;
-  contactEmail?: string | null;
-}): Promise<{ success: boolean }> {
+export async function updateInvitationAddress(
+  input: UpdateInvitationAddressInput,
+): Promise<{ success: boolean }> {
   try {
     const session = await auth();
     const identity = getAuthIdentity(session);
