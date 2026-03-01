@@ -3,6 +3,7 @@ const prettierPlugin = require('eslint-plugin-prettier');
 const tseslint = require('typescript-eslint');
 const testingLibraryPlugin = require('eslint-plugin-testing-library');
 const vitestPlugin = require('@vitest/eslint-plugin');
+const playwrightPlugin = require('eslint-plugin-playwright');
 
 const eslintConfig = [
   {
@@ -102,7 +103,9 @@ const eslintConfig = [
     },
   },
   {
-    files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
+    // Vitest + Testing Library rules scoped to src/ unit/component tests only.
+    // tests/e2e/ is handled separately below.
+    files: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.{ts,tsx}'],
     plugins: {
       '@typescript-eslint': tseslint.plugin,
       'testing-library': testingLibraryPlugin,
@@ -133,6 +136,38 @@ const eslintConfig = [
       'vitest/no-focused-tests': 'error',
       'vitest/prefer-to-be': 'error',
       'vitest/prefer-to-have-length': 'error',
+    },
+  },
+  {
+    // Playwright rules for E2E tests.
+    files: ['tests/e2e/**/*.{ts,tsx}'],
+    plugins: {
+      playwright: playwrightPlugin,
+      '@typescript-eslint': tseslint.plugin,
+      prettier: prettierPlugin,
+    },
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 'latest',
+      },
+    },
+    rules: {
+      'prettier/prettier': 'error',
+      ...playwrightPlugin.configs['flat/recommended'].rules,
+      // Disallow test.only left in committed code.
+      'playwright/no-focused-test': 'error',
+      // Disallow skipped tests without a comment explaining why.
+      'playwright/no-skipped-test': 'warn',
+      // Catch missing awaits on async Playwright calls.
+      'playwright/no-floating-promises': 'off',
+      // Prefer built-in Playwright assertions over raw expect(x).toBe().
+      'playwright/prefer-web-first-assertions': 'error',
+      // Disallow page.pause() — it blocks CI.
+      'playwright/no-page-pause': 'error',
+      // Encourage waiting via expect() rather than explicit waits.
+      'playwright/no-wait-for-timeout': 'warn',
     },
   },
 ];

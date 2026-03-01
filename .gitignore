@@ -63,3 +63,8 @@ seed-data/
 
 # Ignore the specs directory as its far too verbose
 specs/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
