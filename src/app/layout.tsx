@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Roboto } from 'next/font/google';
 import { CountdownPageTitle } from '@/components/CountdownPageTitle';
-import { PageViewTracker } from '@/components/PageViewTracker';
 import { SessionProvider } from '@/components/SessionProvider';
 import { Header } from '@/components/Header';
 import { baseMetadata } from '@/lib/metadata';
@@ -29,7 +28,6 @@ export default function RootLayout({
         <SessionProvider>
           <Header />
           <CountdownPageTitle />
-          <PageViewTracker />
           {children}
         </SessionProvider>
       </body>
