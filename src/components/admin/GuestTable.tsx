@@ -160,7 +160,7 @@ export function GuestTable({ data, availableEvents = [] }: GuestTableProps) {
       },
       {
         id: 'dietaryRestrictions',
-        header: 'Dietary',
+        header: 'Allergies',
         accessor: (row) => row.dietaryRestrictions ?? '-',
       },
       {

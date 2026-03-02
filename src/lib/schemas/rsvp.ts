@@ -16,7 +16,7 @@ export const guestUpdateSchema = z
     firstName: z.string().optional(),
     lastName: z.string().optional(),
     type: z.enum(['adult', 'child']).optional(),
-    attending: z.boolean(),
+    attending: z.boolean({ error: 'Please select Attending or Declining' }),
     mealChoice: z
       .enum([
         MEAL_OPTIONS.SHORT_RIB,
@@ -49,19 +49,45 @@ export const guestUpdateSchema = z
 export type GuestUpdate = z.infer<typeof guestUpdateSchema>;
 
 /**
+ * Schema for an optional contact email field.
+ * Accepts a valid email address, an empty string, or null.
+ */
+export const contactEmailSchema = z
+  .string()
+  .email('Please enter a valid email address')
+  .optional()
+  .or(z.literal(''))
+  .or(z.null());
+
+/**
  * Schema for submitting all RSVP responses for an invitation.
  */
 export const submitRsvpSchema = z.object({
   invitationId: z.string().min(1, 'Invitation ID is required'),
   guests: z.array(guestUpdateSchema).min(1, 'At least one guest is required'),
-  contactEmail: z
-    .string()
-    .email('Please enter a valid email address')
-    .optional()
-    .or(z.literal('')),
+  contactEmail: contactEmailSchema,
 });
 
 export type SubmitRsvpInput = z.infer<typeof submitRsvpSchema>;
+
+/**
+ * Schema for updating the mailing address on an invitation.
+ * Enforces reasonable length limits to prevent oversized payloads reaching the database.
+ */
+export const updateInvitationAddressSchema = z.object({
+  invitationId: z.string().min(1, 'Invitation ID is required'),
+  mailingAddress: z.string().max(200).nullable(),
+  address: z.string().max(200).nullable(),
+  addressLine2: z.string().max(100).nullable(),
+  city: z.string().max(100).nullable(),
+  state: z.string().max(50).nullable(),
+  zipCode: z.string().max(20).nullable(),
+  contactEmail: contactEmailSchema,
+});
+
+export type UpdateInvitationAddressInput = z.infer<
+  typeof updateInvitationAddressSchema
+>;
 
 /**
  * Schema for a single attendee within an event RSVP.

@@ -6,7 +6,12 @@
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { users } from '@/lib/db/schema';
-import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
+import {
+  submitRsvpSchema,
+  updateInvitationAddressSchema,
+  type SubmitRsvpInput,
+  type UpdateInvitationAddressInput,
+} from '@/lib/schemas/rsvp';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import * as GuestRepository from '@/lib/db/repositories/guests';
@@ -182,4 +187,81 @@ export async function fetchGuestEvents() {
       event,
       rsvp: rsvpByEventId.get(event.id) ?? null,
     }));
+}
+
+/**
+ * Update the mailing address fields for the authenticated guest's invitation.
+ *
+ * @param input - The updated address fields.
+ * @throws Error if the user is not authenticated or not authorized for this invitation.
+ */
+export async function updateInvitationAddress(
+  input: UpdateInvitationAddressInput,
+): Promise<{ success: boolean }> {
+  try {
+    const session = await auth();
+    const identity = getAuthIdentity(session);
+
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    // Validate input before touching any data
+    const validatedInput = updateInvitationAddressSchema.parse(input);
+
+    if (
+      identity.type === 'guest' &&
+      identity.invitationId !== validatedInput.invitationId
+    ) {
+      throw new Error('Not authorized for this invitation');
+    }
+
+    const authorizedInvitationId =
+      identity.type === 'guest'
+        ? identity.invitationId
+        : validatedInput.invitationId;
+
+    const now = new Date().toISOString();
+
+    const contactEmail = validatedInput.contactEmail?.trim() || undefined;
+
+    await InvitationRepository.updateInvitation(authorizedInvitationId, {
+      mailingAddress: validatedInput.mailingAddress,
+      address: validatedInput.address,
+      addressLine2: validatedInput.addressLine2,
+      city: validatedInput.city,
+      state: validatedInput.state,
+      zipCode: validatedInput.zipCode,
+      ...(contactEmail ? { contactEmail } : {}),
+      updatedAt: now,
+    });
+
+    if (contactEmail) {
+      try {
+        const userId = session?.user.id;
+
+        if (userId) {
+          const db = getDb();
+
+          await db
+            .update(users)
+            .set({ email: contactEmail, updatedAt: now })
+            .where(eq(users.id, userId));
+        }
+      } catch (emailError) {
+        console.error(
+          '[updateInvitationAddress] Failed to persist contact email:',
+          emailError,
+        );
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error('Invalid request data');
+    }
+
+    throw error;
+  }
 }

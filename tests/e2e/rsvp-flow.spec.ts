@@ -1,9 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { loginAsGuest } from './helpers/login';
 import { resetRsvpState } from './helpers/reset-rsvp';
+import { completeAddressStep } from './helpers/complete-address-step';
 
 /**
  * E2E tests for the RSVP flow.
+ *
+ * The RSVP page is a three-step wizard:
+ *   Step 1 – Confirm Your Address (and optional contact email)
+ *   Step 2 – Attendance and meal selections
+ *   Step 3 – Additional events (shows "You're all set!" when none exist)
+ *
+ * First-time visitors start on Step 1. Guests who have already submitted
+ * an RSVP start on Step 2.
  *
  * Test invitation seeded by e2e-seed.sql:
  *   Code:   test-swift
@@ -109,11 +118,57 @@ test.describe('RSVP page — access control', () => {
   });
 });
 
-// ── RSVP page ─────────────────────────────────────────────────────────────────
+// ── RSVP wizard — Step 1: Address confirmation ───────────────────────────────
+
+test.describe('RSVP wizard — address step', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsGuest(page, VALID_CODE);
+  });
+
+  test('should show the address confirmation step on first visit', async ({
+    page,
+  }) => {
+    await expect(page.getByRole('heading', { name: 'RSVP' })).toBeVisible();
+    await expect(page.getByText('Confirm Your Address')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Looks correct — continue' }),
+    ).toBeVisible();
+  });
+
+  test('should display a three-step progress indicator', async ({ page }) => {
+    await expect(page.getByText('Confirm Address')).toBeVisible();
+    // Use exact match — 'Your RSVP' also appears as a substring in the contact
+    // email description, which would cause a strict-mode violation otherwise.
+    await expect(page.getByText('Your RSVP', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Additional Events', { exact: true }),
+    ).toBeVisible();
+  });
+
+  test('should show the contact email field on the address step', async ({
+    page,
+  }) => {
+    await expect(page.getByLabel(/contact email/i)).toBeVisible();
+  });
+
+  test('should advance to the RSVP form when address is confirmed', async ({
+    page,
+  }) => {
+    await completeAddressStep(page);
+
+    // Step 2 — RSVP form — is now visible.
+    await expect(page.getByText('Alice E2E')).toBeVisible();
+    await expect(page.getByText('Bob E2E')).toBeVisible();
+  });
+});
+
+// ── RSVP page — Step 2: RSVP form ────────────────────────────────────────────
 
 test.describe('RSVP page — authenticated guest', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsGuest(page, VALID_CODE);
+    // Advance past the address confirmation step to reach the RSVP form.
+    await completeAddressStep(page);
   });
 
   test('should display the invited party on the RSVP page', async ({
@@ -133,6 +188,12 @@ test.describe('RSVP page — authenticated guest', () => {
       page.getByRole('button', { name: 'Submit RSVP' }),
     ).toBeVisible();
   });
+
+  test('should allow navigating back to the address step', async ({ page }) => {
+    await page.getByRole('button', { name: /back to address/i }).click();
+
+    await expect(page.getByText('Confirm Your Address')).toBeVisible();
+  });
 });
 
 // ── RSVP submission ───────────────────────────────────────────────────────────
@@ -142,6 +203,9 @@ test.describe('RSVP submission', () => {
     // Reset RSVP state so each test starts from a clean "not yet submitted" slate.
     resetRsvpState();
     await loginAsGuest(page, VALID_CODE);
+
+    // Advance past the address confirmation step (Step 1) to the RSVP form (Step 2).
+    await completeAddressStep(page);
   });
 
   test('should submit RSVP successfully when all guests mark attending', async ({
@@ -166,8 +230,9 @@ test.describe('RSVP submission', () => {
     // Submit the form.
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
 
-    // Verify the success confirmation is visible.
-    await expect(page.getByText('RSVP Submitted Successfully')).toBeVisible({
+    // After submission the wizard advances to Step 3 — Additional Events.
+    // The seeded invitation has no additional events so the all-done banner is shown.
+    await expect(page.getByText("You're all set!")).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -182,12 +247,24 @@ test.describe('RSVP submission', () => {
 
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
 
-    await expect(page.getByText('RSVP Submitted Successfully')).toBeVisible({
+    // After submission, wizard advances to Step 3.
+    await expect(page.getByText("You're all set!")).toBeVisible({
       timeout: 10_000,
     });
   });
 
   test('should save a contact email when provided', async ({ page }) => {
+    // The contact email field lives on Step 1. Navigate back to fill it in.
+    await page.getByRole('button', { name: /back to address/i }).click();
+
+    const emailInput = page.getByLabel(/contact email/i);
+
+    await expect(emailInput).toBeVisible();
+    await emailInput.fill('alice@example.com');
+
+    // Confirm the address again to return to Step 2.
+    await completeAddressStep(page);
+
     await page.locator('label:has-text("Attending")').first().click();
     await page.locator('label:has-text("Attending")').nth(1).click();
 
@@ -198,17 +275,61 @@ test.describe('RSVP submission', () => {
       await mealLabels.nth(i).click();
     }
 
-    // Provide an optional contact email.
-    const emailInput = page.getByLabel(/email/i);
-
-    await expect(emailInput).toBeVisible();
-    await emailInput.fill('alice@example.com');
-
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
 
-    await expect(page.getByText('RSVP Submitted Successfully')).toBeVisible({
+    // After submission, wizard advances to Step 3.
+    await expect(page.getByText("You're all set!")).toBeVisible({
       timeout: 10_000,
     });
+  });
+});
+
+// ── RSVP wizard — Step 3: Additional events ───────────────────────────────────
+
+test.describe('RSVP wizard — additional events step', () => {
+  test.beforeEach(async ({ page }) => {
+    resetRsvpState();
+    await loginAsGuest(page, VALID_CODE);
+    await completeAddressStep(page);
+
+    // Submit RSVP to advance the wizard to Step 3.
+    await page.locator('label:has-text("Attending")').first().click();
+    await page.locator('label:has-text("Attending")').nth(1).click();
+
+    const mealLabels = page.locator('label:has-text("Short Rib")');
+    const mealCount = await mealLabels.count();
+
+    for (let i = 0; i < mealCount; i++) {
+      await mealLabels.nth(i).click();
+    }
+
+    await page.getByRole('button', { name: 'Submit RSVP' }).click();
+    await expect(page.getByText("You're all set!")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test('should show the additional events heading and all-done banner', async ({
+    page,
+  }) => {
+    // Use role selector — 'Additional Events' also appears in the step indicator
+    // span and a description paragraph, which would cause strict-mode violations.
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible();
+    await expect(page.getByText("You're all set!")).toBeVisible();
+    await expect(page.getByText('Thank you for your RSVP')).toBeVisible();
+  });
+
+  test('should navigate back to the RSVP form from the events step', async ({
+    page,
+  }) => {
+    await page.getByText('← Back to RSVP').click();
+
+    // Step 2 — RSVP form — should be visible again.
+    await expect(
+      page.getByRole('button', { name: 'Update RSVP' }),
+    ).toBeVisible();
   });
 });
 
@@ -219,6 +340,9 @@ test.describe('RSVP update flow', () => {
     // Reset RSVP state, then log in and submit so we can test the update path.
     resetRsvpState();
     await loginAsGuest(page, VALID_CODE);
+
+    // First visit starts on Step 1 — confirm address to reach the RSVP form.
+    await completeAddressStep(page);
 
     await page.locator('label:has-text("Attending")').first().click();
     await page.locator('label:has-text("Attending")').nth(1).click();
@@ -231,7 +355,9 @@ test.describe('RSVP update flow', () => {
     }
 
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
-    await expect(page.getByText('RSVP Submitted Successfully')).toBeVisible({
+
+    // After submission the wizard advances to Step 3 — Additional Events.
+    await expect(page.getByText("You're all set!")).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -239,7 +365,8 @@ test.describe('RSVP update flow', () => {
   test('should show the "already submitted" notice when revisiting', async ({
     page,
   }) => {
-    // Reload the RSVP page to exit the success state.
+    // Reload the RSVP page. Because isSubmitted is now true the wizard
+    // starts at Step 2 directly — no address confirmation needed.
     await page.reload();
 
     await expect(page.getByText("You've already submitted")).toBeVisible();
@@ -256,7 +383,8 @@ test.describe('RSVP update flow', () => {
 
     await page.getByRole('button', { name: 'Update RSVP' }).click();
 
-    await expect(page.getByText('RSVP Submitted Successfully')).toBeVisible({
+    // After updating, wizard advances to Step 3.
+    await expect(page.getByText("You're all set!")).toBeVisible({
       timeout: 10_000,
     });
   });
