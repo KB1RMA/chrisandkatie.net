@@ -2,6 +2,7 @@
 [![ESLint](https://img.shields.io/badge/ESLint-enabled-blue?logo=eslint)](./eslint.config.js)
 [![Prettier](https://img.shields.io/badge/Prettier-enabled-blue?logo=prettier)](./prettier.config.js)
 [![TypeScript](https://img.shields.io/badge/TypeScript-enabled-blue?logo=typescript)](./tsconfig.json)
+[![codecov](https://codecov.io/gh/KB1RMA/chrisandkatie.net/branch/main/graph/badge.svg)](https://codecov.io/gh/KB1RMA/chrisandkatie.net)
 
 ## Setup
 
