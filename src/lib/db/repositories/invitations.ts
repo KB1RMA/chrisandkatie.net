@@ -6,9 +6,10 @@
  * directly.
  */
 
-import { eq, isNull } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { invitations } from '@/lib/db/schema';
+import { guests, invitations } from '@/lib/db/schema';
+import type { InvitationPrintRow } from '@/lib/print-inserts';
 
 export type UpdateInvitationValues = Partial<typeof invitations.$inferInsert>;
 
@@ -48,5 +49,129 @@ export async function findInvitationsWithoutCode() {
   return getDb().query.invitations.findMany({
     where: isNull(invitations.invitationCode),
     columns: { id: true, invitationCode: true },
+  });
+}
+
+/**
+ * Count the number of invitations that have no code assigned.
+ * Used to display a warning on the print inserts page.
+ *
+ * @returns The count of invitations without an invitation code.
+ */
+export async function countInvitationsWithoutCode(): Promise<number> {
+  const db = getDb();
+  const result = await db
+    .select({ count: count() })
+    .from(invitations)
+    .where(isNull(invitations.invitationCode));
+
+  return result[0]?.count ?? 0;
+}
+
+/**
+ * Format individual address fields into a multi-line mailing address string.
+ * Returns null if no address data is present.
+ */
+function formatAddress(row: {
+  address: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
+}): string | null {
+  const lines = [
+    row.address,
+    row.addressLine2,
+    [row.city, row.state].filter(Boolean).join(', '),
+    row.zipCode,
+    row.country,
+  ].filter(Boolean);
+
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
+/**
+ * Find all invitations that have a code assigned, returning raw rows grouped
+ * by invitation with the primary guest label resolved. Callers are responsible
+ * for assembling QR codes and deep-link URLs via assemblePrintInserts().
+ *
+ * @param invitationIds - Optional list of invitation IDs to filter to.
+ * @returns Raw invitation rows sorted by creation order, ready for assembly.
+ */
+export async function findInvitationRowsForPrint(
+  invitationIds?: string[],
+): Promise<InvitationPrintRow[]> {
+  const db = getDb();
+
+  const whereCondition =
+    invitationIds && invitationIds.length > 0
+      ? and(
+          isNotNull(invitations.invitationCode),
+          inArray(invitations.id, invitationIds),
+        )
+      : isNotNull(invitations.invitationCode);
+
+  const rows = await db
+    .select({
+      invitationId: invitations.id,
+      invitationCode: invitations.invitationCode,
+      mailingAddress: invitations.mailingAddress,
+      address: invitations.address,
+      addressLine2: invitations.addressLine2,
+      city: invitations.city,
+      state: invitations.state,
+      zipCode: invitations.zipCode,
+      country: invitations.country,
+      guestFirstName: guests.firstName,
+      guestLastName: guests.lastName,
+      guestCreatedAt: guests.createdAt,
+    })
+    .from(invitations)
+    .leftJoin(guests, eq(guests.invitationId, invitations.id))
+    .where(whereCondition)
+    .orderBy(asc(guests.createdAt));
+
+  // Group rows by invitationId, picking the first guest as the household label
+  const invitationMap = new Map<
+    string,
+    {
+      invitationId: string;
+      invitationCode: string;
+      mailingAddress: string | null;
+      primaryGuest: { firstName: string; lastName: string } | null;
+    }
+  >();
+
+  rows.forEach((row) => {
+    // Safety: skip rows with no invitation code (belt-and-suspenders guard)
+    if (!row.invitationCode) {
+      return;
+    }
+
+    if (!invitationMap.has(row.invitationId)) {
+      invitationMap.set(row.invitationId, {
+        invitationId: row.invitationId,
+        invitationCode: row.invitationCode,
+        mailingAddress: row.mailingAddress ?? formatAddress(row),
+        primaryGuest:
+          row.guestFirstName && row.guestLastName
+            ? { firstName: row.guestFirstName, lastName: row.guestLastName }
+            : null,
+      });
+    }
+  });
+
+  return Array.from(invitationMap.values()).map((entry) => {
+    const householdLabel = entry.primaryGuest
+      ? `${entry.primaryGuest.firstName} ${entry.primaryGuest.lastName}`
+      : 'Unknown Household';
+
+    return {
+      invitationId: entry.invitationId,
+      invitationCode: entry.invitationCode,
+      householdLabel,
+      mailingAddress: entry.mailingAddress,
+    };
   });
 }
