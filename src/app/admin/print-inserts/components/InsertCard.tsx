@@ -56,7 +56,8 @@ export default function InsertCard({ insert }: Props) {
       </div>
 
       <p className="text-center font-mono text-sm text-gray-600">
-        Invitation Code: <pre>{insert.invitationCode}</pre>
+        Scan QR code to RSVP or visit https://chrisandkatie.net/rsvp and enter
+        code: <pre>{insert.invitationCode}</pre>
       </p>
     </div>
   );
