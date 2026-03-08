@@ -5,7 +5,7 @@ import { calculateCountdown, isWeddingDay } from '@/lib/countdown';
 
 /**
  * Updates the document title with a real-time countdown to the wedding.
- * Appends countdown to the existing page title, like "Gallery | Chris & Katie - 🎊 2d 3h 45m 30s"
+ * Appends countdown to the existing page title, like "Gallery | Katie & Chris - 🎊 2d 3h 45m 30s"
  */
 export function CountdownPageTitle() {
   useEffect(() => {

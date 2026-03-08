@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   typedRoutes: true,
   typescript: {
     ignoreBuildErrors: true,
@@ -9,9 +10,6 @@ const nextConfig: NextConfig = {
     loader: 'custom',
     loaderFile: './src/image-loader.ts',
   },
-  // turbopack: {
-  //   root: '.',
-  // },
 };
 
 export default nextConfig;

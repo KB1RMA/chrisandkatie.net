@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 const siteUrl = 'https://chrisandkatie.net';
-const siteTitle = 'Chris and Katie - Marriage Celebration';
-const siteDescription = 'Join us in celebrating Chris and Katie';
+const siteTitle = 'Katie and Chris - Marriage Celebration';
+const siteDescription = 'Join us in celebrating Katie and Chris';
 
 /**
  * Base metadata configuration for the site.
@@ -12,20 +12,20 @@ export const baseMetadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: siteTitle,
-    template: '%s | Chris & Katie',
+    template: '%s | Katie & Chris',
   },
   description: siteDescription,
   openGraph: {
     title: siteTitle,
     description: siteDescription,
     url: siteUrl,
-    siteName: 'Chris and Katie',
+    siteName: 'Katie and Chris',
     images: [
       {
         url: '/og-image.svg',
         width: 1200,
         height: 630,
-        alt: 'Chris and Katie',
+        alt: 'Katie and Chris',
       },
     ],
     locale: 'en_US',
@@ -40,6 +40,6 @@ export const baseMetadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Chris & Katie',
+    title: 'Katie & Chris',
   },
 };

@@ -9,9 +9,9 @@
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Marcellus } from 'next/font/google';
+import { Great_Vibes } from 'next/font/google';
 
-const marcellus = Marcellus({
+const greatVibes = Great_Vibes({
   subsets: ['latin'],
   weight: '400',
 });
@@ -34,9 +34,9 @@ export function Header() {
           {!isHomepage && (
             <Link
               href="/"
-              className={`${marcellus.className} text-2xl font-bold text-[#9e3f3f] transition-colors hover:text-[#b76565]`}
+              className={`${greatVibes.className} text-3xl font-normal text-[#9e3f3f] transition-colors hover:text-[#b76565]`}
             >
-              Chris & Katie
+              Katie & Chris
             </Link>
           )}
           {isHomepage && <div />}

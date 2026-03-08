@@ -21,7 +21,7 @@ export async function generateMetadata({
 }: EventRsvpPageProps): Promise<Metadata> {
   return {
     title: 'Event RSVP',
-    description: `RSVP for an event at Chris and Katie's celebration`,
+    description: `RSVP for an event at Katie and Chris's celebration`,
   };
 
   // Silence unused variable warning while keeping the pattern

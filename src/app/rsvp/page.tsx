@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'RSVP',
-  description: `RSVP for Chris and Katie's celebration on ${WEDDING_DATE_DISPLAY}`,
+  description: `RSVP for Katie and Chris's celebration on ${WEDDING_DATE_DISPLAY}`,
 };
 
 /**
