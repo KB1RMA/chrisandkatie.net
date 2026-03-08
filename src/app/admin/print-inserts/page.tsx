@@ -116,7 +116,7 @@ export default async function PrintInsertsPage({ searchParams }: Props) {
           key={pageIndex}
           className="insert-grid grid grid-cols-2 gap-4"
           style={{
-            breakAfter: pageIndex < pageGroups.length - 1 ? 'page' : 'auto',
+            breakBefore: pageIndex > 0 ? 'page' : 'auto',
           }}
         >
           {page.map((insert) => (

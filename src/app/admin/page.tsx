@@ -9,7 +9,7 @@ const marcellus = Marcellus({
 
 export const metadata: Metadata = {
   title: 'Admin',
-  description: 'Admin dashboard for Chris & Katie.',
+  description: 'Admin dashboard for Katie & Chris.',
 };
 
 const adminRoutes: { href: Route; label: string; description: string }[] = [
@@ -55,7 +55,7 @@ export default function AdminPage() {
         <h1 className={`${marcellus.className} mb-2 text-3xl text-[#9e3f3f]`}>
           Admin
         </h1>
-        <p className="mb-8 text-[#6a5555]">Chris &amp; Katie — Site Admin</p>
+        <p className="mb-8 text-[#6a5555]">Katie &amp; Chris — Site Admin</p>
 
         <nav>
           <ul className="flex flex-col gap-3">

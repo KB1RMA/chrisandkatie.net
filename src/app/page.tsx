@@ -19,7 +19,7 @@ export default function Home() {
     <div className="font-roboto relative flex min-h-screen items-center justify-center p-8">
       <Image
         src="/images/bw-backgrounds/IMG_8943.jpg"
-        alt="Chris and Katie"
+        alt="Katie and Chris"
         fill
         priority
         sizes="(max-width: 640px) 100vw, 0px"
@@ -27,7 +27,7 @@ export default function Home() {
       />
       <Image
         src="/images/bw-backgrounds/IMG_8940-2.jpg"
-        alt="Chris and Katie"
+        alt="Katie and Chris"
         fill
         priority
         sizes="(min-width: 641px) 100vw, 0px"
@@ -38,7 +38,7 @@ export default function Home() {
         <h1
           className={`${greatVibes.className} mb-4 text-5xl font-normal text-[#9e3f3f] sm:text-6xl`}
         >
-          Chris & Katie
+          Katie & Chris
         </h1>
 
         <p

@@ -1,6 +1,13 @@
+import { Great_Vibes } from 'next/font/google';
+
 import { WEDDING_DATE_DISPLAY } from '@/lib/constants';
 
 import type { PrintInsert } from '@/lib/print-inserts';
+
+const greatVibes = Great_Vibes({
+  subsets: ['latin'],
+  weight: '400',
+});
 
 type Props = {
   insert: PrintInsert;
@@ -21,8 +28,10 @@ export default function InsertCard({ insert }: Props) {
   return (
     <div className="insert-card flex flex-col gap-3 rounded border border-dashed border-gray-300 bg-white p-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold tracking-wide text-[#9e3f3f]">
-          Chris &amp; Katie
+        <h2
+          className={`${greatVibes.className} text-4xl font-normal text-[#9e3f3f]`}
+        >
+          Katie &amp; Chris
         </h2>
         <p className="text-sm text-gray-500">{WEDDING_DATE_DISPLAY}</p>
       </div>
