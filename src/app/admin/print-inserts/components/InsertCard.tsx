@@ -36,7 +36,7 @@ export default function InsertCard({ insert }: Props) {
       <div className="flex justify-center">
         {insert.qrCodeSvg ? (
           <div
-            className="qr-container h-40 w-40"
+            className="qr-container h-25 w-25"
             dangerouslySetInnerHTML={{ __html: insert.qrCodeSvg }}
           />
         ) : (

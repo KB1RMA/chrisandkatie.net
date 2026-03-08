@@ -21,8 +21,6 @@ export type PrintInsert = {
   invitationId: string;
   /** The two-word invitation code (guaranteed non-null) */
   invitationCode: string;
-  /** Human-readable household label, e.g. "Chris Taylor" */
-  householdLabel: string;
   /** Formatted mailing address for the household */
   mailingAddress: string | null;
   /** Full deep-link URL encoded in the QR code */

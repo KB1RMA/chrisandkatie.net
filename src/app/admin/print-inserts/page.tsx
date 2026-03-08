@@ -48,6 +48,12 @@ export default async function PrintInsertsPage({ searchParams }: Props) {
 
   const inserts = await assemblePrintInserts(rows);
 
+  // Group inserts into pages of 4 (2 columns × 2 rows per letter page).
+  const pageGroups = Array.from(
+    { length: Math.ceil(inserts.length / 4) },
+    (_, i) => inserts.slice(i * 4, i * 4 + 4),
+  );
+
   return (
     <>
       <style>{`
@@ -58,25 +64,25 @@ export default async function PrintInsertsPage({ searchParams }: Props) {
           .insert-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            grid-auto-rows: 4.875in;
+            grid-auto-rows: 4.5in;
             gap: 0.25in;
             width: 100%;
           }
           .insert-card {
             break-inside: avoid;
             border: 1px dashed #ccc;
-            padding: 0.25in;
-            height: 4.875in;
+            padding: 0.2in;
+            height: 4.4in;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 0.15in;
+            gap: 0.1in;
           }
           .insert-card .qr-container {
-            width: 2.5in;
-            height: 2.5in;
+            width: 1in;
+            height: 1in;
           }
           .insert-card .qr-container svg {
             width: 100%;
@@ -105,11 +111,19 @@ export default async function PrintInsertsPage({ searchParams }: Props) {
         )}
       </section>
 
-      <div className="insert-grid grid grid-cols-2 gap-4">
-        {inserts.map((insert) => (
-          <InsertCard key={insert.invitationId} insert={insert} />
-        ))}
-      </div>
+      {pageGroups.map((page, pageIndex) => (
+        <div
+          key={pageIndex}
+          className="insert-grid grid grid-cols-2 gap-4"
+          style={{
+            breakAfter: pageIndex < pageGroups.length - 1 ? 'page' : 'auto',
+          }}
+        >
+          {page.map((insert) => (
+            <InsertCard key={insert.invitationId} insert={insert} />
+          ))}
+        </div>
+      ))}
     </>
   );
 }
