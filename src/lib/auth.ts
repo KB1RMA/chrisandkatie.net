@@ -148,6 +148,9 @@ export function createAuth(env?: CloudflareEnv) {
 
     session: {
       strategy: 'jwt',
+      // Use the maximum 32-bit integer value (~68 years) so sessions persist
+      // indefinitely — they only end when the user clears their cookies.
+      maxAge: 2147483647,
     },
   });
 }
