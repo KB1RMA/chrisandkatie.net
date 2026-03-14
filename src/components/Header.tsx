@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Great_Vibes } from 'next/font/google';
 import { getAuthIdentity } from '@/lib/auth-identity';
+import { cn } from '@/lib/cn';
 
 const greatVibes = Great_Vibes({
   subsets: ['latin'],
@@ -28,7 +29,9 @@ export function Header() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const isHomepage = pathname === '/';
+  const isGallery = pathname === '/gallery';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   // Close the mobile menu on any route change (logo link, back button, etc.)
   useEffect(() => {
@@ -37,6 +40,18 @@ export function Header() {
 
   const identity = getAuthIdentity(session ?? null);
   const isAdmin = identity?.type === 'admin';
+  // Track scroll position globally: shrinks header height/logo on all pages,
+  // and additionally applies the frosted-glass background on the gallery page.
+  // handleScroll is called immediately to initialize state when the page loads
+  // already scrolled (e.g. browser refresh mid-page).
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 10);
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navLinks: { href: Route; label: string }[] = [
     { href: '/schedule', label: 'Schedule' },
@@ -54,14 +69,37 @@ export function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[#f3dedb] bg-white/95 backdrop-blur-sm">
+    <header
+      className={cn(
+        'sticky top-0 z-50 w-full transition-all duration-300',
+        isGallery && !scrolled && 'border-b-0 bg-transparent',
+        isGallery &&
+          scrolled &&
+          'border-b border-white/10 bg-black/70 backdrop-blur-md',
+        !isGallery && 'border-b border-[#f3dedb]',
+        !isGallery && !scrolled && 'bg-white',
+        !isGallery && scrolled && 'bg-white/80 backdrop-blur-md',
+      )}
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-14 items-center justify-between">
+        <div
+          className={cn(
+            'flex items-center justify-between transition-all duration-300',
+            scrolled ? 'h-10' : 'h-14',
+          )}
+        >
           {/* Logo/Brand */}
           {!isHomepage && (
             <Link
               href="/"
-              className={`${greatVibes.className} text-3xl font-normal text-[#9e3f3f] transition-colors hover:text-[#b76565]`}
+              className={cn(
+                greatVibes.className,
+                'font-normal transition-all duration-300',
+                scrolled ? 'text-2xl' : 'text-3xl',
+                isGallery
+                  ? 'text-white hover:text-white/80'
+                  : 'text-[#9e3f3f] hover:text-[#b76565]',
+              )}
             >
               Katie & Chris
             </Link>
@@ -75,7 +113,12 @@ export function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-sm font-medium text-[#6a5555] transition-colors hover:text-[#9e3f3f]"
+                  className={cn(
+                    'text-sm font-medium transition-colors',
+                    isGallery
+                      ? 'text-white/80 hover:text-white'
+                      : 'text-[#6a5555] hover:text-[#9e3f3f]',
+                  )}
                 >
                   {link.label}
                 </Link>
@@ -101,7 +144,12 @@ export function Header() {
                   onClick={() => setMobileMenuOpen((open) => !open)}
                   aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
                   aria-expanded={mobileMenuOpen}
-                  className="flex h-9 w-9 flex-col items-center justify-center gap-1.5 rounded-md text-[#9e3f3f] transition-colors hover:bg-[#f3dedb] focus:outline-none sm:hidden"
+                  className={cn(
+                    'flex h-9 w-9 flex-col items-center justify-center gap-1.5 rounded-md transition-colors focus:outline-none sm:hidden',
+                    isGallery
+                      ? 'text-white hover:bg-white/10'
+                      : 'text-[#9e3f3f] hover:bg-[#f3dedb]',
+                  )}
                 >
                   <span
                     className={`block h-0.5 w-5 bg-current transition-transform duration-200 ${mobileMenuOpen ? 'translate-y-2 rotate-45' : ''}`}
@@ -135,9 +183,13 @@ export function Header() {
         >
           <div className="overflow-hidden">
             <div
-              className={`border-t border-[#f3dedb] bg-white/95 backdrop-blur-sm transition-opacity duration-300 ${
-                mobileMenuOpen ? 'opacity-100' : 'opacity-0'
-              }`}
+              className={cn(
+                'border-t transition-opacity duration-300',
+                isGallery
+                  ? 'border-white/10 bg-black/70 backdrop-blur-md'
+                  : 'border-[#f3dedb] bg-white/80 backdrop-blur-md',
+                mobileMenuOpen ? 'opacity-100' : 'opacity-0',
+              )}
             >
               <nav className="mx-auto max-w-7xl px-4 py-3">
                 <ul className="flex flex-col">
@@ -158,11 +210,19 @@ export function Header() {
                       <Link
                         href={link.href}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`block px-2 py-3 text-base font-medium transition-colors ${
-                          pathname === link.href
-                            ? 'text-[#9e3f3f]'
-                            : 'text-[#6a5555] hover:text-[#9e3f3f]'
-                        }`}
+                        className={cn(
+                          'block px-2 py-3 text-base font-medium transition-colors',
+                          isGallery && pathname === link.href && 'text-white',
+                          isGallery &&
+                            pathname !== link.href &&
+                            'text-white/70 hover:text-white',
+                          !isGallery &&
+                            pathname === link.href &&
+                            'text-[#9e3f3f]',
+                          !isGallery &&
+                            pathname !== link.href &&
+                            'text-[#6a5555] hover:text-[#9e3f3f]',
+                        )}
                       >
                         {link.label}
                       </Link>
@@ -216,11 +276,13 @@ export function Header() {
                     </>
                   )}
                   <li
-                    className={`mt-1 border-t border-[#f3dedb] pt-3 transition-all duration-200 ${
+                    className={cn(
+                      'mt-1 border-t pt-3 transition-all duration-200',
+                      isGallery ? 'border-white/10' : 'border-[#f3dedb]',
                       mobileMenuOpen
                         ? 'translate-y-0 opacity-100'
-                        : '-translate-y-1 opacity-0'
-                    }`}
+                        : '-translate-y-1 opacity-0',
+                    )}
                     style={{
                       transitionDelay: mobileMenuOpen
                         ? `${(navLinks.length + (isAdmin ? adminLinks.length + 1 : 0)) * 40 + 60}ms`

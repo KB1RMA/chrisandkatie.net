@@ -173,10 +173,8 @@ const photos: Photo[] = [
 export default async function GalleryPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-start">
-      <div className="w-full bg-black p-4 sm:p-8">
-        <div className="mx-auto w-full max-w-7xl">
-          <PhotoGallery photos={photos} />
-        </div>
+      <div className="w-full bg-black">
+        <PhotoGallery photos={photos} />
       </div>
     </main>
   );

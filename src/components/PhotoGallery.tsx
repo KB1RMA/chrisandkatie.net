@@ -94,15 +94,19 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
                   alt={slide.alt || 'Gallery photo'}
                   width={slide.width}
                   height={slide.height}
-                  className="h-auto max-h-[90vh] w-auto max-w-full object-contain"
+                  className="h-auto max-h-screen w-auto max-w-full object-contain"
                   priority
                 />
               </div>
             ) : null,
         }}
         styles={{
-          container: { backgroundColor: 'rgba(0, 0, 0, 0.95)' },
+          root: { padding: 0 },
+          container: { backgroundColor: '#000', padding: 0 },
+          slide: { padding: 0 },
+          button: { filter: 'none' },
         }}
+        className="yarl-no-border"
       />
     </>
   );
