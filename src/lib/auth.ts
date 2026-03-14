@@ -9,7 +9,7 @@
  * authorize functions manage user records manually and there are no OAuth
  * providers requiring account linking.
  */
-import NextAuth, { type DefaultSession, type Session } from 'next-auth';
+import NextAuth, { type DefaultSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { getDb } from '@/lib/db';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
@@ -18,15 +18,8 @@ export { authorizeCredentials } from '@/lib/auth-credentials';
 import { authorizeCredentials } from '@/lib/auth-credentials';
 import { authorizeInvitationCode } from '@/lib/auth-invitation-code';
 
-/**
- * Discriminated union representing the resolved identity of the current user.
- *
- * - `admin` — authenticated administrator (from admin-credentials provider)
- * - `guest` — authenticated wedding guest (from invitation-code provider)
- */
-export type AuthIdentity =
-  | { type: 'admin'; username: string }
-  | { type: 'guest'; invitationId: string };
+export type { AuthIdentity } from '@/lib/auth-identity';
+export { getAuthIdentity } from '@/lib/auth-identity';
 
 /**
  * Extends the default session to include username, invitationId, and roles.
@@ -217,18 +210,4 @@ export async function signOut(
  * @param session - The session object returned by `auth()`, or null.
  * @returns The resolved identity, or null if the user is unauthenticated.
  */
-export function getAuthIdentity(session: Session | null): AuthIdentity | null {
-  if (!session?.user) {
-    return null;
-  }
-
-  if (session.user.roles?.includes('admin') && session.user.username) {
-    return { type: 'admin', username: session.user.username };
-  }
-
-  if (session.user.invitationId) {
-    return { type: 'guest', invitationId: session.user.invitationId };
-  }
-
-  return null;
-}
+// Re-exported from @/lib/auth-identity — see that module for the implementation.
