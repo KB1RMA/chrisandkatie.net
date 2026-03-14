@@ -9,7 +9,7 @@ type AdminLayoutProps = {
 /**
  * Admin route guard layout.
  *
- * Centralises authentication and role checks for all /admin/* routes.
+ * Centralizes authentication and role checks for all /admin/* routes.
  * Redirects unauthenticated users to login. Renders an inline Access Denied
  * message for authenticated users without the admin role.
  *

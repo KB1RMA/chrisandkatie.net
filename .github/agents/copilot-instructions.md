@@ -23,6 +23,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 - No changes — existing Cloudflare D1 SQLite via Drizzle ORM (005-schedule-map)
 - TypeScript, Node.js 20 (Next.js 16.1.6, React 19) + `next-auth ^5.0.0-beta.30`, `drizzle-orm ^0.45.1`, `qrcode` (needs to be added — see research.md), `zod ^4.3.6` (006-print-invite-inserts)
 - Cloudflare D1 (production) / SQLite (local); existing `Invitation` + `Guest` tables — **no schema changes** (006-print-invite-inserts)
+- TypeScript 5.9 + Next.js 16.1.6 (App Router), React 19.2.4, Tailwind CSS v4, `next/font/google` (007-faq-lodging-page)
+- N/A — all content is hardcoded static data, no database involvemen (007-faq-lodging-page)
 
 - TypeScript 5.9, React 19, Next.js 16.1 + Next.js App Router, Auth.js v5, Drizzle ORM + D1 adapter, Zod, react-hook-form, Tailwind CSS, OpenNext (Cloudflare) (001-wedding-rsvp-portal)
 
@@ -42,9 +44,9 @@ npm test && npm run lint
 TypeScript 5.9, React 19, Next.js 16.1: Follow standard conventions
 
 ## Recent Changes
+- 007-faq-lodging-page: Added TypeScript 5.9 + Next.js 16.1.6 (App Router), React 19.2.4, Tailwind CSS v4, `next/font/google`
 - 006-print-invite-inserts: Added TypeScript, Node.js 20 (Next.js 16.1.6, React 19) + `next-auth ^5.0.0-beta.30`, `drizzle-orm ^0.45.1`, `qrcode` (needs to be added — see research.md), `zod ^4.3.6`
 - 005-schedule-map: Added TypeScript 5.9, React 19, Next.js 16 (App Router) + Tailwind CSS v4, Drizzle ORM, Next.js Auth v5, Vitest, @testing-library/react
-- 001-event-rsvp: Added TypeScript 5.x + Next.js v16 (App Router), React v19, Drizzle ORM, Zod, react-hook-form, @hookform/resolvers/zod
 
 
 <!-- MANUAL ADDITIONS START -->
