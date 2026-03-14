@@ -43,3 +43,20 @@ body {
 .leaflet-popup-close-button {
 	color: #9e3f3f !important;
 }
+
+/* Full-screen, borderless lightbox for gallery */
+.yarl-no-border {
+	--yarl__slide_padding_top: 0;
+	--yarl__slide_padding_bottom: 0;
+	--yarl__slide_padding_start: 0;
+	--yarl__slide_padding_end: 0;
+	--yarl__slide_caretSize: 0;
+}
+
+.yarl-no-border .yarl__root {
+	padding: 0;
+}
+
+.yarl-no-border .yarl__container {
+	padding: 0;
+}
