@@ -12,6 +12,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Great_Vibes } from 'next/font/google';
+import { getAuthIdentity } from '@/lib/auth-identity';
 
 const greatVibes = Great_Vibes({
   subsets: ['latin'],
@@ -34,11 +35,22 @@ export function Header() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  const identity = getAuthIdentity(session ?? null);
+  const isAdmin = identity?.type === 'admin';
+
   const navLinks: { href: Route; label: string }[] = [
-    { href: '/schedule' as Route, label: 'Schedule' },
-    { href: '/rsvp' as Route, label: 'RSVP' },
-    { href: '/gallery' as Route, label: 'Gallery' },
-    { href: '/lodging' as Route, label: 'Hotels & FAQ' },
+    { href: '/schedule', label: 'Schedule' },
+    { href: '/rsvp', label: 'RSVP' },
+    { href: '/gallery', label: 'Gallery' },
+    { href: '/lodging', label: 'Hotels & FAQ' },
+  ];
+
+  const adminLinks: { href: Route; label: string }[] = [
+    { href: '/admin', label: 'Dashboard' },
+    { href: '/admin/invitations', label: 'Invitations' },
+    { href: '/admin/events', label: 'Events' },
+    { href: '/admin/guests', label: 'Guests' },
+    { href: '/admin/rsvp', label: 'RSVPs' },
   ];
 
   return (
@@ -156,6 +168,53 @@ export function Header() {
                       </Link>
                     </li>
                   ))}
+                  {isAdmin && (
+                    <>
+                      <li
+                        className={`mt-1 border-t border-[#f3dedb] pt-2 transition-all duration-200 ${
+                          mobileMenuOpen
+                            ? 'translate-y-0 opacity-100'
+                            : '-translate-y-1 opacity-0'
+                        }`}
+                        style={{
+                          transitionDelay: mobileMenuOpen
+                            ? `${navLinks.length * 40 + 60}ms`
+                            : '0ms',
+                        }}
+                      >
+                        <p className="px-2 pt-2 pb-1 text-xs font-semibold tracking-widest text-[#9e3f3f]/60 uppercase">
+                          Admin
+                        </p>
+                      </li>
+                      {adminLinks.map((link, index) => (
+                        <li
+                          key={link.href}
+                          className={`transition-all duration-200 ${
+                            mobileMenuOpen
+                              ? 'translate-y-0 opacity-100'
+                              : '-translate-y-1 opacity-0'
+                          }`}
+                          style={{
+                            transitionDelay: mobileMenuOpen
+                              ? `${(navLinks.length + index + 1) * 40 + 60}ms`
+                              : '0ms',
+                          }}
+                        >
+                          <Link
+                            href={link.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`block px-2 py-3 text-base font-medium transition-colors ${
+                              pathname === link.href
+                                ? 'text-[#9e3f3f]'
+                                : 'text-[#6a5555] hover:text-[#9e3f3f]'
+                            }`}
+                          >
+                            {link.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </>
+                  )}
                   <li
                     className={`mt-1 border-t border-[#f3dedb] pt-3 transition-all duration-200 ${
                       mobileMenuOpen
@@ -164,7 +223,7 @@ export function Header() {
                     }`}
                     style={{
                       transitionDelay: mobileMenuOpen
-                        ? `${navLinks.length * 40 + 60}ms`
+                        ? `${(navLinks.length + (isAdmin ? adminLinks.length + 1 : 0)) * 40 + 60}ms`
                         : '0ms',
                     }}
                   >

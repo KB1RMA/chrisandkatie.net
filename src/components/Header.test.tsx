@@ -17,6 +17,12 @@ vi.mock('next/font/google', () => ({
   Great_Vibes: vi.fn(() => ({ className: 'great-vibes-font' })),
 }));
 
+const mockGetAuthIdentity = vi.fn();
+
+vi.mock('@/lib/auth', () => ({
+  getAuthIdentity: (...args: unknown[]) => mockGetAuthIdentity(...args),
+}));
+
 import { Header } from './Header';
 
 describe('Header — navigation', () => {
@@ -24,6 +30,10 @@ describe('Header — navigation', () => {
     mockUseSession.mockReturnValue({
       data: { user: { name: 'Test User' } },
       status: 'authenticated',
+    });
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'inv-123',
     });
 
     render(<Header />);
@@ -40,11 +50,52 @@ describe('Header — navigation', () => {
       data: null,
       status: 'unauthenticated',
     });
+    mockGetAuthIdentity.mockReturnValue(null);
 
     render(<Header />);
 
     const link = screen.queryByRole('link', { name: 'Hotels & FAQ' });
 
     expect(link).not.toBeInTheDocument();
+  });
+
+  test('should render admin links in the mobile drawer when user is an admin', () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { name: 'Admin', roles: ['admin'], username: 'admin' } },
+      status: 'authenticated',
+    });
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+
+    render(<Header />);
+
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'href',
+      '/admin',
+    );
+    expect(screen.getByRole('link', { name: 'Guests' })).toHaveAttribute(
+      'href',
+      '/admin/guests',
+    );
+    expect(screen.getByRole('link', { name: 'RSVPs' })).toHaveAttribute(
+      'href',
+      '/admin/rsvp',
+    );
+  });
+
+  test('should not render admin links when user is a guest', () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { name: 'Test User' } },
+      status: 'authenticated',
+    });
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'inv-123',
+    });
+
+    render(<Header />);
+
+    expect(
+      screen.queryByRole('link', { name: 'Dashboard' }),
+    ).not.toBeInTheDocument();
   });
 });
