@@ -13,7 +13,8 @@ export function Footer() {
         {/* Witty developer-flavored copyright */}
         <span>
           <span className="text-gray-500">{'// '}</span>
-          no merge conflicts on this one &mdash; &copy;&nbsp;{COPYRIGHT_YEAR}&nbsp;Chris&nbsp;&amp;&nbsp;Katie
+          no merge conflicts on this one &mdash; &copy;&nbsp;{COPYRIGHT_YEAR}
+          &nbsp;Chris&nbsp;&amp;&nbsp;Katie
         </span>
 
         {/* GitHub repository link with Octocat SVG */}

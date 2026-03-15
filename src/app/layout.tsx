@@ -25,7 +25,9 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
       </head>
-      <body className={`${roboto.variable} flex min-h-screen flex-col antialiased`}>
+      <body
+        className={`${roboto.variable} flex min-h-screen flex-col antialiased`}
+      >
         <SessionProvider>
           <Header />
           <CountdownPageTitle />
