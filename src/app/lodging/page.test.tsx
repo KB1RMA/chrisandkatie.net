@@ -23,7 +23,7 @@ vi.mock('@/lib/db/repositories/events', () => ({
   }),
 }));
 
-import LodgingPage from './page';
+import LodgingPage, { HOTELS, FAQ_ITEMS } from './page';
 import { findMainEvent } from '@/lib/db/repositories/events';
 
 /**
@@ -34,29 +34,32 @@ import { findMainEvent } from '@/lib/db/repositories/events';
 async function renderPage(): Promise<string> {
   const element = await LodgingPage();
 
-  return renderToString(element);
+  return renderToString(element)
+    .replace(/&#x27;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
 }
 
 describe('LodgingPage — hotel section', () => {
-  test('should render Hygge House Suites', async () => {
+  test('should render all hotel names', async () => {
     const htmlString = await renderPage();
 
-    expect(htmlString).toContain('Hygge House Suites');
+    HOTELS.forEach((hotel) => {
+      expect(htmlString).toContain(hotel.name);
+    });
   });
 
-  test('should render Cutwater Inn', async () => {
+  test('should render all hotel addresses', async () => {
     const htmlString = await renderPage();
 
-    expect(htmlString).toContain('Cutwater Inn');
+    HOTELS.forEach((hotel) => {
+      expect(htmlString).toContain(hotel.address);
+    });
   });
 
-  test('should render Hygge House Suites address', async () => {
-    const htmlString = await renderPage();
-
-    expect(htmlString).toContain('Newburyport, MA 01950');
-  });
-
-  test('should render walking distances for both hotels', async () => {
+  test('should render walking distances for all hotels', async () => {
     const htmlString = await renderPage();
 
     expect(htmlString).toContain('minute walk to the venue');
@@ -68,64 +71,30 @@ describe('LodgingPage — hotel section', () => {
     expect(htmlString).toContain('travelmode=walking');
   });
 
-  test('should render Hygge House Suites hotel website href', async () => {
+  test('should render website links for all hotels', async () => {
     const htmlString = await renderPage();
 
-    expect(htmlString).toContain('https://www.hyggehouse.com');
-  });
-
-  test('should render Cutwater Inn hotel website href', async () => {
-    const htmlString = await renderPage();
-
-    expect(htmlString).toContain('https://www.cutwaterinn.com');
+    HOTELS.forEach((hotel) => {
+      expect(htmlString).toContain(hotel.websiteUrl);
+    });
   });
 });
 
 describe('LodgingPage — FAQ section', () => {
-  test('should render the dress code question', async () => {
+  test('should render all FAQ questions', async () => {
     const htmlString = await renderPage();
 
-    expect(htmlString).toContain('What is the dress code?');
+    FAQ_ITEMS.forEach((item) => {
+      expect(htmlString).toContain(item.question);
+    });
   });
 
-  test('should render the dress code answer', async () => {
+  test('should render all FAQ answers', async () => {
     const htmlString = await renderPage();
 
-    expect(htmlString).toContain('Cocktail attire is requested.');
-  });
-
-  test('should render the parking question', async () => {
-    const htmlString = await renderPage();
-
-    expect(htmlString).toContain('Is there parking available at the venue?');
-  });
-
-  test('should render the parking answer', async () => {
-    const htmlString = await renderPage();
-
-    expect(htmlString).toContain(
-      'Yes, complimentary parking is available on site.',
-    );
-  });
-
-  test('should render the children question', async () => {
-    const htmlString = await renderPage();
-
-    expect(htmlString).toContain('Are children welcome?');
-  });
-
-  test('should render the plus-one question', async () => {
-    const htmlString = await renderPage();
-
-    expect(htmlString).toContain('Can I bring a plus-one?');
-  });
-
-  test('should render the dietary restriction question', async () => {
-    const htmlString = await renderPage();
-
-    expect(htmlString).toContain(
-      'What should I do if I have a dietary restriction?',
-    );
+    FAQ_ITEMS.forEach((item) => {
+      expect(htmlString).toContain(item.answer);
+    });
   });
 
   test('should render lodging section before FAQ section in document order', async () => {
