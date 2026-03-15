@@ -7,6 +7,7 @@ import {
 } from '@/lib/map-utils';
 import { HotelRouteMapClient } from '@/components/HotelRouteMapClient';
 import { findMainEvent } from '@/lib/db/repositories/events';
+import { RSVP_DEADLINE } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Hotels & FAQ',
@@ -41,7 +42,7 @@ type FaqItem = {
   answer: string;
 };
 
-const HOTELS: Hotel[] = [
+export const HOTELS: Hotel[] = [
   {
     name: 'Hygge House Suites',
     address: 'Newburyport, MA 01950',
@@ -58,23 +59,44 @@ const HOTELS: Hotel[] = [
   },
 ];
 
-const FAQ_ITEMS: FaqItem[] = [
+export const FAQ_ITEMS: FaqItem[] = [
+  {
+    question: 'Is the venue/event space indoors or outdoors?',
+    answer:
+      'The reception will be held indoors. Weather permitting we will also be reserving a small outdoor space during the cocktail hour.',
+  },
+  {
+    question: 'Will there be transportation provided?',
+    answer:
+      'No, we will not be providing transportation. But the hotels/inns we recommend are within walking distance of the venue.',
+  },
+  {
+    question: 'What airports should I fly into?',
+    answer:
+      'The closest major airport is Boston Logan (BOS) which is approximately 50 minutes away by car. Manchester-Boston Regional Airport (MHT) is a similar distance but has fewer direct flights.',
+  },
+  {
+    question: 'When is the deadline for RSVP?',
+    answer: `Please RSVP by ${RSVP_DEADLINE.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`,
+  },
   {
     question: 'What is the dress code?',
     answer: 'Cocktail attire is requested.',
   },
   {
     question: 'Is there parking available at the venue?',
-    answer: 'Yes, complimentary parking is available on site.',
+    answer:
+      'The venue does not have its own parking lot, but there are several public parking options nearby including free street parking, paid lots and a parking garage within walking distance.',
   },
   {
     question: 'Are children welcome?',
-    answer: 'We kindly ask that this be an adults-only celebration.',
+    answer:
+      "We're only able to accommodate children from our immediate families who are called out on the invitation. We hope you understand!",
   },
   {
     question: 'Can I bring a plus-one?',
     answer:
-      'Please refer to your invitation — your guest count is indicated on your RSVP.',
+      "Please refer to your invitation. If a plus-one is allowed, you'll be asked to enter their name at the time of RSVP.",
   },
   {
     question: 'What should I do if I have a dietary restriction?',
