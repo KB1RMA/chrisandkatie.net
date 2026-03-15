@@ -22,7 +22,7 @@ export function Footer() {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="View source on GitHub"
-          className="flex items-center gap-1.5 transition-colors hover:text-gray-200"
+          className="transition-colors hover:text-gray-200"
         >
           {/* GitHub mark (Octocat) SVG — MIT licensed */}
           <svg
@@ -49,7 +49,6 @@ export function Footer() {
                 C97.707 22 75.788 0 48.854 0z"
             />
           </svg>
-          <span>view source</span>
         </a>
       </div>
     </footer>
