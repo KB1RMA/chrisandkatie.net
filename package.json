@@ -75,7 +75,7 @@
 		"@vitest/eslint-plugin": "^1.6.12",
 		"@vitest/ui": "^4.0.18",
 		"drizzle-kit": "^0.31.10",
-		"eslint": "^9.39.3",
+		"eslint": "^10.0.3",
 		"eslint-config-next": "^16.1.7",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-playwright": "^2.10.0",
