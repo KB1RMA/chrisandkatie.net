@@ -118,6 +118,13 @@ export default async function AdminInvitationsPage() {
       initialVisibleEventIds,
       searchText,
       invitationCode: invitation.invitationCode ?? null,
+      mailingAddress: invitation.mailingAddress ?? null,
+      address: invitation.address ?? null,
+      addressLine2: invitation.addressLine2 ?? null,
+      city: invitation.city ?? null,
+      state: invitation.state ?? null,
+      zipCode: invitation.zipCode ?? null,
+      country: invitation.country ?? null,
     };
   });
 
