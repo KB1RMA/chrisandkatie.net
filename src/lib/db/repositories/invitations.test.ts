@@ -12,6 +12,7 @@ import type { DbClient } from '@/lib/db';
 import {
   countInvitationsWithoutCode,
   findInvitationRowsForPrint,
+  findInvitationsForExport,
 } from '@/lib/db/repositories/invitations';
 
 const mockGetDb = vi.mocked(getDb);
@@ -139,5 +140,203 @@ describe('countInvitationsWithoutCode', () => {
     const result = await countInvitationsWithoutCode();
 
     expect(result).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findInvitationsForExport helpers
+// ---------------------------------------------------------------------------
+
+type ExportMockRow = {
+  invitationId: string;
+  mailingAddress: string | null;
+  address: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
+  contactEmail: string | null;
+  guestFirstName: string | null;
+  guestLastName: string | null;
+  guestCreatedAt: string | null;
+};
+
+function createExportMockDb(rows: ExportMockRow[]): DbClient {
+  const orderByFn = vi.fn().mockResolvedValue(rows);
+  const leftJoinFn = vi.fn().mockReturnValue({ orderBy: orderByFn });
+  const fromFn = vi.fn().mockReturnValue({ leftJoin: leftJoinFn });
+  const selectFn = vi.fn().mockReturnValue({ from: fromFn });
+
+  return { select: selectFn } as unknown as DbClient;
+}
+
+describe('findInvitationsForExport', () => {
+  test('should return all invitations with the InvitationExportRow shape', async () => {
+    mockGetDb.mockReturnValue(
+      createExportMockDb([
+        {
+          invitationId: 'inv-1',
+          mailingAddress: 'Smith Family',
+          address: '123 Main St',
+          addressLine2: null,
+          city: 'Springfield',
+          state: 'IL',
+          zipCode: '62701',
+          country: 'United States',
+          contactEmail: 'smith@example.com',
+          guestFirstName: 'Chris',
+          guestLastName: 'Smith',
+          guestCreatedAt: '2024-01-01',
+        },
+      ]),
+    );
+
+    const result = await findInvitationsForExport();
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      id: 'inv-1',
+      mailingAddress: 'Smith Family',
+      address: '123 Main St',
+      addressLine2: null,
+      city: 'Springfield',
+      state: 'IL',
+      zipCode: '62701',
+      country: 'United States',
+      contactEmail: 'smith@example.com',
+      primaryGuestFirstName: 'Chris',
+      primaryGuestLastName: 'Smith',
+    });
+  });
+
+  test('should populate primaryGuestFirstName/LastName from the earliest-created guest', async () => {
+    mockGetDb.mockReturnValue(
+      createExportMockDb([
+        {
+          invitationId: 'inv-1',
+          mailingAddress: null,
+          address: null,
+          addressLine2: null,
+          city: null,
+          state: null,
+          zipCode: null,
+          country: null,
+          contactEmail: null,
+          guestFirstName: 'Alice',
+          guestLastName: 'Jones',
+          guestCreatedAt: '2024-01-01T00:00:00',
+        },
+        {
+          invitationId: 'inv-1',
+          mailingAddress: null,
+          address: null,
+          addressLine2: null,
+          city: null,
+          state: null,
+          zipCode: null,
+          country: null,
+          contactEmail: null,
+          guestFirstName: 'Bob',
+          guestLastName: 'Jones',
+          guestCreatedAt: '2024-01-02T00:00:00',
+        },
+      ]),
+    );
+
+    const result = await findInvitationsForExport();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].primaryGuestFirstName).toBe('Alice');
+    expect(result[0].primaryGuestLastName).toBe('Jones');
+  });
+
+  test('should return a row with null address fields when an invitation has no address data', async () => {
+    mockGetDb.mockReturnValue(
+      createExportMockDb([
+        {
+          invitationId: 'inv-1',
+          mailingAddress: null,
+          address: null,
+          addressLine2: null,
+          city: null,
+          state: null,
+          zipCode: null,
+          country: null,
+          contactEmail: null,
+          guestFirstName: 'Chris',
+          guestLastName: 'Taylor',
+          guestCreatedAt: '2024-01-01',
+        },
+      ]),
+    );
+
+    const result = await findInvitationsForExport();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].mailingAddress).toBeNull();
+    expect(result[0].address).toBeNull();
+    expect(result[0].city).toBeNull();
+  });
+
+  test('should return an empty array when there are no invitations', async () => {
+    mockGetDb.mockReturnValue(createExportMockDb([]));
+
+    const result = await findInvitationsForExport();
+
+    expect(result).toHaveLength(0);
+  });
+
+  test('should deduplicate to one row per invitation', async () => {
+    mockGetDb.mockReturnValue(
+      createExportMockDb([
+        {
+          invitationId: 'inv-1',
+          mailingAddress: 'Taylor Household',
+          address: '1 Oak St',
+          addressLine2: null,
+          city: 'Chicago',
+          state: 'IL',
+          zipCode: '60601',
+          country: 'US',
+          contactEmail: null,
+          guestFirstName: 'Chris',
+          guestLastName: 'Taylor',
+          guestCreatedAt: '2024-01-01',
+        },
+        {
+          invitationId: 'inv-1',
+          mailingAddress: 'Taylor Household',
+          address: '1 Oak St',
+          addressLine2: null,
+          city: 'Chicago',
+          state: 'IL',
+          zipCode: '60601',
+          country: 'US',
+          contactEmail: null,
+          guestFirstName: 'Katie',
+          guestLastName: 'Taylor',
+          guestCreatedAt: '2024-01-02',
+        },
+        {
+          invitationId: 'inv-2',
+          mailingAddress: null,
+          address: null,
+          addressLine2: null,
+          city: null,
+          state: null,
+          zipCode: null,
+          country: null,
+          contactEmail: null,
+          guestFirstName: 'Jane',
+          guestLastName: 'Doe',
+          guestCreatedAt: '2024-01-01',
+        },
+      ]),
+    );
+
+    const result = await findInvitationsForExport();
+
+    expect(result).toHaveLength(2);
   });
 });

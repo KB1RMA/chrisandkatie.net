@@ -5,11 +5,16 @@ import { getDb } from '@/lib/db';
 import { events } from '@/lib/db/schema';
 import type { MealOption } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
+import { ExportDropdown } from '@/components/admin/ExportDropdown';
 import {
   InvitationTable,
   type AvailableEvent,
   type InvitationTableRow,
 } from '@/components/admin/InvitationTable';
+
+const EXPORT_FORMATS = [
+  { id: 'minted', label: 'Minted Address Book' },
+] as const;
 
 export const dynamic = 'force-dynamic';
 
@@ -151,6 +156,11 @@ export default async function AdminInvitationsPage() {
         <p className="mt-6 mb-4 text-center text-lg text-[#6a5555]">
           Review RSVP status and expand invitations to see guest details.
         </p>
+
+        {/* Export controls */}
+        <div className="mb-4 flex justify-end">
+          <ExportDropdown options={EXPORT_FORMATS} />
+        </div>
 
         {/* Summary Statistics */}
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
