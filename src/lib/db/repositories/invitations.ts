@@ -175,3 +175,85 @@ export async function findInvitationRowsForPrint(
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+/**
+ * The flattened, de-duplicated shape returned by `findInvitationsForExport`.
+ * Address fields mirror the invitations table columns; primary guest name
+ * fields come from the earliest-created guest on each invitation.
+ */
+export type InvitationExportRow = {
+  id: string;
+  mailingAddress: string | null;
+  address: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
+  contactEmail: string | null;
+  primaryGuestFirstName: string | null;
+  primaryGuestLastName: string | null;
+};
+
+/**
+ * Return all invitations as a flat list suitable for address-book export.
+ *
+ * Replicates the `leftJoin` + `orderBy asc(guests.createdAt)` +
+ * application-level deduplication pattern from `findInvitationRowsForPrint`.
+ * The first guest row encountered per invitation (lowest `createdAt`) becomes
+ * the primary guest. Invitations with no linked guests are still included.
+ *
+ * @returns One `InvitationExportRow` per unique invitation, ordered by the
+ *   earliest guest `createdAt` (ascending).
+ */
+export async function findInvitationsForExport(): Promise<
+  InvitationExportRow[]
+> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      invitationId: invitations.id,
+      mailingAddress: invitations.mailingAddress,
+      address: invitations.address,
+      addressLine2: invitations.addressLine2,
+      city: invitations.city,
+      state: invitations.state,
+      zipCode: invitations.zipCode,
+      country: invitations.country,
+      contactEmail: invitations.contactEmail,
+      guestFirstName: guests.firstName,
+      guestLastName: guests.lastName,
+      guestCreatedAt: guests.createdAt,
+    })
+    .from(invitations)
+    .leftJoin(guests, eq(guests.invitationId, invitations.id))
+    .orderBy(asc(guests.createdAt));
+
+  // Deduplicate by invitationId, keeping the first row as the primary guest
+  const invitationMap = new Map<string, InvitationExportRow>();
+
+  rows.forEach((row) => {
+    if (!invitationMap.has(row.invitationId)) {
+      invitationMap.set(row.invitationId, {
+        id: row.invitationId,
+        mailingAddress: row.mailingAddress ?? null,
+        address: row.address ?? null,
+        addressLine2: row.addressLine2 ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        zipCode: row.zipCode ?? null,
+        country: row.country ?? null,
+        contactEmail: row.contactEmail ?? null,
+        primaryGuestFirstName: row.guestFirstName ?? null,
+        primaryGuestLastName: row.guestLastName ?? null,
+      });
+    }
+  });
+
+  return Array.from(invitationMap.values());
+}
