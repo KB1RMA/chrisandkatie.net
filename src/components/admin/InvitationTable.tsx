@@ -6,6 +6,7 @@ import { DataTable } from '@/components/table/DataTable';
 import type { DataTableColumnConfig } from '@/components/table/tableTypes';
 import { MEAL_CHOICE_LABELS, type MealOption } from '@/lib/constants';
 import { EventVisibilityEditor } from '@/components/admin/EventVisibilityEditor';
+import InvitationEditModal from '@/components/admin/InvitationEditModal';
 import { resetInvitationRSVP } from '@/app/admin/invitations/actions';
 
 export type AvailableEvent = {
@@ -40,6 +41,13 @@ export type InvitationTableRow = {
   searchText: string;
   /** Two-word invitation code, e.g. "swift-panda". Null for legacy invitations. */
   invitationCode: string | null;
+  mailingAddress: string | null;
+  address: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
 };
 
 export type InvitationTableProps = {
@@ -223,7 +231,8 @@ export function InvitationTable({ data }: InvitationTableProps) {
 
         <div className="space-y-2">
           <p className="text-sm font-semibold text-gray-700">Actions</p>
-          <div className="rounded-md border border-gray-200 bg-white p-4">
+          <div className="flex flex-wrap gap-2 rounded-md border border-gray-200 bg-white p-4">
+            <EditInvitationButton row={row.original} />
             <ResetRSVPButton invitationId={row.original.id} />
           </div>
         </div>
@@ -286,6 +295,47 @@ function InvitationCodePanel({ invitationCode }: { invitationCode: string }) {
 }
 
 /**
+ * Edit Invitation button component.
+ *
+ * Opens `InvitationEditModal` pre-filled with the current row's data.
+ */
+function EditInvitationButton({ row }: { row: InvitationTableRow }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const defaultValues = {
+    mailingAddress: row.mailingAddress ?? '',
+    relationshipToCouple: row.relationshipToCouple ?? '',
+    totalInvited: row.totalInvited,
+    invitationCode: row.invitationCode ?? '',
+    address: row.address ?? '',
+    addressLine2: row.addressLine2 ?? '',
+    city: row.city ?? '',
+    state: row.state ?? '',
+    zipCode: row.zipCode ?? '',
+    country: row.country ?? '',
+  };
+
+  return (
+    <div>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="rounded-md bg-[#9e3f3f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#7a3030]"
+      >
+        Edit Invitation
+      </button>
+
+      {isOpen && (
+        <InvitationEditModal
+          invitationId={row.id}
+          defaultValues={defaultValues}
+          onClose={() => setIsOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
  * Reset RSVP button component.
  */
 function ResetRSVPButton({ invitationId }: { invitationId: string }) {
@@ -323,7 +373,7 @@ function ResetRSVPButton({ invitationId }: { invitationId: string }) {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col items-start gap-1">
       <button
         onClick={handleReset}
         disabled={isResetting}

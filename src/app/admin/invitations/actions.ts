@@ -7,6 +7,7 @@ import { generateUniqueInvitationCode } from '@/lib/invitation-code';
 import * as InvitationRepository from '@/lib/db/repositories/invitations';
 import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
+import { invitationEditSchema } from '@/lib/schemas/invitation';
 
 /**
  * Update visible events for an invitation by syncing the guestEvents table.
@@ -168,5 +169,72 @@ export async function resetInvitationRSVP(
       success: false,
       error: 'Failed to reset RSVP',
     };
+  }
+}
+
+/**
+ * Update the editable details of an invitation.
+ *
+ * Validates input with `invitationEditSchema`, checks admin identity,
+ * verifies the invitation exists, then writes all 10 editable fields to
+ * the database. Surfaces a human-readable error for duplicate invitation code
+ * unique constraint violations.
+ *
+ * @param invitationId - The ID of the invitation to update.
+ * @param input - Raw form data to validate and persist.
+ * @returns Success status and optional error message.
+ * @throws ZodError if input fails schema validation.
+ */
+export async function updateInvitationDetails(
+  invitationId: string,
+  input: unknown,
+): Promise<{ success: boolean; error?: string }> {
+  const data = invitationEditSchema.parse(input);
+
+  const identity = getAuthIdentity(await auth());
+
+  if (!identity || identity.type !== 'admin') {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const invitation =
+      await InvitationRepository.findInvitationWithGuests(invitationId);
+
+    if (!invitation) {
+      return { success: false, error: 'Invitation not found' };
+    }
+
+    await InvitationRepository.updateInvitation(invitationId, {
+      mailingAddress: data.mailingAddress,
+      relationshipToCouple: data.relationshipToCouple,
+      totalInvited: data.totalInvited,
+      invitationCode: data.invitationCode,
+      address: data.address,
+      addressLine2: data.addressLine2,
+      city: data.city,
+      state: data.state,
+      zipCode: data.zipCode,
+      country: data.country,
+      updatedAt: new Date().toISOString(),
+    });
+
+    revalidatePath('/admin/invitations');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update invitation:', error);
+
+    if (
+      error instanceof Error &&
+      error.message.includes('UNIQUE constraint failed')
+    ) {
+      return {
+        success: false,
+        error: 'That invitation code is already in use',
+      };
+    }
+
+    return { success: false, error: 'Failed to update invitation' };
   }
 }
