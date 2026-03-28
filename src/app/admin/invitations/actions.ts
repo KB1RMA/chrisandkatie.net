@@ -1,5 +1,6 @@
 'use server';
 
+import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
@@ -169,6 +170,60 @@ export async function resetInvitationRSVP(
       success: false,
       error: 'Failed to reset RSVP',
     };
+  }
+}
+
+const updateGuestTypeSchema = z.object({
+  guestId: z.string().uuid(),
+  type: z.enum(['adult', 'child']),
+});
+
+/**
+ * Update the type (adult/child) of a single guest.
+ *
+ * Validates guestId (must be a UUID) and type before touching the database.
+ * Returns a clear "Guest not found" error when guestId does not exist.
+ *
+ * @param guestId - The UUID of the guest to update.
+ * @param type - The new guest type.
+ * @returns Success status and optional error message.
+ */
+export async function updateGuestType(
+  guestId: string,
+  type: 'adult' | 'child',
+): Promise<{ success: boolean; error?: string }> {
+  const parsed = updateGuestTypeSchema.safeParse({ guestId, type });
+
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid input' };
+  }
+
+  const identity = getAuthIdentity(await auth());
+
+  if (!identity || identity.type !== 'admin') {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const guest = await GuestRepository.findGuestById(parsed.data.guestId);
+
+    if (!guest) {
+      return { success: false, error: 'Guest not found' };
+    }
+
+    await GuestRepository.updateGuestFields(parsed.data.guestId, {
+      type: parsed.data.type,
+      updatedAt: new Date().toISOString(),
+    });
+
+    revalidatePath('/admin/invitations');
+    revalidatePath('/admin/guests');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update guest type:', error);
+
+    return { success: false, error: 'Failed to update guest type' };
   }
 }
 

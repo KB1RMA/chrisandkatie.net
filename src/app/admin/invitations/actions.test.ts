@@ -18,6 +18,17 @@ vi.mock('next/cache', () => ({
 vi.mock('@/lib/db/repositories/invitations', () => ({
   findInvitationWithGuests: vi.fn(),
   updateInvitation: vi.fn(),
+  findInvitationsWithoutCode: vi.fn(),
+}));
+
+vi.mock('@/lib/db/repositories/guests', () => ({
+  resetGuestRsvpFields: vi.fn(),
+  updateGuestFields: vi.fn(),
+  findGuestById: vi.fn(),
+}));
+
+vi.mock('@/lib/invitation-code', () => ({
+  generateUniqueInvitationCode: vi.fn(),
 }));
 
 import { expect, test, describe, beforeEach, vi } from 'vitest';
@@ -28,10 +39,15 @@ import { revalidatePath } from 'next/cache';
 import {
   updateInvitationVisibleEvents,
   updateInvitationDetails,
+  backfillInvitationCodes,
+  resetInvitationRSVP,
+  updateGuestType,
 } from './actions';
 import { guestEvents, type Guest, type Invitation } from '@/lib/db/schema';
 import { makeSession } from '@/tests/helpers';
 import * as InvitationRepository from '@/lib/db/repositories/invitations';
+import * as GuestRepository from '@/lib/db/repositories/guests';
+import { generateUniqueInvitationCode } from '@/lib/invitation-code';
 
 const mockAuth = vi.mocked(auth);
 const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
@@ -41,6 +57,17 @@ const mockFindInvitationWithGuests = vi.mocked(
   InvitationRepository.findInvitationWithGuests,
 );
 const mockUpdateInvitation = vi.mocked(InvitationRepository.updateInvitation);
+const mockFindInvitationsWithoutCode = vi.mocked(
+  InvitationRepository.findInvitationsWithoutCode,
+);
+const mockResetGuestRsvpFields = vi.mocked(
+  GuestRepository.resetGuestRsvpFields,
+);
+const mockUpdateGuestFields = vi.mocked(GuestRepository.updateGuestFields);
+const mockFindGuestById = vi.mocked(GuestRepository.findGuestById);
+const mockGenerateUniqueInvitationCode = vi.mocked(
+  generateUniqueInvitationCode,
+);
 
 // ---------------------------------------------------------------------------
 // Mock factory
@@ -441,5 +468,265 @@ describe('updateInvitationDetails', () => {
 
     expect(mockFindInvitationWithGuests).not.toHaveBeenCalled();
     expect(mockUpdateInvitation).not.toHaveBeenCalled();
+  });
+});
+
+describe('backfillInvitationCodes', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('should return Unauthorized when session is null', async () => {
+    mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
+
+    const result = await backfillInvitationCodes();
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return Unauthorized when identity is a guest', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const result = await backfillInvitationCodes();
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return updatedCount 0 when no invitations are pending', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockGetDb.mockReturnValue(createMockDb());
+    mockFindInvitationsWithoutCode.mockResolvedValue([]);
+
+    const result = await backfillInvitationCodes();
+
+    expect(result).toEqual({ success: true, updatedCount: 0 });
+    expect(mockGenerateUniqueInvitationCode).not.toHaveBeenCalled();
+  });
+
+  test('should assign a code to each pending invitation and return updatedCount', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockGetDb.mockReturnValue(createMockDb());
+    mockFindInvitationsWithoutCode.mockResolvedValue([
+      { id: 'inv-1', invitationCode: null },
+      { id: 'inv-2', invitationCode: null },
+    ]);
+    mockGenerateUniqueInvitationCode
+      .mockResolvedValueOnce('swift-panda')
+      .mockResolvedValueOnce('lazy-tiger');
+    mockUpdateInvitation.mockResolvedValue(undefined);
+
+    const result = await backfillInvitationCodes();
+
+    expect(result).toEqual({ success: true, updatedCount: 2 });
+    expect(mockUpdateInvitation).toHaveBeenCalledTimes(2);
+    expect(mockUpdateInvitation).toHaveBeenCalledWith(
+      'inv-1',
+      expect.objectContaining({ invitationCode: 'swift-panda' }),
+    );
+    expect(mockUpdateInvitation).toHaveBeenCalledWith(
+      'inv-2',
+      expect.objectContaining({ invitationCode: 'lazy-tiger' }),
+    );
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/invitations');
+  });
+
+  test('should return error when DB throws', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockGetDb.mockReturnValue(createMockDb());
+    mockFindInvitationsWithoutCode.mockRejectedValue(new Error('DB error'));
+
+    const result = await backfillInvitationCodes();
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Failed to backfill invitation codes',
+    });
+  });
+});
+
+describe('resetInvitationRSVP', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('should return Unauthorized when session is null', async () => {
+    mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
+
+    const result = await resetInvitationRSVP('invitation-1');
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return Unauthorized when identity is a guest', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const result = await resetInvitationRSVP('invitation-1');
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return not found error when invitation does not exist', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(undefined);
+
+    const result = await resetInvitationRSVP('invitation-1');
+
+    expect(result).toEqual({ success: false, error: 'Invitation not found' });
+  });
+
+  test('should reset RSVP fields for all guests and revalidate paths', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(
+      makeInvitationWithGuests('invitation-1', [
+        makeGuest('guest-1'),
+        makeGuest('guest-2'),
+      ]),
+    );
+    mockResetGuestRsvpFields.mockResolvedValue(undefined);
+
+    const result = await resetInvitationRSVP('invitation-1');
+
+    expect(result).toEqual({ success: true });
+    expect(mockResetGuestRsvpFields).toHaveBeenCalledTimes(2);
+    expect(mockResetGuestRsvpFields).toHaveBeenCalledWith(
+      'guest-1',
+      expect.any(String),
+    );
+    expect(mockResetGuestRsvpFields).toHaveBeenCalledWith(
+      'guest-2',
+      expect.any(String),
+    );
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/invitations');
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/guests');
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/rsvp');
+  });
+
+  test('should return error when DB throws', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockRejectedValue(new Error('DB error'));
+
+    const result = await resetInvitationRSVP('invitation-1');
+
+    expect(result).toEqual({ success: false, error: 'Failed to reset RSVP' });
+  });
+});
+
+describe('updateGuestType', () => {
+  const VALID_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('should return invalid input error when guestId is not a UUID', async () => {
+    const result = await updateGuestType('not-a-uuid', 'adult');
+
+    expect(result).toEqual({ success: false, error: 'Invalid input' });
+    expect(mockFindGuestById).not.toHaveBeenCalled();
+    expect(mockUpdateGuestFields).not.toHaveBeenCalled();
+  });
+
+  test('should return invalid input error when type is not adult or child', async () => {
+    const result = await updateGuestType(
+      VALID_UUID,
+      'teenager' as 'adult' | 'child',
+    );
+
+    expect(result).toEqual({ success: false, error: 'Invalid input' });
+    expect(mockUpdateGuestFields).not.toHaveBeenCalled();
+  });
+
+  test('should return Unauthorized when session is null', async () => {
+    mockAuth.mockResolvedValue(null);
+    mockGetAuthIdentity.mockReturnValue(null);
+
+    const result = await updateGuestType(VALID_UUID, 'adult');
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return Unauthorized when identity is a guest', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: 'invitation-1',
+    });
+
+    const result = await updateGuestType(VALID_UUID, 'adult');
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return guest not found error when guestId does not exist', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindGuestById.mockResolvedValue(undefined);
+
+    const result = await updateGuestType(VALID_UUID, 'adult');
+
+    expect(result).toEqual({ success: false, error: 'Guest not found' });
+    expect(mockUpdateGuestFields).not.toHaveBeenCalled();
+  });
+
+  test('should update guest type to adult and revalidate both admin paths', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindGuestById.mockResolvedValue(makeGuest(VALID_UUID));
+    mockUpdateGuestFields.mockResolvedValue(undefined);
+
+    const result = await updateGuestType(VALID_UUID, 'adult');
+
+    expect(result).toEqual({ success: true });
+    expect(mockUpdateGuestFields).toHaveBeenCalledWith(
+      VALID_UUID,
+      expect.objectContaining({ type: 'adult' }),
+    );
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/invitations');
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/guests');
+  });
+
+  test('should update guest type to child and return success', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindGuestById.mockResolvedValue(makeGuest(VALID_UUID));
+    mockUpdateGuestFields.mockResolvedValue(undefined);
+
+    const result = await updateGuestType(VALID_UUID, 'child');
+
+    expect(result).toEqual({ success: true });
+    expect(mockUpdateGuestFields).toHaveBeenCalledWith(
+      VALID_UUID,
+      expect.objectContaining({ type: 'child' }),
+    );
+  });
+
+  test('should return error when DB throws', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindGuestById.mockResolvedValue(makeGuest(VALID_UUID));
+    mockUpdateGuestFields.mockRejectedValue(new Error('DB error'));
+
+    const result = await updateGuestType(VALID_UUID, 'adult');
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Failed to update guest type',
+    });
   });
 });

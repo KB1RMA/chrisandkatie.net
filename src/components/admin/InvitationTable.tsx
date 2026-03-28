@@ -7,7 +7,10 @@ import type { DataTableColumnConfig } from '@/components/table/tableTypes';
 import { MEAL_CHOICE_LABELS, type MealOption } from '@/lib/constants';
 import { EventVisibilityEditor } from '@/components/admin/EventVisibilityEditor';
 import InvitationEditModal from '@/components/admin/InvitationEditModal';
-import { resetInvitationRSVP } from '@/app/admin/invitations/actions';
+import {
+  resetInvitationRSVP,
+  updateGuestType,
+} from '@/app/admin/invitations/actions';
 
 export type AvailableEvent = {
   id: string;
@@ -186,8 +189,12 @@ export function InvitationTable({ data }: InvitationTableProps) {
                   return (
                     <tr key={guest.id}>
                       <td className="px-3 py-2 text-gray-700">{guestName}</td>
-                      <td className="px-3 py-2 text-gray-700 capitalize">
-                        {guest.type}
+                      <td className="px-3 py-2">
+                        <GuestTypeSelect
+                          guestId={guest.id}
+                          guestName={formatGuestName(guest)}
+                          initialType={guest.type}
+                        />
                       </td>
                       <td className="px-3 py-2 text-gray-700">
                         {attendingStatus}
@@ -392,5 +399,53 @@ function ResetRSVPButton({ invitationId }: { invitationId: string }) {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Inline select that lets admins toggle a guest between Adult and Child.
+ */
+function GuestTypeSelect({
+  guestId,
+  guestName,
+  initialType,
+}: {
+  guestId: string;
+  guestName: string;
+  initialType: 'adult' | 'child';
+}) {
+  const [type, setType] = useState<'adult' | 'child'>(initialType);
+  const [saving, setSaving] = useState(false);
+
+  const handleChange = async (next: 'adult' | 'child') => {
+    const previous = type;
+
+    setType(next);
+    setSaving(true);
+
+    try {
+      const result = await updateGuestType(guestId, next);
+
+      if (!result.success) {
+        setType(previous);
+      }
+    } catch {
+      setType(previous);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <select
+      value={type}
+      disabled={saving}
+      aria-label={`Guest type for ${guestName}`}
+      onChange={(e) => handleChange(e.target.value as 'adult' | 'child')}
+      className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 capitalize focus:border-[#9e3f3f] focus:ring-1 focus:ring-[#9e3f3f] focus:outline-none disabled:cursor-wait disabled:opacity-60"
+    >
+      <option value="adult">Adult</option>
+      <option value="child">Child</option>
+    </select>
   );
 }
