@@ -49,6 +49,12 @@ const photos: Photo[] = [
     alt: 'Katie and Chris celebration photo',
   },
   {
+    src: '/images/gallery/IMG_0421.jpg',
+    width: 6000,
+    height: 4000,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
     src: '/images/gallery/IMG_0512.jpg',
     width: 3024,
     height: 4032,
@@ -61,9 +67,39 @@ const photos: Photo[] = [
     alt: 'Katie and Chris celebration photo',
   },
   {
+    src: '/images/gallery/IMG_0628.jpg',
+    width: 6000,
+    height: 4000,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_0992.jpg',
+    width: 6000,
+    height: 4000,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
     src: '/images/gallery/IMG_1101.jpg',
     width: 2316,
     height: 3088,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_1382.jpg',
+    width: 3935,
+    height: 5903,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_1400.jpg',
+    width: 6000,
+    height: 4000,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_1458.jpg',
+    width: 3855,
+    height: 5782,
     alt: 'Katie and Chris celebration photo',
   },
   {
@@ -76,6 +112,18 @@ const photos: Photo[] = [
     src: '/images/gallery/IMG_1712.jpg',
     width: 4032,
     height: 3024,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_2590.jpg',
+    width: 2316,
+    height: 3088,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_2627-2.jpg',
+    width: 3213,
+    height: 5712,
     alt: 'Katie and Chris celebration photo',
   },
   {
