@@ -9,6 +9,7 @@ import * as InvitationRepository from '@/lib/db/repositories/invitations';
 import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
 import { invitationEditSchema } from '@/lib/schemas/invitation';
+import { addGuestSchema, removeGuestSchema } from '@/lib/schemas/guest';
 
 /**
  * Update visible events for an invitation by syncing the guestEvents table.
@@ -291,5 +292,171 @@ export async function updateInvitationDetails(
     }
 
     return { success: false, error: 'Failed to update invitation' };
+  }
+}
+
+/**
+ * Add a new guest to an existing invitation.
+ *
+ * The new guest inherits the event visibility of existing guests on the
+ * invitation by copying their guestEvents rows. Validates input with
+ * `addGuestSchema` and requires admin identity.
+ *
+ * @param input - Raw form data to validate (invitationId, firstName, lastName, type).
+ * @returns Success status and optional error message.
+ */
+export async function addGuestToInvitation(
+  input: unknown,
+): Promise<{ success: boolean; error?: string }> {
+  const parsed = addGuestSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input',
+    };
+  }
+
+  const data = parsed.data;
+  const identity = getAuthIdentity(await auth());
+
+  if (!identity || identity.type !== 'admin') {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const invitation = await InvitationRepository.findInvitationWithGuests(
+      data.invitationId,
+    );
+
+    if (!invitation) {
+      return { success: false, error: 'Invitation not found' };
+    }
+
+    // Collect distinct event IDs currently assigned to any guest on this invitation.
+    // Guard against empty guest list to avoid inArray(..., []) generating invalid SQL.
+    const existingGuestIds = invitation.guests.map((guest) => guest.id);
+    const existingGuestEvents =
+      existingGuestIds.length > 0
+        ? await GuestEventRepository.findGuestEventsForGuestIds(
+            existingGuestIds,
+          )
+        : [];
+    const uniqueEventIds = [
+      ...new Set(existingGuestEvents.map((ge) => ge.eventId)),
+    ];
+
+    const newGuestId = crypto.randomUUID();
+
+    await GuestRepository.createGuest({
+      id: newGuestId,
+      invitationId: data.invitationId,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      type: data.type,
+    });
+
+    await GuestEventRepository.insertGuestEvents(
+      uniqueEventIds.map((eventId) => ({
+        id: crypto.randomUUID(),
+        guestId: newGuestId,
+        eventId,
+      })),
+    );
+
+    // Keep totalInvited in sync with the actual guest count
+    const newTotalInvited = Math.max(
+      invitation.totalInvited ?? 0,
+      invitation.guests.length + 1,
+    );
+
+    if (newTotalInvited !== invitation.totalInvited) {
+      await InvitationRepository.updateInvitation(data.invitationId, {
+        totalInvited: newTotalInvited,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    revalidatePath('/admin/invitations');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to add guest:', error);
+
+    return { success: false, error: 'Failed to add guest' };
+  }
+}
+
+/**
+ * Remove a guest from an invitation.
+ *
+ * Blocks removal when the guest is the last remaining guest on the invitation.
+ * Validates input with `removeGuestSchema` and requires admin identity.
+ * Cascade deletes for GuestEvent and RsvpResponse rows are handled by the DB.
+ *
+ * @param input - Raw form data to validate (guestId, invitationId).
+ * @returns Success status and optional error message.
+ */
+export async function removeGuestFromInvitation(
+  input: unknown,
+): Promise<{ success: boolean; error?: string }> {
+  const parsed = removeGuestSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input',
+    };
+  }
+
+  const data = parsed.data;
+  const identity = getAuthIdentity(await auth());
+
+  if (!identity || identity.type !== 'admin') {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const invitation = await InvitationRepository.findInvitationWithGuests(
+      data.invitationId,
+    );
+
+    if (!invitation) {
+      return { success: false, error: 'Invitation not found' };
+    }
+
+    if (invitation.guests.length <= 1) {
+      return {
+        success: false,
+        error: 'Cannot remove the last guest from an invitation',
+      };
+    }
+
+    // Verify the guest belongs to this invitation before deleting
+    const guestBelongsToInvitation = invitation.guests.some(
+      (guest) => guest.id === data.guestId,
+    );
+
+    if (!guestBelongsToInvitation) {
+      return { success: false, error: 'Guest not found on this invitation' };
+    }
+
+    await GuestRepository.deleteGuest(data.guestId);
+
+    // Always keep totalInvited in sync with the actual guest count after removal.
+    const newGuestCount = invitation.guests.length - 1;
+
+    await InvitationRepository.updateInvitation(data.invitationId, {
+      totalInvited: newGuestCount,
+      updatedAt: new Date().toISOString(),
+    });
+
+    revalidatePath('/admin/invitations');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to remove guest:', error);
+
+    return { success: false, error: 'Failed to remove guest' };
   }
 }

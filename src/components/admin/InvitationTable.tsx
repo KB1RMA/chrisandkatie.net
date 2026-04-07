@@ -1,15 +1,21 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import type { Row } from '@tanstack/react-table';
 import { DataTable } from '@/components/table/DataTable';
 import type { DataTableColumnConfig } from '@/components/table/tableTypes';
 import { MEAL_CHOICE_LABELS, type MealOption } from '@/lib/constants';
+import { addGuestSchema, type AddGuestInput } from '@/lib/schemas/guest';
 import { EventVisibilityEditor } from '@/components/admin/EventVisibilityEditor';
 import InvitationEditModal from '@/components/admin/InvitationEditModal';
 import {
   resetInvitationRSVP,
   updateGuestType,
+  addGuestToInvitation,
+  removeGuestFromInvitation,
 } from '@/app/admin/invitations/actions';
 
 export type AvailableEvent = {
@@ -171,6 +177,7 @@ export function InvitationTable({ data }: InvitationTableProps) {
                   <th className="px-3 py-2">Meal</th>
                   <th className="px-3 py-2">Dietary</th>
                   <th className="px-3 py-2">Notes</th>
+                  <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -204,12 +211,19 @@ export function InvitationTable({ data }: InvitationTableProps) {
                         {dietaryRestrictions}
                       </td>
                       <td className="px-3 py-2 text-gray-700">{notes}</td>
+                      <td className="px-3 py-2">
+                        <RemoveGuestButton
+                          guestId={guest.id}
+                          invitationId={row.original.id}
+                        />
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+          <AddGuestForm invitationId={row.original.id} />
         </div>
 
         {row.original.invitationCode && (
@@ -447,5 +461,233 @@ function GuestTypeSelect({
       <option value="adult">Adult</option>
       <option value="child">Child</option>
     </select>
+  );
+}
+
+/**
+ * Inline form for adding a new guest to an invitation.
+ *
+ * Renders an "Add Guest" toggle button that reveals a controlled form with
+ * First Name, Last Name, and Type fields. Collapses on success.
+ */
+function AddGuestForm({ invitationId }: { invitationId: string }) {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<AddGuestInput>({
+    resolver: zodResolver(addGuestSchema),
+    defaultValues: { invitationId, type: 'adult' },
+  });
+
+  const onSubmit = async (data: AddGuestInput) => {
+    setServerError(null);
+
+    const result = await addGuestToInvitation(data);
+
+    if (!result.success) {
+      setServerError(result.error ?? 'Failed to add guest');
+
+      return;
+    }
+
+    reset({ invitationId, type: 'adult' });
+    setIsOpen(false);
+    router.refresh();
+  };
+
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="mt-1 text-sm font-medium text-[#9e3f3f] hover:underline"
+      >
+        + Add Guest
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="mt-2 flex flex-wrap items-start gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+    >
+      <input type="hidden" {...register('invitationId')} />
+
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor={`${invitationId}-firstName`}
+          className="text-xs font-medium text-gray-600"
+        >
+          First Name
+        </label>
+        <input
+          id={`${invitationId}-firstName`}
+          {...register('firstName')}
+          placeholder="First name"
+          aria-describedby={
+            errors.firstName ? `${invitationId}-firstName-error` : undefined
+          }
+          className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#9e3f3f] focus:ring-1 focus:ring-[#9e3f3f] focus:outline-none"
+        />
+        {errors.firstName && (
+          <p
+            id={`${invitationId}-firstName-error`}
+            className="text-xs text-red-600"
+          >
+            {errors.firstName.message}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor={`${invitationId}-lastName`}
+          className="text-xs font-medium text-gray-600"
+        >
+          Last Name
+        </label>
+        <input
+          id={`${invitationId}-lastName`}
+          {...register('lastName')}
+          placeholder="Last name"
+          aria-describedby={
+            errors.lastName ? `${invitationId}-lastName-error` : undefined
+          }
+          className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#9e3f3f] focus:ring-1 focus:ring-[#9e3f3f] focus:outline-none"
+        />
+        {errors.lastName && (
+          <p
+            id={`${invitationId}-lastName-error`}
+            className="text-xs text-red-600"
+          >
+            {errors.lastName.message}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor={`${invitationId}-type`}
+          className="text-xs font-medium text-gray-600"
+        >
+          Type
+        </label>
+        <select
+          id={`${invitationId}-type`}
+          {...register('type')}
+          className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 focus:border-[#9e3f3f] focus:ring-1 focus:ring-[#9e3f3f] focus:outline-none"
+        >
+          <option value="adult">Adult</option>
+          <option value="child">Child</option>
+        </select>
+      </div>
+
+      <div className="flex items-end gap-2 pt-4">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-md bg-[#9e3f3f] px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-[#7a3030] disabled:cursor-not-allowed disabled:bg-gray-400"
+        >
+          {isSubmitting ? 'Adding...' : 'Add Guest'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            reset({ invitationId, type: 'adult' });
+            setIsOpen(false);
+            setServerError(null);
+          }}
+          className="text-sm text-gray-500 hover:text-gray-700"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {serverError && (
+        <p className="w-full text-sm text-red-600">{serverError}</p>
+      )}
+    </form>
+  );
+}
+
+/**
+ * Two-click inline confirm button for removing a guest from an invitation.
+ *
+ * State machine: idle → confirming → idle.
+ * Renders "Remove" in idle state; "Confirm?" + "Cancel" in confirming state.
+ */
+function RemoveGuestButton({
+  guestId,
+  invitationId,
+}: {
+  guestId: string;
+  invitationId: string;
+}) {
+  const router = useRouter();
+  const [state, setState] = useState<'idle' | 'confirming'>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const handleConfirm = async () => {
+    setIsRemoving(true);
+    setError(null);
+
+    const result = await removeGuestFromInvitation({ guestId, invitationId });
+
+    setIsRemoving(false);
+
+    if (!result.success) {
+      setError(result.error ?? 'Failed to remove guest');
+      setState('idle');
+
+      return;
+    }
+
+    setState('idle');
+    router.refresh();
+  };
+
+  if (state === 'confirming') {
+    return (
+      <span className="flex flex-col items-start gap-1">
+        <span className="flex gap-2">
+          <button
+            onClick={handleConfirm}
+            disabled={isRemoving}
+            className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            {isRemoving ? 'Removing...' : 'Confirm?'}
+          </button>
+          <button
+            onClick={() => {
+              setState('idle');
+              setError(null);
+            }}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Cancel
+          </button>
+        </span>
+        {error && <span className="text-xs text-red-600">{error}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex flex-col items-start gap-1">
+      <button
+        onClick={() => setState('confirming')}
+        className="text-xs text-red-600 hover:underline"
+      >
+        Remove
+      </button>
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </span>
   );
 }

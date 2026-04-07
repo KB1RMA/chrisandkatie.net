@@ -25,6 +25,8 @@ vi.mock('@/lib/db/repositories/guests', () => ({
   resetGuestRsvpFields: vi.fn(),
   updateGuestFields: vi.fn(),
   findGuestById: vi.fn(),
+  createGuest: vi.fn(),
+  deleteGuest: vi.fn(),
 }));
 
 vi.mock('@/lib/invitation-code', () => ({
@@ -42,6 +44,8 @@ import {
   backfillInvitationCodes,
   resetInvitationRSVP,
   updateGuestType,
+  addGuestToInvitation,
+  removeGuestFromInvitation,
 } from './actions';
 import { guestEvents, type Guest, type Invitation } from '@/lib/db/schema';
 import { makeSession } from '@/tests/helpers';
@@ -65,6 +69,8 @@ const mockResetGuestRsvpFields = vi.mocked(
 );
 const mockUpdateGuestFields = vi.mocked(GuestRepository.updateGuestFields);
 const mockFindGuestById = vi.mocked(GuestRepository.findGuestById);
+const mockCreateGuest = vi.mocked(GuestRepository.createGuest);
+const mockDeleteGuest = vi.mocked(GuestRepository.deleteGuest);
 const mockGenerateUniqueInvitationCode = vi.mocked(
   generateUniqueInvitationCode,
 );
@@ -728,5 +734,316 @@ describe('updateGuestType', () => {
       success: false,
       error: 'Failed to update guest type',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addGuestToInvitation
+// ---------------------------------------------------------------------------
+
+const VALID_INVITATION_UUID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
+const VALID_GUEST_UUID = 'c3d4e5f6-a7b8-4012-8def-123456789012';
+
+/**
+ * Creates a mock DB that supports findGuestEventsForGuestIds and insertGuestEvents.
+ *
+ * @param guestEventRows - Rows to return from guestEvents.findMany.
+ * @param insertValuesFn - Optional override for the insert values spy.
+ * @returns Partial DbClient supporting the guestEvents queries used by addGuestToInvitation.
+ */
+function createMockDbForGuestActions(
+  guestEventRows: Array<{ guestId: string; eventId: string }> = [],
+  insertValuesFn: ReturnType<typeof vi.fn> = vi
+    .fn()
+    .mockResolvedValue(undefined),
+): DbClient {
+  return {
+    query: {
+      guestEvents: {
+        findMany: vi.fn().mockResolvedValue(guestEventRows),
+      },
+    },
+    insert: vi.fn().mockReturnValue({ values: insertValuesFn }),
+  } as unknown as DbClient;
+}
+
+describe('addGuestToInvitation', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  const validInput = {
+    invitationId: VALID_INVITATION_UUID,
+    firstName: 'Jane',
+    lastName: 'Smith',
+    type: 'adult' as const,
+  };
+
+  test('should return Invalid input when input fails schema validation', async () => {
+    const result = await addGuestToInvitation({ invitationId: 'not-a-uuid' });
+
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringMatching(/.+/),
+    });
+  });
+
+  test('should return Unauthorized when session has no admin identity', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
+
+    const result = await addGuestToInvitation(validInput);
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return Unauthorized when identity is a guest', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: VALID_INVITATION_UUID,
+    });
+
+    const result = await addGuestToInvitation(validInput);
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return Invitation not found when invitation does not exist', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(undefined);
+
+    const result = await addGuestToInvitation(validInput);
+
+    expect(result).toEqual({ success: false, error: 'Invitation not found' });
+  });
+
+  test('should return success when input is valid and user is admin', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(
+      makeInvitationWithGuests(VALID_INVITATION_UUID, [makeGuest('guest-1')]),
+    );
+    mockCreateGuest.mockResolvedValue(undefined);
+    mockUpdateInvitation.mockResolvedValue(undefined);
+    mockGetDb.mockReturnValue(createMockDbForGuestActions([]));
+
+    const result = await addGuestToInvitation(validInput);
+
+    expect(result).toEqual({ success: true });
+    expect(mockCreateGuest).toHaveBeenCalledOnce();
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/invitations');
+  });
+
+  test('should increment totalInvited when new guest count exceeds the current total', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    // invitation has totalInvited=1 but already has 1 guest — adding makes 2
+    const invitation = {
+      ...makeInvitationWithGuests(VALID_INVITATION_UUID, [
+        makeGuest('guest-1'),
+      ]),
+      totalInvited: 1,
+    };
+
+    mockFindInvitationWithGuests.mockResolvedValue(invitation);
+    mockCreateGuest.mockResolvedValue(undefined);
+    mockUpdateInvitation.mockResolvedValue(undefined);
+    mockGetDb.mockReturnValue(createMockDbForGuestActions([]));
+
+    await addGuestToInvitation(validInput);
+
+    expect(mockUpdateInvitation).toHaveBeenCalledWith(
+      VALID_INVITATION_UUID,
+      expect.objectContaining({ totalInvited: 2 }),
+    );
+  });
+
+  test('should inherit event IDs from existing guests guestEvents', async () => {
+    const existingGuest = makeGuest('guest-1');
+    const inheritedEventRows = [
+      { guestId: 'guest-1', eventId: 'event-uuid-1' },
+      { guestId: 'guest-1', eventId: 'event-uuid-2' },
+    ];
+    const insertValuesFn = vi.fn().mockResolvedValue(undefined);
+
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(
+      makeInvitationWithGuests(VALID_INVITATION_UUID, [existingGuest]),
+    );
+    mockCreateGuest.mockResolvedValue(undefined);
+    mockGetDb.mockReturnValue(
+      createMockDbForGuestActions(inheritedEventRows, insertValuesFn),
+    );
+
+    await addGuestToInvitation(validInput);
+
+    expect(insertValuesFn).toHaveBeenCalledExactlyOnceWith(
+      expect.arrayContaining([
+        expect.objectContaining({ eventId: 'event-uuid-1' }),
+        expect.objectContaining({ eventId: 'event-uuid-2' }),
+      ]),
+    );
+  });
+  test('should not update totalInvited when it already exceeds the new guest count after adding', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    // invitation has totalInvited=5 with only 1 guest — adding one stays within the limit
+    const invitation = {
+      ...makeInvitationWithGuests(VALID_INVITATION_UUID, [
+        makeGuest('guest-1'),
+      ]),
+      totalInvited: 5,
+    };
+
+    mockFindInvitationWithGuests.mockResolvedValue(invitation);
+    mockCreateGuest.mockResolvedValue(undefined);
+    mockUpdateInvitation.mockResolvedValue(undefined);
+    mockGetDb.mockReturnValue(createMockDbForGuestActions([]));
+
+    await addGuestToInvitation(validInput);
+
+    expect(mockUpdateInvitation).not.toHaveBeenCalled();
+  });
+});
+
+describe('removeGuestFromInvitation', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  const validInput = {
+    guestId: VALID_GUEST_UUID,
+    invitationId: VALID_INVITATION_UUID,
+  };
+
+  test('should return Invalid input when input fails schema validation', async () => {
+    const result = await removeGuestFromInvitation({
+      guestId: '',
+      invitationId: '',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringMatching(/.+/),
+    });
+  });
+
+  test('should return Unauthorized when not admin', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue(null);
+
+    const result = await removeGuestFromInvitation(validInput);
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return Unauthorized when identity is a guest', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'guest',
+      invitationId: VALID_INVITATION_UUID,
+    });
+
+    const result = await removeGuestFromInvitation(validInput);
+
+    expect(result).toEqual({ success: false, error: 'Unauthorized' });
+  });
+
+  test('should return Invitation not found when invitation missing', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(undefined);
+
+    const result = await removeGuestFromInvitation(validInput);
+
+    expect(result).toEqual({ success: false, error: 'Invitation not found' });
+  });
+
+  test('should return error when invitation has exactly one guest', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(
+      makeInvitationWithGuests(VALID_INVITATION_UUID, [
+        makeGuest(VALID_GUEST_UUID),
+      ]),
+    );
+
+    const result = await removeGuestFromInvitation(validInput);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Cannot remove the last guest from an invitation',
+    });
+    expect(mockDeleteGuest).not.toHaveBeenCalled();
+  });
+
+  test('should return error when guestId does not belong to the invitation', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    // The invitation has two guests, but neither matches VALID_GUEST_UUID
+    mockFindInvitationWithGuests.mockResolvedValue(
+      makeInvitationWithGuests(VALID_INVITATION_UUID, [
+        makeGuest('guest-1'),
+        makeGuest('guest-2'),
+      ]),
+    );
+
+    const result = await removeGuestFromInvitation(validInput);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Guest not found on this invitation',
+    });
+    expect(mockDeleteGuest).not.toHaveBeenCalled();
+  });
+
+  test('should return success when input is valid, invitation exists, and guest count > 1', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    mockFindInvitationWithGuests.mockResolvedValue(
+      makeInvitationWithGuests(VALID_INVITATION_UUID, [
+        makeGuest(VALID_GUEST_UUID),
+        makeGuest('guest-2'),
+      ]),
+    );
+    mockDeleteGuest.mockResolvedValue(undefined);
+    mockUpdateInvitation.mockResolvedValue(undefined);
+
+    const result = await removeGuestFromInvitation(validInput);
+
+    expect(result).toEqual({ success: true });
+    expect(mockDeleteGuest).toHaveBeenCalledWith(VALID_GUEST_UUID);
+    expect(mockUpdateInvitation).toHaveBeenCalledWith(
+      VALID_INVITATION_UUID,
+      expect.objectContaining({ totalInvited: 1 }),
+    );
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/invitations');
+  });
+
+  test('should always sync totalInvited to the new guest count after removal', async () => {
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+    // invitation has a higher totalInvited than guest count — should still be set to new count
+    const invitation = {
+      ...makeInvitationWithGuests(VALID_INVITATION_UUID, [
+        makeGuest(VALID_GUEST_UUID),
+        makeGuest('guest-2'),
+      ]),
+      totalInvited: 5,
+    };
+
+    mockFindInvitationWithGuests.mockResolvedValue(invitation);
+    mockDeleteGuest.mockResolvedValue(undefined);
+    mockUpdateInvitation.mockResolvedValue(undefined);
+
+    await removeGuestFromInvitation(validInput);
+
+    expect(mockUpdateInvitation).toHaveBeenCalledWith(
+      VALID_INVITATION_UUID,
+      expect.objectContaining({ totalInvited: 1 }),
+    );
   });
 });

@@ -29,6 +29,7 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 - Cloudflare D1 (SQLite) — `Invitation` table; no schema changes required (008-editable-admin-invitations)
 - TypeScript 5 / Node.js 20 (Cloudflare Workers runtime for production) + Next.js 16 App Router, React 19, Drizzle ORM, Auth.js v5 (001-invitation-export-templates)
 - Cloudflare D1 (SQLite dialect) via Drizzle ORM; all reads go through repository modules (001-invitation-export-templates)
+- TypeScript 5 / Node.js 20 + Next.js 16 (App Router), React 19, Drizzle ORM, Zod, TanStack Table, Tailwind CSS (009-admin-invitations-add-remove-guest)
 
 - TypeScript 5.9, React 19, Next.js 16.1 + Next.js App Router, Auth.js v5, Drizzle ORM + D1 adapter, Zod, react-hook-form, Tailwind CSS, OpenNext (Cloudflare) (001-wedding-rsvp-portal)
 
@@ -48,9 +49,9 @@ npm test && npm run lint
 TypeScript 5.9, React 19, Next.js 16.1: Follow standard conventions
 
 ## Recent Changes
+- 009-admin-invitations-add-remove-guest: Added TypeScript 5 / Node.js 20 + Next.js 16 (App Router), React 19, Drizzle ORM, Zod, TanStack Table, Tailwind CSS
 - 001-invitation-export-templates: Added TypeScript 5 / Node.js 20 (Cloudflare Workers runtime for production) + Next.js 16 App Router, React 19, Drizzle ORM, Auth.js v5
 - 008-editable-admin-invitations: Added TypeScript 5.9 + Next.js 16 (App Router), React 19, react-hook-form + Zod (`invitationEditSchema`), Drizzle ORM
-- 007-faq-lodging-page: Added TypeScript 5.9 + Next.js 16.1.6 (App Router), React 19.2.4, Tailwind CSS v4, `next/font/google`
 
 
 <!-- MANUAL ADDITIONS START -->
