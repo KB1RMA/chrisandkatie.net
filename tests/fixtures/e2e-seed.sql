@@ -26,4 +26,24 @@ VALUES
   ('guest-e2e-alice', 'invite-e2e-a', 'Alice', 'E2E', 'adult', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('guest-e2e-bob',   'invite-e2e-a', 'Bob',   'E2E', 'adult', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
+-- Recovery test invitation (used by invite-code-recovery.spec.ts).
+--   Invitation code:  test-code
+--   Guest:            Recovery Testguest
+--   Street address:   42 Recovery Lane
+--   ZIP code:         62701
+INSERT INTO Invitation (
+  id, relationshipToCouple, totalInvited, visibleEvents,
+  invitationCode, address, zipCode, createdAt, updatedAt
+)
+VALUES (
+  'invite-e2e-recover', 'Test', 1, '[0,1,2,3]',
+  'test-code', '42 Recovery Lane', '62701', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+);
+
+INSERT INTO Guest (
+  id, invitationId, firstName, lastName, type, createdAt, updatedAt
+)
+VALUES
+  ('guest-e2e-recover', 'invite-e2e-recover', 'Recovery', 'Testguest', 'adult', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
 COMMIT;

@@ -50,3 +50,23 @@ dataset = "ANALYTICS"
 binding = "DB"
 database_name = "prisma-demo-db"
 database_id = "73260722-51d9-4a90-961e-00d066b5dbb4"
+
+
+# ---------------------------------------------------------------------------
+# Cloudflare WAF Rate Limiting — Invitation Code Recovery
+# ---------------------------------------------------------------------------
+#
+# The /rsvp/recover endpoint is protected by a Cloudflare WAF Rate Limiting
+# rule configured in the Cloudflare dashboard. This rule CANNOT be expressed
+# as a wrangler.toml stanza and must be created manually for each environment.
+#
+# Rule configuration (apply to both "production" and "staging" environments):
+#
+#   Expression:  http.request.method eq "POST" and
+#                http.request.uri.path contains "/rsvp/recover"
+#   Threshold:   5 requests per 60 seconds per IP
+#   Action:      Block (returns HTTP 429)
+#
+# Dashboard path:
+#   Cloudflare Dashboard → <zone> → Security → WAF → Rate limiting rules
+# ---------------------------------------------------------------------------

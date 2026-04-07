@@ -5,7 +5,7 @@ import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { RSVPWizard, type InvitationAddress } from '@/components/RSVPWizard';
 import { WEDDING_DATE_DISPLAY, type MealOption } from '@/lib/constants';
-import { fetchGuestEvents } from '@/app/rsvp/actions';
+import { fetchGuestEvents } from '@/app/rsvp/(portal)/actions';
 import type { GuestRSVP } from '@/components/RSVPForm';
 
 const marcellus = Marcellus({

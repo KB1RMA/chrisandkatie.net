@@ -15,7 +15,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { RSVPForm, type GuestRSVP } from '@/components/RSVPForm';
 import { EventRsvpCard } from '@/components/EventRsvpCard';
 import { Button } from '@/components/Button';
-import { updateInvitationAddress } from '@/app/rsvp/actions';
+import { updateInvitationAddress } from '@/app/rsvp/(portal)/actions';
 import {
   updateInvitationAddressSchema,
   type UpdateInvitationAddressInput,

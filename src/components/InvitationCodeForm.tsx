@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Link from 'next/link';
 import { Button } from '@/components/Button';
 
 /**
@@ -50,6 +51,7 @@ export function InvitationCodeForm({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authError, setAuthError] = useState('');
+  const [isCodeNotRecognised, setIsCodeNotRecognised] = useState(false);
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const hasAutoSubmitted = useRef(false);
 
@@ -73,6 +75,7 @@ export function InvitationCodeForm({
 
   const onSubmit = async (data: InvitationCodeFormData) => {
     setAuthError('');
+    setIsCodeNotRecognised(false);
 
     try {
       const result = await signIn('invitation-code', {
@@ -85,6 +88,7 @@ export function InvitationCodeForm({
         setAuthError(
           "That code wasn't recognised. Please check your invitation and try again.",
         );
+        setIsCodeNotRecognised(true);
       } else if (result?.ok) {
         // @ts-expect-error - callbackUrl is a dynamic route from query params, not a literal type
         router.push(callbackUrl);
@@ -143,6 +147,8 @@ export function InvitationCodeForm({
       ? "That code wasn't recognised. Please check your invitation and try again."
       : '');
 
+  const showRecoveryLink = isCodeNotRecognised || hasUrlError;
+
   return (
     <div className="relative rounded-lg bg-[#fffdfb] p-8 shadow-xl">
       {isAutoSubmitting && (
@@ -191,6 +197,17 @@ export function InvitationCodeForm({
         {displayError && (
           <div className="rounded-md border border-[#fcc] bg-[#fee] p-4 text-sm text-[#c33]">
             {displayError}
+            {showRecoveryLink && (
+              <>
+                {' '}
+                <Link
+                  href="/rsvp/recover"
+                  className="underline hover:opacity-80"
+                >
+                  Missing your code?
+                </Link>
+              </>
+            )}
           </div>
         )}
 
@@ -226,6 +243,11 @@ export function InvitationCodeForm({
         >
           {isSubmitting ? 'Signing in...' : 'Continue to RSVP'}
         </Button>
+        <p className="text-center text-sm text-[#6a5555]">
+          <Link href="/rsvp/recover" className="underline hover:text-[#9e3f3f]">
+            Missing or lost your invitation code?
+          </Link>
+        </p>
       </form>
     </div>
   );

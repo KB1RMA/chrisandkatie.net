@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import confetti from 'canvas-confetti';
-import { submitRsvp } from '@/app/rsvp/actions';
+import { submitRsvp } from '@/app/rsvp/(portal)/actions';
 import { submitRsvpSchema, type SubmitRsvpInput } from '@/lib/schemas/rsvp';
 import {
   MEAL_OPTIONS,

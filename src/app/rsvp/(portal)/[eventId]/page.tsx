@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { Marcellus } from 'next/font/google';
 import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
-import { retrieveEventRsvp } from '@/app/rsvp/[eventId]/actions';
+import { retrieveEventRsvp } from '@/app/rsvp/(portal)/[eventId]/actions';
 import { EventRsvpForm } from '@/components/EventRsvpForm';
 
 export const dynamic = 'force-dynamic';
