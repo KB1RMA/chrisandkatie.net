@@ -1,5 +1,5 @@
 "$schema" = "./node_modules/wrangler/config-schema.json"
-main = "worker.ts"
+main = ".open-next/worker.js"
 name = "chrisandkatiedotnet"
 # Set this to today's date
 compatibility_date = "2026-02-22"
@@ -27,16 +27,6 @@ binding = "DB"
 database_name = "prisma-demo-db-local"
 database_id = "adf4fe80-e376-4096-8655-8a7479ac844c"
 
-[[queues.producers]]
-queue = "rsvp-notification-queue"
-binding = "RSVP_NOTIFICATION_QUEUE"
-
-[[queues.consumers]]
-queue = "rsvp-notification-queue"
-max_batch_size = 1
-max_batch_timeout = 30
-max_retries = 3
-
 [env.production]
 vars = { ANALYTICS_ENABLED = "true", AUTH_URL = "https://chrisandkatie.net", NEXTAUTH_URL = "https://chrisandkatie.net" }
 
@@ -49,19 +39,6 @@ binding = "DB"
 database_name = "prisma-demo-db"
 database_id = "73260722-51d9-4a90-961e-00d066b5dbb4"
 
-[[env.production.queues.producers]]
-queue = "rsvp-notification-queue"
-binding = "RSVP_NOTIFICATION_QUEUE"
-
-[[env.production.queues.consumers]]
-queue = "rsvp-notification-queue"
-max_batch_size = 1
-max_batch_timeout = 30
-max_retries = 3
-
-[env.production.images]
-binding = "IMAGES"
-
 [env.staging]
 vars = { ANALYTICS_ENABLED = "false", AUTH_URL = "https://staging.chrisandkatie.net", NEXTAUTH_URL = "https://staging.chrisandkatie.net" }
 
@@ -73,19 +50,6 @@ dataset = "ANALYTICS"
 binding = "DB"
 database_name = "prisma-demo-db"
 database_id = "73260722-51d9-4a90-961e-00d066b5dbb4"
-
-[[env.staging.queues.producers]]
-queue = "rsvp-notification-queue"
-binding = "RSVP_NOTIFICATION_QUEUE"
-
-[[env.staging.queues.consumers]]
-queue = "rsvp-notification-queue"
-max_batch_size = 1
-max_batch_timeout = 30
-max_retries = 3
-
-[env.staging.images]
-binding = "IMAGES"
 
 
 # ---------------------------------------------------------------------------
