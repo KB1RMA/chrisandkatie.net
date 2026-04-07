@@ -6,6 +6,7 @@
  * Handles submitting and retrieving RSVP responses for a given event,
  * enforcing authentication, invitation validation, and deadline checks.
  */
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@/lib/auth';
 import type { Guest, WeddingEvent } from '@/lib/db/schema';
 import {
@@ -17,6 +18,7 @@ import type {
   EventRsvpResponse,
   SubmitEventRsvpInput,
 } from '@/lib/schemas/rsvp';
+import { buildNotificationPayload } from '@/lib/email/notification';
 import * as EventRepository from '@/lib/db/repositories/events';
 import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
@@ -106,6 +108,14 @@ export async function submitEventRsvp(
     throw new Error('Not invited to this event');
   }
 
+  // Check whether a prior RSVP exists before upserting (determines isUpdate flag)
+  const existingRsvpBeforeUpsert = await RsvpRepository.findRsvpByGuestAndEvent(
+    input.guestId,
+    input.eventId,
+  );
+
+  const isUpdate = existingRsvpBeforeUpsert !== undefined;
+
   const now = new Date().toISOString();
 
   // Upsert the RSVP response row
@@ -158,7 +168,7 @@ export async function submitEventRsvp(
     sortOrder: a.sortOrder,
   }));
 
-  return {
+  const response: EventRsvpResponse = {
     id: savedRsvp.id,
     guestId: savedRsvp.guestId,
     eventId: savedRsvp.eventId,
@@ -171,6 +181,24 @@ export async function submitEventRsvp(
     submittedAt: savedRsvp.submittedAt,
     updatedAt: savedRsvp.updatedAt,
   };
+
+  // Fire-and-forget: enqueue notification email — failure must never block the RSVP save
+  try {
+    const guestName = submittedGuest
+      ? `${submittedGuest.firstName} ${submittedGuest.lastName}`
+      : (input.attendees[0]?.name ?? 'Guest');
+
+    const payload = buildNotificationPayload(response, guestName, isUpdate);
+    const context = getCloudflareContext();
+
+    await context.env.RSVP_NOTIFICATION_QUEUE?.send(payload, {
+      contentType: 'json',
+    });
+  } catch (error) {
+    console.error('[rsvp-notification] Failed to enqueue notification:', error);
+  }
+
+  return response;
 }
 
 /**
