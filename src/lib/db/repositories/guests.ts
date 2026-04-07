@@ -12,6 +12,19 @@ import { guests } from '@/lib/db/schema';
 export type UpdateGuestValues = Partial<typeof guests.$inferInsert>;
 
 /**
+ * Typed input for inserting a new guest row.
+ *
+ * Derived from the schema's inferred insert type. The `id` field is required;
+ * `createdAt` and `updatedAt` are optional and default to the current
+ * timestamp inside `createGuest` when not provided.
+ */
+export type NewGuestData = Pick<
+  typeof guests.$inferInsert,
+  'id' | 'invitationId' | 'firstName' | 'lastName' | 'type'
+> &
+  Partial<Pick<typeof guests.$inferInsert, 'createdAt' | 'updatedAt'>>;
+
+/**
  * Find a single guest by their primary key.
  *
  * @param id - The guest id to look up.
@@ -75,4 +88,32 @@ export async function resetGuestRsvpFields(
       updatedAt: now,
     })
     .where(eq(guests.id, id));
+}
+
+/**
+ * Insert a new guest row into the guests table.
+ *
+ * `createdAt` and `updatedAt` default to the current ISO timestamp when
+ * not supplied by the caller.
+ *
+ * @param data - The guest fields to insert.
+ */
+export async function createGuest(data: NewGuestData): Promise<void> {
+  const now = new Date().toISOString();
+
+  await getDb()
+    .insert(guests)
+    .values({ createdAt: now, updatedAt: now, ...data });
+}
+
+/**
+ * Delete a guest row by primary key.
+ *
+ * Cascade deletes for GuestEvent and RsvpResponse rows are handled
+ * by the database schema foreign key constraints.
+ *
+ * @param guestId - The id of the guest to delete.
+ */
+export async function deleteGuest(guestId: string): Promise<void> {
+  await getDb().delete(guests).where(eq(guests.id, guestId));
 }
