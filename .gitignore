@@ -68,6 +68,3 @@ specs/
 playwright-report/
 test-results/
 blob-report/
-
-# Sentry Config File
-.env.sentry-build-plugin
