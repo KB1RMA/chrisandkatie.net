@@ -5,3 +5,10 @@ NEXTJS_ENV=development
 # Set these to log in as admin and access /admin/* pages.
 ADMIN_USERNAME=your_admin_first_name
 ADMIN_PASSWORD=your_admin_password
+
+# RSVP email notification settings
+# Required for the RSVP notification queue consumer to send emails via Resend.
+# Obtain an API key at https://resend.com/api-keys
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# The email address that receives RSVP notification emails
+OWNER_EMAIL=owner@example.com
