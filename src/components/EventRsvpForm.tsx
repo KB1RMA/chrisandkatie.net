@@ -11,7 +11,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { submitEventRsvp } from '@/app/rsvp/[eventId]/actions';
+import { submitEventRsvp } from '@/app/rsvp/(portal)/[eventId]/actions';
 import {
   submitEventRsvpSchema,
   type SubmitEventRsvpInput,

@@ -18,7 +18,7 @@ vi.mock('next/navigation', () => ({
 
 const mockUpdateInvitationAddress = vi.fn();
 
-vi.mock('@/app/rsvp/actions', () => ({
+vi.mock('@/app/rsvp/(portal)/actions', () => ({
   updateInvitationAddress: (...args: unknown[]) =>
     mockUpdateInvitationAddress(...args),
   submitRsvp: vi.fn().mockResolvedValue({ success: true }),

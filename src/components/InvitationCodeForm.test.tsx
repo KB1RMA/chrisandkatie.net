@@ -397,4 +397,70 @@ describe('InvitationCodeForm', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  describe('recovery link in error state (US2)', () => {
+    test('should show inline "Missing your code?" link when code-not-recognised error is set by signIn', async () => {
+      const user = userEvent.setup();
+
+      mockSignIn.mockResolvedValue({ ok: false, error: 'CredentialsSignin' });
+
+      renderForm();
+
+      await user.type(screen.getByLabelText('Invitation Code'), 'fake-code');
+      await user.click(
+        screen.getByRole('button', { name: 'Continue to RSVP' }),
+      );
+
+      const recoveryLink = await screen.findByRole('link', {
+        name: /missing your code\?/i,
+      });
+
+      expect(recoveryLink).toBeInTheDocument();
+      expect(recoveryLink).toHaveAttribute('href', '/rsvp/recover');
+    });
+
+    test('should show inline "Missing your code?" link when ?error=CredentialsSignin URL param is present', () => {
+      mockSearchParamsGet.mockImplementation((key: string) =>
+        key === 'error' ? 'CredentialsSignin' : null,
+      );
+
+      renderForm();
+
+      const recoveryLink = screen.getByRole('link', {
+        name: /missing your code\?/i,
+      });
+
+      expect(recoveryLink).toBeInTheDocument();
+      expect(recoveryLink).toHaveAttribute('href', '/rsvp/recover');
+    });
+
+    test('should NOT show inline "Missing your code?" link when a generic sign-in error occurs', async () => {
+      const user = userEvent.setup();
+
+      mockSignIn.mockRejectedValue(new Error('Network error'));
+
+      renderForm();
+
+      await user.type(screen.getByLabelText('Invitation Code'), 'swift-panda');
+      await user.click(
+        screen.getByRole('button', { name: 'Continue to RSVP' }),
+      );
+
+      await screen.findByText(
+        'An error occurred during sign in. Please try again.',
+      );
+
+      expect(
+        screen.queryByRole('link', { name: /missing your code\?/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    test('should NOT show inline "Missing your code?" link when there is no error', () => {
+      renderForm();
+
+      expect(
+        screen.queryByRole('link', { name: /missing your code\?/i }),
+      ).not.toBeInTheDocument();
+    });
+  });
 });

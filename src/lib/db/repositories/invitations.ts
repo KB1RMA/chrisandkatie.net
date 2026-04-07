@@ -6,7 +6,16 @@
  * directly.
  */
 
-import { and, asc, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { guests, invitations } from '@/lib/db/schema';
 import type { InvitationPrintRow } from '@/lib/print-inserts';
@@ -256,4 +265,45 @@ export async function findInvitationsForExport(): Promise<
   });
 
   return Array.from(invitationMap.values());
+}
+
+/**
+ * Find an invitation code by matching a guest's last name, the invitation's
+ * street address, and ZIP code. All comparisons are case-insensitive using
+ * COLLATE NOCASE.
+ *
+ * Returns the invitation code string on a successful match, or null if no
+ * invitation matches all inputs or if the invitation has no code assigned.
+ *
+ * @param lastName - The guest's last name to match (case-insensitive).
+ * @param streetAddress - The street address the invitation was mailed to (case-insensitive).
+ * @param zipCode - The ZIP code the invitation was mailed to.
+ * @returns The invitation code string, or null if no match is found.
+ */
+export async function findInvitationCodeByLastNameAndAddress(
+  lastName: string,
+  streetAddress: string,
+  zipCode: string,
+): Promise<string | null> {
+  const rows = await getDb()
+    .select({ invitationCode: invitations.invitationCode })
+    .from(guests)
+    .innerJoin(invitations, eq(guests.invitationId, invitations.id))
+    .where(
+      and(
+        sql`${guests.lastName} COLLATE NOCASE = ${lastName}`,
+        sql`${invitations.address} COLLATE NOCASE = ${streetAddress}`,
+        eq(invitations.zipCode, zipCode),
+        isNotNull(invitations.invitationCode),
+      ),
+    )
+    .limit(1);
+
+  const row = rows[0];
+
+  if (!row?.invitationCode) {
+    return null;
+  }
+
+  return row.invitationCode;
 }

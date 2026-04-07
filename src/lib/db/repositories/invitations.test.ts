@@ -11,6 +11,7 @@ import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
 import {
   countInvitationsWithoutCode,
+  findInvitationCodeByLastNameAndAddress,
   findInvitationRowsForPrint,
   findInvitationsForExport,
 } from '@/lib/db/repositories/invitations';
@@ -338,5 +339,173 @@ describe('findInvitationsForExport', () => {
     const result = await findInvitationsForExport();
 
     expect(result).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findInvitationCodeByLastNameAndAddress
+// ---------------------------------------------------------------------------
+
+describe('findInvitationCodeByLastNameAndAddress', () => {
+  type RecoveryMockRow = { invitationCode: string | null };
+
+  function createRecoveryMockDb(rows: RecoveryMockRow[]): DbClient {
+    const limitFn = vi.fn().mockResolvedValue(rows);
+    const whereFn = vi.fn().mockReturnValue({ limit: limitFn });
+    const innerJoinFn = vi.fn().mockReturnValue({ where: whereFn });
+    const fromFn = vi.fn().mockReturnValue({ innerJoin: innerJoinFn });
+    const selectFn = vi.fn().mockReturnValue({ from: fromFn });
+
+    return { select: selectFn } as unknown as DbClient;
+  }
+
+  test('should return the invitation code when last name, address, and ZIP match exactly', async () => {
+    mockGetDb.mockReturnValue(
+      createRecoveryMockDb([{ invitationCode: 'swift-panda' }]),
+    );
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '123 Main St',
+      '62701',
+    );
+
+    expect(result).toBe('swift-panda');
+  });
+
+  test('should return null when no guest matches the last name', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Unknown',
+      '123 Main St',
+      '62701',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return null when no invitation matches the address', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '999 Wrong Ave',
+      '62701',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return null when last name matches but address does not', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '999 Wrong Ave',
+      '62701',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return null when address matches but last name does not', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Unknown',
+      '123 Main St',
+      '62701',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return null when ZIP code does not match', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '123 Main St',
+      '00000',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return the invitation code for a case-insensitive last name match', async () => {
+    mockGetDb.mockReturnValue(
+      createRecoveryMockDb([{ invitationCode: 'swift-panda' }]),
+    );
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'SMITH',
+      '123 Main St',
+      '62701',
+    );
+
+    expect(result).toBe('swift-panda');
+  });
+
+  test('should return the invitation code for a case-insensitive address match', async () => {
+    mockGetDb.mockReturnValue(
+      createRecoveryMockDb([{ invitationCode: 'swift-panda' }]),
+    );
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '123 MAIN ST',
+      '62701',
+    );
+
+    expect(result).toBe('swift-panda');
+  });
+
+  test('should return null when the invitation has a null invitationCode', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([{ invitationCode: null }]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '123 Main St',
+      '62701',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return null when lastName is an empty string', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      '',
+      '123 Main St',
+      '62701',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return null when streetAddress is an empty string', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '',
+      '62701',
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test('should return null when zipCode is an empty string', async () => {
+    mockGetDb.mockReturnValue(createRecoveryMockDb([]));
+
+    const result = await findInvitationCodeByLastNameAndAddress(
+      'Smith',
+      '123 Main St',
+      '',
+    );
+
+    expect(result).toBeNull();
   });
 });
