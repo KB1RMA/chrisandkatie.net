@@ -29,6 +29,10 @@ vi.mock('@/lib/db/repositories/guests', () => ({
   deleteGuest: vi.fn(),
 }));
 
+vi.mock('@/lib/db/repositories/rsvpResponses', () => ({
+  deleteRsvpResponsesByGuestIds: vi.fn(),
+}));
+
 vi.mock('@/lib/invitation-code', () => ({
   generateUniqueInvitationCode: vi.fn(),
 }));
@@ -51,6 +55,7 @@ import { guestEvents, type Guest, type Invitation } from '@/lib/db/schema';
 import { makeSession } from '@/tests/helpers';
 import * as InvitationRepository from '@/lib/db/repositories/invitations';
 import * as GuestRepository from '@/lib/db/repositories/guests';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 import { generateUniqueInvitationCode } from '@/lib/invitation-code';
 
 const mockAuth = vi.mocked(auth);
@@ -66,6 +71,9 @@ const mockFindInvitationsWithoutCode = vi.mocked(
 );
 const mockResetGuestRsvpFields = vi.mocked(
   GuestRepository.resetGuestRsvpFields,
+);
+const mockDeleteRsvpResponsesByGuestIds = vi.mocked(
+  RsvpRepository.deleteRsvpResponsesByGuestIds,
 );
 const mockUpdateGuestFields = vi.mocked(GuestRepository.updateGuestFields);
 const mockFindGuestById = vi.mocked(GuestRepository.findGuestById);
@@ -603,11 +611,16 @@ describe('resetInvitationRSVP', () => {
         makeGuest('guest-2'),
       ]),
     );
+    mockDeleteRsvpResponsesByGuestIds.mockResolvedValue(undefined);
     mockResetGuestRsvpFields.mockResolvedValue(undefined);
 
     const result = await resetInvitationRSVP('invitation-1');
 
     expect(result).toEqual({ success: true });
+    expect(mockDeleteRsvpResponsesByGuestIds).toHaveBeenCalledExactlyOnceWith([
+      'guest-1',
+      'guest-2',
+    ]);
     expect(mockResetGuestRsvpFields).toHaveBeenCalledTimes(2);
     expect(mockResetGuestRsvpFields).toHaveBeenCalledWith(
       'guest-1',
