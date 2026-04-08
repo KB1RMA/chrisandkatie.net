@@ -3,6 +3,7 @@
 /**
  * Server actions for RSVP submission and data retrieval.
  */
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { users } from '@/lib/db/schema';
@@ -18,6 +19,7 @@ import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as InvitationRepository from '@/lib/db/repositories/invitations';
 import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
 import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
+import type { RsvpNotificationPayload } from '@/lib/email/notification';
 
 /**
  * Update RSVP responses for all guests on an invitation.
@@ -55,6 +57,13 @@ export async function submitRsvp(input: SubmitRsvpInput) {
     // Update each guest
     const now = new Date().toISOString();
 
+    // Verify authorization, snapshot pre-update state, and collect updated inputs
+    // in a single pass to avoid fetching guest rows before authorization checks.
+    const verifiedGuestsBefore: NonNullable<
+      Awaited<ReturnType<typeof GuestRepository.findGuestById>>
+    >[] = [];
+    const verifiedGuestUpdates: (typeof validatedData.guests)[number][] = [];
+
     for (const guestUpdate of validatedData.guests) {
       // Verify guest belongs to this invitation
       const guest = await GuestRepository.findGuestById(guestUpdate.id);
@@ -62,6 +71,9 @@ export async function submitRsvp(input: SubmitRsvpInput) {
       if (!guest || guest.invitationId !== authorizedInvitationId) {
         continue; // Skip guests not on this invitation
       }
+
+      verifiedGuestsBefore.push(guest);
+      verifiedGuestUpdates.push(guestUpdate);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: Record<string, any> = {
@@ -84,6 +96,58 @@ export async function submitRsvp(input: SubmitRsvpInput) {
       }
 
       await GuestRepository.updateGuestFields(guestUpdate.id, updateData);
+    }
+
+    // Compute isUpdate from guests that were verified to belong to this invitation.
+    const wasAlreadySubmitted = verifiedGuestsBefore.some(
+      (g) => g.attending !== null,
+    );
+
+    console.log(
+      `[submitRsvp] ${wasAlreadySubmitted ? 'Updated' : 'Submitted'} RSVP for invitation ${authorizedInvitationId} —`,
+      `${verifiedGuestUpdates.filter((g) => g.attending).length}/${verifiedGuestUpdates.length} attending`,
+    );
+
+    // Fire-and-forget: enqueue notification email — failure must never block the RSVP save.
+    try {
+      // Build payload from verified guests only to prevent spoofed IDs influencing the email.
+      const attendingGuests = verifiedGuestUpdates.filter(
+        (g) => g.attending === true,
+      );
+
+      const firstGuest = verifiedGuestsBefore[0];
+      const guestName = firstGuest
+        ? `${firstGuest.firstName} ${firstGuest.lastName}`
+        : 'Guest';
+
+      const payload: RsvpNotificationPayload = {
+        isUpdate: wasAlreadySubmitted,
+        guestName,
+        eventName: 'Wedding Celebration',
+        attendanceStatus:
+          attendingGuests.length > 0 ? 'attending' : 'not_attending',
+        numberOfAttending: attendingGuests.length,
+        specialRequests: null,
+        attendees: attendingGuests.map((g) => ({
+          name:
+            g.firstName && g.lastName
+              ? `${g.firstName} ${g.lastName}`
+              : guestName,
+          mealOption: g.mealChoice ?? null,
+          dietaryRestrictions: g.dietaryRestrictions ?? null,
+        })),
+      };
+
+      const context = getCloudflareContext();
+
+      await context.env.RSVP_NOTIFICATION_QUEUE?.send(payload, {
+        contentType: 'json',
+      });
+    } catch (notifyError) {
+      console.error(
+        '[rsvp-notification] Failed to enqueue main RSVP notification:',
+        notifyError,
+      );
     }
 
     // Persist contact email when provided
