@@ -16,6 +16,46 @@ import { z } from 'zod';
 import Link from 'next/link';
 import { Button } from '@/components/Button';
 
+// Word length for invitation codes — must match the invitation-code generator in src/lib/invitation-code.ts
+const WORD_LENGTH = 4;
+
+/**
+ * Formats a raw invitation code input value into `word-word` format.
+ *
+ * Extracts only letter characters, slices into two word segments, and inserts
+ * a hyphen at the word-length boundary. Detects backspace-over-hyphen to
+ * suppress re-insertion. Returns the formatted string and target cursor position.
+ *
+ * @param rawValue - The current input value after the change event.
+ * @param prevValue - The previous formatted value (used to detect hyphen deletion).
+ * @param wordLength - The number of letters in each word segment.
+ * @returns An object with `formatted` string and `cursorPosition` number.
+ */
+export function formatInvitationCode(
+  rawValue: string,
+  prevValue: string,
+  wordLength: number,
+): { formatted: string; cursorPosition: number } {
+  const letters = rawValue.replace(/[^a-zA-Z]/g, '');
+  const deletedHyphen = prevValue.includes('-') && !rawValue.includes('-');
+  const first = letters.slice(0, wordLength);
+  const second = letters.slice(wordLength, wordLength * 2);
+
+  if (second.length > 0) {
+    const formatted = `${first}-${second}`;
+
+    return { formatted, cursorPosition: formatted.length };
+  }
+
+  if (first.length === wordLength && !deletedHyphen) {
+    const formatted = `${first}-`;
+
+    return { formatted, cursorPosition: wordLength + 1 };
+  }
+
+  return { formatted: first, cursorPosition: first.length };
+}
+
 /**
  * Zod schema for invitation code form validation.
  */
@@ -24,7 +64,10 @@ const invitationCodeSchema = z.object({
     .string()
     .min(1, 'Invitation code is required')
     .regex(
-      /^[a-z]+-[a-z]+$/i,
+      new RegExp(
+        '^[a-z]{' + WORD_LENGTH + '}-[a-z]{' + WORD_LENGTH + '}$',
+        'i',
+      ),
       'Code should be in the format "word-word" (e.g. swift-panda)',
     )
     .transform((val) => val.trim().toLowerCase()),
@@ -54,6 +97,7 @@ export function InvitationCodeForm({
   const [isCodeNotRecognised, setIsCodeNotRecognised] = useState(false);
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const hasAutoSubmitted = useRef(false);
+  const prevValueRef = useRef<string>('');
 
   const callbackUrl = searchParams.get('callbackUrl') || '/rsvp';
 
@@ -72,6 +116,26 @@ export function InvitationCodeForm({
       invitationCode: '',
     },
   });
+
+  const {
+    onChange: rhfOnChange,
+    ref: rhfRef,
+    name,
+    onBlur,
+  } = register('invitationCode');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { formatted, cursorPosition } = formatInvitationCode(
+      e.target.value,
+      prevValueRef.current,
+      WORD_LENGTH,
+    );
+
+    e.target.value = formatted;
+    prevValueRef.current = formatted;
+    rhfOnChange(e);
+    e.target.setSelectionRange(cursorPosition, cursorPosition);
+  };
 
   const onSubmit = async (data: InvitationCodeFormData) => {
     setAuthError('');
@@ -224,11 +288,18 @@ export function InvitationCodeForm({
             autoComplete="off"
             autoCapitalize="none"
             spellCheck="false"
-            {...register('invitationCode')}
+            name={name}
+            ref={rhfRef}
+            onBlur={onBlur}
+            onChange={handleChange}
+            aria-describedby="invitation-code-hint"
             className="block w-full rounded-md border-0 bg-white px-4 py-3 text-[#6a5555] shadow-sm ring-1 ring-[#f3dedb] ring-inset placeholder:text-[#b5a0a0] focus:ring-2 focus:ring-[#9e3f3f] focus:ring-inset sm:text-sm sm:leading-6"
             placeholder="e.g. swift-panda"
             disabled={isSubmitting}
           />
+          <p id="invitation-code-hint" className="mt-1 text-xs text-[#6a5555]">
+            Your code is printed on the insert inside your invitation envelope.
+          </p>
           {errors.invitationCode && (
             <p className="mt-1 text-sm text-[#c33]">
               {errors.invitationCode.message}

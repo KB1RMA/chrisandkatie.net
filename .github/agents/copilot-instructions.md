@@ -32,6 +32,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 - TypeScript 5 / Node.js 20 + Next.js 16 (App Router), React 19, Drizzle ORM, Zod, TanStack Table, Tailwind CSS (009-admin-invitations-add-remove-guest)
 - TypeScript 5.x — Next.js v16 (App Router), React v19 + Drizzle ORM (SQLite/D1), Zod, react-hook-form, next-auth v5 (010-invite-code-recovery)
 - Cloudflare D1 (SQLite) — no schema changes required (010-invite-code-recovery)
+- TypeScript 5 / React 19 / Next.js 16 (App Router) + react-hook-form 7, zod 3, @hookform/resolvers/zod (011-invite-code-autoformat)
+- N/A — no database changes (011-invite-code-autoformat)
 
 - TypeScript 5.9, React 19, Next.js 16.1 + Next.js App Router, Auth.js v5, Drizzle ORM + D1 adapter, Zod, react-hook-form, Tailwind CSS, OpenNext (Cloudflare) (001-wedding-rsvp-portal)
 
@@ -51,9 +53,9 @@ npm test && npm run lint
 TypeScript 5.9, React 19, Next.js 16.1: Follow standard conventions
 
 ## Recent Changes
+- 011-invite-code-autoformat: Added TypeScript 5 / React 19 / Next.js 16 (App Router) + react-hook-form 7, zod 3, @hookform/resolvers/zod
 - 010-invite-code-recovery: Added TypeScript 5.x — Next.js v16 (App Router), React v19 + Drizzle ORM (SQLite/D1), Zod, react-hook-form, next-auth v5
 - 010-invite-code-recovery: Added TypeScript 5.x — Next.js v16 (App Router), React v19 + Drizzle ORM (SQLite/D1), Zod, react-hook-form, next-auth v5
-- 010-invite-code-recovery: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 
 <!-- MANUAL ADDITIONS START -->
