@@ -13,7 +13,6 @@ binding = "ASSETS"
 # Base URL used by Auth.js when running via wrangler dev locally
 AUTH_URL = "http://localhost:8787"
 NEXTAUTH_URL = "http://localhost:8787"
-OWNER_EMAIL = "owner@example.com"
 
 [images]
 binding = "IMAGES"

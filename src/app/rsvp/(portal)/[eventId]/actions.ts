@@ -10,8 +10,6 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
 import type { Guest, WeddingEvent } from '@/lib/db/schema';
-
-const logger = createLogger('event-rsvp-actions');
 import {
   isDeadlinePassed,
   validateAttendeeAgainstInvitation,
@@ -27,6 +25,8 @@ import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
 import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 import * as AttendeeRepository from '@/lib/db/repositories/attendees';
+
+const logger = createLogger('event-rsvp-actions');
 
 /**
  * Return type for retrieveEventRsvp.

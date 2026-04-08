@@ -1,16 +1,26 @@
 import pino from 'pino/browser';
 
-const safeStringify = (obj: unknown): string => {
-  try {
-    return JSON.stringify(obj);
-  } catch {
-    return JSON.stringify({ error: 'Log entry could not be serialized' });
-  }
-};
+// Pino browser always passes an object to custom write handlers.
+// A fresh WeakSet per call handles circular references without losing fields.
+function safeStringify(obj: unknown): string {
+  const seen = new WeakSet<object>();
+
+  return JSON.stringify(obj, (_key, value: unknown) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+
+      seen.add(value);
+    }
+
+    return value;
+  });
+}
 
 const baseLogger = pino({
   browser: {
-    asObject: true,
+    // serialize: true applies field-level serializers (e.g. err) before write receives the object.
     serialize: true,
     write: {
       trace: (obj) => console.log(safeStringify(obj)),
