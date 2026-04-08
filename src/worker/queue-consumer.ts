@@ -9,6 +9,9 @@ import {
   PermanentEmailError,
   type RsvpNotificationPayload,
 } from '@/lib/email/notification';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('queue-consumer');
 
 /**
  * Handle a batch of RSVP notification queue messages.
@@ -26,16 +29,10 @@ export async function handleRsvpNotificationQueue(
       message.ack();
     } catch (error) {
       if (error instanceof PermanentEmailError) {
-        console.error(
-          '[rsvp-notification] Permanent failure — acking:',
-          error.message,
-        );
+        logger.error({ err: error }, 'Permanent failure — acking');
         message.ack();
       } else {
-        console.error(
-          '[rsvp-notification] Transient failure — retrying:',
-          error,
-        );
+        logger.warn({ err: error }, 'Transient failure — retrying');
         message.retry();
       }
     }

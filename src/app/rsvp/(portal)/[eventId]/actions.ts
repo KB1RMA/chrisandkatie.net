@@ -8,7 +8,10 @@
  */
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import type { Guest, WeddingEvent } from '@/lib/db/schema';
+
+const logger = createLogger('event-rsvp-actions');
 import {
   isDeadlinePassed,
   validateAttendeeAgainstInvitation,
@@ -208,7 +211,10 @@ export async function submitEventRsvp(
       contentType: 'json',
     });
   } catch (error) {
-    console.error('[rsvp-notification] Failed to enqueue notification:', error);
+    logger.warn(
+      { err: error, guestId: response.guestId, eventId: response.eventId },
+      'Failed to enqueue notification',
+    );
   }
 
   return response;

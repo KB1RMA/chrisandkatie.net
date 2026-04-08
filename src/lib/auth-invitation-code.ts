@@ -7,6 +7,9 @@
 import { sql, eq } from 'drizzle-orm';
 import { invitations, users } from '@/lib/db/schema';
 import type { DbClient } from '@/lib/db';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('auth-invitation-code');
 
 /**
  * Authenticates a guest via their invitation code.
@@ -44,8 +47,9 @@ export async function authorizeInvitationCode(
   });
 
   if (!invitation) {
-    console.error(
-      `[auth-invitation-code] Invalid or unrecognised code attempt: "${normalizedCode}"`,
+    logger.warn(
+      { code: normalizedCode },
+      'Invalid or unrecognised invitation code attempt',
     );
 
     return null;
@@ -83,8 +87,9 @@ export async function authorizeInvitationCode(
 
     userId = newUserId;
 
-    console.error(
-      `[auth-invitation-code] Created new user "${newUserId}" for invitation "${invitation.id}"`,
+    logger.info(
+      { userId: newUserId, invitationId: invitation.id },
+      'Created new user for invitation',
     );
   }
 

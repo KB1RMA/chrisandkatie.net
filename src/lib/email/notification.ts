@@ -7,6 +7,9 @@
 import { Resend } from 'resend';
 import type { EventRsvpResponse } from '@/lib/schemas/rsvp';
 import { buildRsvpEmailHtml } from './buildRsvpEmailHtml';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('email-notification');
 
 /**
  * Thrown when an email failure is permanent and should NOT be retried.
@@ -115,5 +118,5 @@ export async function sendRsvpNotificationEmail(
     );
   }
 
-  console.log('[rsvp-notification] Email sent, id:', data?.id);
+  logger.info({ emailId: data?.id }, 'Email sent');
 }

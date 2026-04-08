@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { auth, getAuthIdentity } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getDb } from '@/lib/db';
 import { generateUniqueInvitationCode } from '@/lib/invitation-code';
 import * as InvitationRepository from '@/lib/db/repositories/invitations';
@@ -11,6 +12,8 @@ import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
 import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 import { invitationEditSchema } from '@/lib/schemas/invitation';
 import { addGuestSchema, removeGuestSchema } from '@/lib/schemas/guest';
+
+const logger = createLogger('admin-invitations');
 
 /**
  * Update visible events for an invitation by syncing the guestEvents table.
@@ -64,7 +67,7 @@ export async function updateInvitationVisibleEvents(
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to update visible events:', error);
+    logger.error({ err: error }, 'Failed to update visible events');
 
     return {
       success: false,
@@ -122,7 +125,7 @@ export async function backfillInvitationCodes(): Promise<{
 
     return { success: true, updatedCount };
   } catch (error) {
-    console.error('Failed to backfill invitation codes:', error);
+    logger.error({ err: error }, 'Failed to backfill invitation codes');
 
     return { success: false, error: 'Failed to backfill invitation codes' };
   }
@@ -170,7 +173,7 @@ export async function resetInvitationRSVP(
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to reset RSVP:', error);
+    logger.error({ err: error }, 'Failed to reset RSVP');
 
     return {
       success: false,
@@ -227,7 +230,7 @@ export async function updateGuestType(
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to update guest type:', error);
+    logger.error({ err: error }, 'Failed to update guest type');
 
     return { success: false, error: 'Failed to update guest type' };
   }
@@ -284,7 +287,7 @@ export async function updateInvitationDetails(
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to update invitation:', error);
+    logger.error({ err: error }, 'Failed to update invitation');
 
     if (
       error instanceof Error &&
@@ -386,7 +389,7 @@ export async function addGuestToInvitation(
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to add guest:', error);
+    logger.error({ err: error }, 'Failed to add guest');
 
     return { success: false, error: 'Failed to add guest' };
   }
@@ -460,7 +463,7 @@ export async function removeGuestFromInvitation(
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to remove guest:', error);
+    logger.error({ err: error }, 'Failed to remove guest');
 
     return { success: false, error: 'Failed to remove guest' };
   }
