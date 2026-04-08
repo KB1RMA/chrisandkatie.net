@@ -14,6 +14,10 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }));
 
+vi.mock('@opennextjs/cloudflare', () => ({
+  getCloudflareContext: vi.fn(),
+}));
+
 import {
   submitRsvp,
   fetchGuestEvents,
@@ -25,6 +29,7 @@ import { type DbClient } from '@/lib/db';
 
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 type Guest = InferSelectModel<typeof guests>;
 
@@ -885,5 +890,231 @@ describe('updateInvitationAddress', () => {
 
     // Invitation update only — user update skipped because userId is undefined
     expect(updateFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Notification queue tests
+// ---------------------------------------------------------------------------
+
+describe('submitRsvp — notification queue', () => {
+  const mockAuth = vi.mocked(auth);
+  const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
+  const mockGetDb = vi.mocked(getDb);
+  const mockGetCloudflareContext = vi.mocked(getCloudflareContext);
+
+  const invitationId = 'invitation-1';
+  const guestId = 'guest-1';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue(makeSession());
+    mockGetAuthIdentity.mockReturnValue({ type: 'guest', invitationId });
+
+    const whereFn = vi.fn().mockResolvedValue(undefined);
+    const setFn = vi.fn().mockReturnValue({ where: whereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: setFn });
+
+    mockGetDb.mockReturnValue(
+      createMockDb(
+        vi.fn().mockResolvedValue(makeGuest(guestId, invitationId)),
+        updateFn,
+      ) as DbClient,
+    );
+  });
+
+  test('should enqueue a notification after a first-time submission', async () => {
+    const mockQueueSend = vi.fn().mockResolvedValue(undefined);
+
+    mockGetCloudflareContext.mockReturnValue({
+      env: { RSVP_NOTIFICATION_QUEUE: { send: mockQueueSend } },
+    } as never);
+
+    await submitRsvp({
+      invitationId,
+      guests: [
+        {
+          id: guestId,
+          attending: true,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    expect(mockQueueSend).toHaveBeenCalledOnce();
+
+    const [payload, options] = mockQueueSend.mock.calls[0];
+
+    expect(payload).toMatchObject({
+      isUpdate: false,
+      guestName: 'John Doe',
+      eventName: 'Wedding Celebration',
+      attendanceStatus: 'attending',
+      numberOfAttending: 1,
+    });
+    expect(options).toEqual({ contentType: 'json' });
+  });
+
+  test('should set isUpdate: true when the guest already had a response', async () => {
+    const mockQueueSend = vi.fn().mockResolvedValue(undefined);
+
+    mockGetCloudflareContext.mockReturnValue({
+      env: { RSVP_NOTIFICATION_QUEUE: { send: mockQueueSend } },
+    } as never);
+
+    // Guest already has attending = true → this is an update
+    mockGetDb.mockReturnValue(
+      createMockDb(
+        vi
+          .fn()
+          .mockResolvedValue(
+            makeGuest(guestId, invitationId, { attending: true }),
+          ),
+        vi.fn().mockReturnValue({
+          set: vi
+            .fn()
+            .mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+        }),
+      ) as DbClient,
+    );
+
+    await submitRsvp({
+      invitationId,
+      guests: [
+        {
+          id: guestId,
+          attending: true,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    const [payload] = mockQueueSend.mock.calls[0];
+
+    expect(payload).toMatchObject({ isUpdate: true });
+  });
+
+  test('should not throw when the notification queue send fails', async () => {
+    mockGetCloudflareContext.mockReturnValue({
+      env: {
+        RSVP_NOTIFICATION_QUEUE: {
+          send: vi.fn().mockRejectedValue(new Error('Queue unavailable')),
+        },
+      },
+    } as never);
+
+    const result = await submitRsvp({
+      invitationId,
+      guests: [
+        {
+          id: guestId,
+          attending: true,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    // RSVP save succeeded despite notification failure
+    expect(result).toEqual({ success: true });
+  });
+
+  test('should send attendanceStatus not_attending when all guests decline', async () => {
+    const mockQueueSend = vi.fn().mockResolvedValue(undefined);
+
+    mockGetCloudflareContext.mockReturnValue({
+      env: { RSVP_NOTIFICATION_QUEUE: { send: mockQueueSend } },
+    } as never);
+
+    await submitRsvp({
+      invitationId,
+      guests: [
+        {
+          id: guestId,
+          attending: false,
+          mealChoice: null,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    const [payload] = mockQueueSend.mock.calls[0];
+
+    expect(payload).toMatchObject({
+      attendanceStatus: 'not_attending',
+      numberOfAttending: 0,
+      attendees: [],
+    });
+  });
+
+  test('should exclude guests from a different invitation from the notification payload', async () => {
+    const mockQueueSend = vi.fn().mockResolvedValue(undefined);
+
+    mockGetCloudflareContext.mockReturnValue({
+      env: { RSVP_NOTIFICATION_QUEUE: { send: mockQueueSend } },
+    } as never);
+
+    const foreignGuestId = 'guest-foreign';
+
+    // findGuestById returns a matching guest for guestId but null for the foreign guest,
+    // simulating a guest that belongs to a different invitation.
+    mockGetDb.mockReturnValue(
+      createMockDb(
+        vi
+          .fn()
+          .mockImplementation((query: { where: unknown }) => {
+            // The repository calls findFirst with a where clause; we inspect the
+            // serialised query args via the mock call sequence instead.
+            void query;
+
+            return Promise.resolve(null);
+          })
+          .mockResolvedValueOnce(makeGuest(guestId, invitationId))
+          .mockResolvedValueOnce(null),
+        vi.fn().mockReturnValue({
+          set: vi
+            .fn()
+            .mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+        }),
+      ) as DbClient,
+    );
+
+    await submitRsvp({
+      invitationId,
+      guests: [
+        {
+          id: guestId,
+          attending: true,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+        {
+          id: foreignGuestId,
+          attending: true,
+          mealChoice: MEAL_OPTIONS.SHORT_RIB,
+          dietaryRestrictions: null,
+          notes: null,
+        },
+      ],
+    });
+
+    expect(mockQueueSend).toHaveBeenCalledOnce();
+
+    const [payload] = mockQueueSend.mock.calls[0];
+
+    // Only the verified guest should contribute to the payload.
+    expect(payload).toMatchObject({
+      isUpdate: false,
+      numberOfAttending: 1,
+      attendanceStatus: 'attending',
+      attendees: [expect.objectContaining({ name: 'John Doe' })],
+    });
   });
 });
