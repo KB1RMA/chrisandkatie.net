@@ -34,6 +34,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 - Cloudflare D1 (SQLite) — no schema changes required (010-invite-code-recovery)
 - TypeScript 5.9, Node.js 20 (Workers runtime via `nodejs_compat`) + `resend` (Resend Node.js SDK), `@react-email/components`, `@react-email/render` (new); Cloudflare Queues (native Workers binding, no npm package) (012-rsvp-email-notifications)
 - Cloudflare D1 (SQLite) via Drizzle ORM — no schema changes required (012-rsvp-email-notifications)
+- TypeScript 5.x + Next.js 16 (App Router), React 19, react-hook-form, Zod, Drizzle ORM, Playwright (e2e) (013-additional-event-rsvp-ux)
+- SQLite (development) / Cloudflare D1 (production) via Drizzle ORM (013-additional-event-rsvp-ux)
 
 - TypeScript 5.9, React 19, Next.js 16.1 + Next.js App Router, Auth.js v5, Drizzle ORM + D1 adapter, Zod, react-hook-form, Tailwind CSS, OpenNext (Cloudflare) (001-wedding-rsvp-portal)
 
@@ -53,9 +55,9 @@ npm test && npm run lint
 TypeScript 5.9, React 19, Next.js 16.1: Follow standard conventions
 
 ## Recent Changes
-- 012-rsvp-email-notifications: Added TypeScript 5.9, Node.js 20 (Workers runtime via `nodejs_compat`) + `resend` (Resend Node.js SDK), `@react-email/components`, `@react-email/render` (new); Cloudflare Queues (native Workers binding, no npm package)
-- 010-invite-code-recovery: Added TypeScript 5.x — Next.js v16 (App Router), React v19 + Drizzle ORM (SQLite/D1), Zod, react-hook-form, next-auth v5
-- 010-invite-code-recovery: Added TypeScript 5.x — Next.js v16 (App Router), React v19 + Drizzle ORM (SQLite/D1), Zod, react-hook-form, next-auth v5
+- 013-additional-event-rsvp-ux: Added TypeScript 5.x + Next.js 16 (App Router), React 19, react-hook-form, Zod, Drizzle ORM, Playwright (e2e)
+- 013-additional-event-rsvp-ux: Added TypeScript 5.x + Next.js 16 (App Router), React 19, react-hook-form, Zod, Drizzle ORM, Playwright (e2e)
+- 013-additional-event-rsvp-ux: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 
 <!-- MANUAL ADDITIONS START -->

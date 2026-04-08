@@ -144,7 +144,7 @@ export async function updateAttendeeDetails(input: {
   rsvpResponseId: string;
   attendees: Array<{
     name: string;
-    mealOption: 'option_a' | 'option_b';
+    mealOption: 'option_a' | 'option_b' | null;
     dietaryRestrictions?: string;
   }>;
 }): Promise<ActionResult> {

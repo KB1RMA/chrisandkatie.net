@@ -281,7 +281,7 @@ export const attendees = sqliteTable(
     name: text('name').notNull(),
     mealOption: text('mealOption', {
       enum: ['option_a', 'option_b'],
-    }).notNull(),
+    }),
     dietaryRestrictions: text('dietaryRestrictions'),
     sortOrder: integer('sortOrder').notNull().default(0),
     createdAt: text('createdAt').notNull().default(timestampDefault),

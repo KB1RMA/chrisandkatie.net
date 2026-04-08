@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { Marcellus } from 'next/font/google';
 import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
@@ -93,6 +94,13 @@ export default async function EventRsvpPage({ params }: EventRsvpPageProps) {
           )}
         </div>
 
+        <Link
+          href="/rsvp"
+          className="mb-4 inline-block text-sm text-[#9e3f3f] hover:underline"
+        >
+          ← Back to RSVP
+        </Link>
+
         <div className="rounded-lg bg-[#fffdfb] p-4 shadow-lg sm:p-8">
           <EventRsvpForm
             eventId={event.id}
@@ -109,6 +117,7 @@ export default async function EventRsvpPage({ params }: EventRsvpPageProps) {
             }
             deadlinePassed={deadlinePassed}
             eventName={event.name}
+            eventType={event.type}
           />
         </div>
       </div>

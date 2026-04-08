@@ -9,7 +9,7 @@ import { completeAddressStep } from './helpers/complete-address-step';
  * The RSVP page is a three-step wizard:
  *   Step 1 – Confirm Your Address (and optional contact email)
  *   Step 2 – Attendance and meal selections
- *   Step 3 – Additional events (shows "You're all set!" when none exist)
+ *   Step 3 – Additional events (Pool Day and BBQ Dinner event cards)
  *
  * First-time visitors start on Step 1. Guests who have already submitted
  * an RSVP start on Step 2.
@@ -231,10 +231,10 @@ test.describe('RSVP submission', () => {
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
 
     // After submission the wizard advances to Step 3 — Additional Events.
-    // The seeded invitation has no additional events so the all-done banner is shown.
-    await expect(page.getByText("You're all set!")).toBeVisible({
-      timeout: 10_000,
-    });
+    // The seeded invitation has Pool Day and BBQ as additional events.
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('should submit RSVP when a guest declines', async ({ page }) => {
@@ -248,9 +248,9 @@ test.describe('RSVP submission', () => {
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
 
     // After submission, wizard advances to Step 3.
-    await expect(page.getByText("You're all set!")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('should save a contact email when provided', async ({ page }) => {
@@ -278,13 +278,13 @@ test.describe('RSVP submission', () => {
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
 
     // After submission, wizard advances to Step 3.
-    await expect(page.getByText("You're all set!")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
 
-// ── RSVP wizard — Step 3: Additional events ───────────────────────────────────
+// ── RSVP wizard — Step 3: Additional events ──────────────────────────────────
 
 test.describe('RSVP wizard — additional events step', () => {
   test.beforeEach(async ({ page }) => {
@@ -304,12 +304,12 @@ test.describe('RSVP wizard — additional events step', () => {
     }
 
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
-    await expect(page.getByText("You're all set!")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
-  test('should show the additional events heading and all-done banner', async ({
+  test('should show the additional events heading and event cards', async ({
     page,
   }) => {
     // Use role selector — 'Additional Events' also appears in the step indicator
@@ -317,8 +317,10 @@ test.describe('RSVP wizard — additional events step', () => {
     await expect(
       page.getByRole('heading', { name: 'Additional Events' }),
     ).toBeVisible();
-    await expect(page.getByText("You're all set!")).toBeVisible();
-    await expect(page.getByText('Thank you for your RSVP')).toBeVisible();
+
+    // Both seeded additional events should be visible as RSVP cards.
+    await expect(page.getByText('Pool Day')).toBeVisible();
+    await expect(page.getByText('BBQ Dinner')).toBeVisible();
   });
 
   test('should navigate back to the RSVP form from the events step', async ({
@@ -327,6 +329,7 @@ test.describe('RSVP wizard — additional events step', () => {
     await page.getByText('← Back to RSVP').click();
 
     // Step 2 — RSVP form — should be visible again.
+    // goBack auto-expands the form so the full RSVPForm (with Update RSVP) is shown.
     await expect(
       page.getByRole('button', { name: 'Update RSVP' }),
     ).toBeVisible();
@@ -357,9 +360,9 @@ test.describe('RSVP update flow', () => {
     await page.getByRole('button', { name: 'Submit RSVP' }).click();
 
     // After submission the wizard advances to Step 3 — Additional Events.
-    await expect(page.getByText("You're all set!")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('should show the "already submitted" notice when revisiting', async ({
@@ -370,6 +373,11 @@ test.describe('RSVP update flow', () => {
     await page.reload();
 
     await expect(page.getByText("You've already submitted")).toBeVisible();
+
+    // On reload the form starts collapsed (RsvpSummary). Expand it to access
+    // the full edit form with the Update RSVP button.
+    await page.getByRole('button', { name: 'Edit responses' }).click();
+
     await expect(
       page.getByRole('button', { name: 'Update RSVP' }),
     ).toBeVisible();
@@ -378,14 +386,59 @@ test.describe('RSVP update flow', () => {
   test('should allow guests to update their RSVP', async ({ page }) => {
     await page.reload();
 
+    // On reload the form starts collapsed — expand it before editing responses.
+    await page.getByRole('button', { name: 'Edit responses' }).click();
+
     // Switch first guest to declining.
     await page.locator('label:has-text("Declining")').first().click();
 
     await page.getByRole('button', { name: 'Update RSVP' }).click();
 
     // After updating, wizard advances to Step 3.
-    await expect(page.getByText("You're all set!")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ── Step 3 — empty additional events state ────────────────────────────────────
+
+/**
+ * Covers the "You're all set!" banner shown on Step 3 when the invitation has
+ * no additional events requiring an RSVP (i.e. no GuestEvent rows). This
+ * prevents regressions in the empty-additional-events branch of EventsStep.
+ *
+ * Uses the 'test-plain' invitation seeded in e2e-seed.sql, which deliberately
+ * has no GuestEvent rows linking the guest to any rsvpRequired event.
+ */
+test.describe('Step 3 — no additional events', () => {
+  test.beforeEach(async ({ page }) => {
+    // Reset so each test starts from a clean "not yet submitted" state,
+    // preventing order-dependence when the suite runs more than once.
+    resetRsvpState();
+
+    await loginAsGuest(page, 'test-plain');
+    await completeAddressStep(page);
+
+    // Submit the RSVP so the wizard advances to Step 3.
+    await page.locator('label:has-text("Attending")').first().click();
+    // Meal choice is required for attending guests — select one before submitting.
+    await page.locator('label:has-text("Short Rib")').first().click();
+    await page.getByRole('button', { name: 'Submit RSVP' }).click();
+
+    await expect(
+      page.getByRole('heading', { name: 'Additional Events' }),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('should show the "You\'re all set!" banner when there are no additional events', async ({
+    page,
+  }) => {
+    await expect(page.getByText("You're all set!")).toBeVisible();
+    await expect(page.getByText('Thank you for your RSVP')).toBeVisible();
+  });
+
+  test('should not show any additional event cards', async ({ page }) => {
+    await expect(page.getByTestId('event-rsvp-card')).toHaveCount(0);
   });
 });

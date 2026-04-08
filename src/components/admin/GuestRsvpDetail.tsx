@@ -10,7 +10,7 @@ import {
 
 type AttendeeInput = {
   name: string;
-  mealOption: 'option_a' | 'option_b';
+  mealOption: 'option_a' | 'option_b' | null;
   dietaryRestrictions?: string;
 };
 
@@ -367,8 +367,10 @@ export function GuestRsvpDetail({
                       >
                         <span className="font-medium">{attendee.name}</span>
                         {' — '}
-                        {MEAL_LABELS[attendee.mealOption] ??
-                          attendee.mealOption}
+                        {attendee.mealOption
+                          ? (MEAL_LABELS[attendee.mealOption] ??
+                            attendee.mealOption)
+                          : null}
                         {attendee.dietaryRestrictions && (
                           <span className="ml-2 text-[#9a8888]">
                             ({attendee.dietaryRestrictions})
@@ -401,7 +403,7 @@ export function GuestRsvpDetail({
                           className="rounded border border-[#e5d5d5] px-2 py-1 text-sm text-[#6a5555] focus:ring-1 focus:ring-[#9e3f3f] focus:outline-none"
                         />
                         <select
-                          value={attendee.mealOption}
+                          value={attendee.mealOption ?? ''}
                           onChange={(e) =>
                             updateAttendeeField(
                               event.id,

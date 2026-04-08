@@ -7,7 +7,7 @@
  * individual additional events (rehearsal, brunch, etc.).
  * Uses react-hook-form with Zod validation and the submitEventRsvp server action.
  */
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,6 +42,11 @@ type EventRsvpFormProps = {
   existingRsvp: ExistingRsvp | null;
   deadlinePassed: boolean;
   eventName: string;
+  /**
+   * Event type. Determines whether meal choice, dietary restrictions,
+   * and special requests are rendered. Only 'main' events collect these fields.
+   */
+  eventType: 'main' | 'rehearsal' | 'brunch' | 'other';
 };
 
 /**
@@ -75,6 +80,7 @@ function buildDefaultAttendees(
  * @param existingRsvp - Guest's existing RSVP, or null if not yet submitted.
  * @param deadlinePassed - Whether the RSVP deadline has passed (locks form).
  * @param eventName - Display name of the event.
+ * @param eventType - Type of event; controls whether meal/dietary/special fields render.
  */
 export function EventRsvpForm({
   eventId,
@@ -83,9 +89,11 @@ export function EventRsvpForm({
   existingRsvp,
   deadlinePassed,
   eventName,
+  eventType,
 }: EventRsvpFormProps) {
   const router = useRouter();
-  const [showSuccess, setShowSuccess] = useState(false);
+
+  const hasMealChoice = eventType === 'main';
 
   const {
     control,
@@ -124,8 +132,8 @@ export function EventRsvpForm({
       if (isChecked) {
         append({
           name: `${guest.firstName} ${guest.lastName}`,
-          mealOption: 'option_a',
-          dietaryRestrictions: '',
+          mealOption: hasMealChoice ? 'option_a' : null,
+          dietaryRestrictions: hasMealChoice ? '' : null,
         });
       } else {
         const index = fields.findIndex(
@@ -149,9 +157,7 @@ export function EventRsvpForm({
     async (data: SubmitEventRsvpInput) => {
       try {
         await submitEventRsvp(data);
-        setShowSuccess(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        router.refresh();
+        router.push('/rsvp?step=3');
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to submit RSVP';
@@ -185,13 +191,6 @@ export function EventRsvpForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {showSuccess && (
-        <div className="animate-in fade-in slide-in-from-top-4 rounded border border-green-400 bg-green-50 px-4 py-4 text-green-800 duration-500">
-          <p className="mb-1 font-medium">✓ RSVP Submitted!</p>
-          <p className="text-sm">Thank you for your response to {eventName}.</p>
-        </div>
-      )}
-
       {errors.root && (
         <div className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
           {errors.root.message}
@@ -275,7 +274,7 @@ export function EventRsvpForm({
                     </span>
                   </label>
 
-                  {isChecked && (
+                  {isChecked && hasMealChoice && (
                     <div className="mt-4 space-y-3 pl-8">
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -350,22 +349,24 @@ export function EventRsvpForm({
         </div>
       )}
 
-      {/* Special requests */}
-      <div>
-        <label
-          htmlFor="specialRequests"
-          className="mb-2 block text-sm font-medium text-gray-700"
-        >
-          Special Requests (optional)
-        </label>
-        <textarea
-          id="specialRequests"
-          placeholder="Any special accommodations or requests"
-          rows={3}
-          {...register('specialRequests')}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
-        />
-      </div>
+      {/* Special requests — only shown for main events */}
+      {hasMealChoice && (
+        <div>
+          <label
+            htmlFor="specialRequests"
+            className="mb-2 block text-sm font-medium text-gray-700"
+          >
+            Special Requests (optional)
+          </label>
+          <textarea
+            id="specialRequests"
+            placeholder="Any special accommodations or requests"
+            rows={3}
+            {...register('specialRequests')}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-[#9e3f3f] focus:ring-2 focus:ring-[#9e3f3f] focus:outline-none"
+          />
+        </div>
+      )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting
