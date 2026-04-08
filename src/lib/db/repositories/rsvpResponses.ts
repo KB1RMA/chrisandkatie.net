@@ -166,6 +166,26 @@ export async function updateRsvpNotAttendingForGuestAndEvent(
 }
 
 /**
+ * Delete all RSVP responses for a list of guest ids.
+ *
+ * Used when resetting an invitation's RSVP state so event-specific responses
+ * are cleared alongside the main Guest attendance fields.
+ *
+ * @param guestIds - The ids of the guests whose responses should be removed.
+ */
+export async function deleteRsvpResponsesByGuestIds(
+  guestIds: string[],
+): Promise<void> {
+  if (guestIds.length === 0) {
+    return;
+  }
+
+  await getDb()
+    .delete(rsvpResponses)
+    .where(inArray(rsvpResponses.guestId, guestIds));
+}
+
+/**
  * Bump the updatedAt timestamp on an RSVP response.
  *
  * @param id - The RsvpResponse id to touch.

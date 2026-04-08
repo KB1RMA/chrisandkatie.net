@@ -8,6 +8,7 @@ import { generateUniqueInvitationCode } from '@/lib/invitation-code';
 import * as InvitationRepository from '@/lib/db/repositories/invitations';
 import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 import { invitationEditSchema } from '@/lib/schemas/invitation';
 import { addGuestSchema, removeGuestSchema } from '@/lib/schemas/guest';
 
@@ -152,8 +153,12 @@ export async function resetInvitationRSVP(
     }
 
     const now = new Date().toISOString();
+    const guestIds = invitation.guests.map((g) => g.id);
 
-    // Reset all guests' RSVP data
+    // Delete event-specific RSVP responses so event cards revert to "Not Responded".
+    await RsvpRepository.deleteRsvpResponsesByGuestIds(guestIds);
+
+    // Reset all guests' main RSVP data (attendance, meal choice, etc.)
     for (const guest of invitation.guests) {
       await GuestRepository.resetGuestRsvpFields(guest.id, now);
     }
