@@ -246,4 +246,95 @@ describe('submitEventRsvp', () => {
 
     expect(payload.isUpdate).toBe(true);
   });
+
+  test('should succeed when attendees have mealOption: null (non-main event)', async () => {
+    const mockQueueSend = vi.fn().mockResolvedValue(undefined);
+
+    mockGetCloudflareContext.mockReturnValue({
+      env: {
+        RSVP_NOTIFICATION_QUEUE: { send: mockQueueSend },
+      },
+    } as never);
+
+    vi.mocked(RsvpRepository.findRsvpByGuestAndEvent)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(savedRsvpRow as never);
+
+    const inputWithNullMealOption = {
+      guestId,
+      eventId,
+      attendanceStatus: 'attending' as const,
+      attendees: [
+        {
+          name: 'Chris Smith',
+          mealOption: null,
+          dietaryRestrictions: null,
+        },
+      ],
+      specialRequests: null,
+    };
+
+    const result = await submitEventRsvp(inputWithNullMealOption);
+
+    expect(result.attendanceStatus).toBe('attending');
+    expect(result.attendees[0].mealOption).toBeNull();
+  });
+
+  test('should throw when a main-event attendee is attending without a mealOption', async () => {
+    vi.mocked(EventRepository.findEventById).mockResolvedValue(
+      makeEvent({ type: 'main', name: 'Wedding Reception' }),
+    );
+
+    const inputMissingMeal = {
+      guestId,
+      eventId,
+      attendanceStatus: 'attending' as const,
+      attendees: [
+        { name: 'Chris Smith', mealOption: null, dietaryRestrictions: null },
+      ],
+      specialRequests: null,
+    };
+
+    await expect(submitEventRsvp(inputMissingMeal)).rejects.toThrow(
+      'Meal option is required for all attendees at this event',
+    );
+  });
+
+  test('should strip mealOption and specialRequests when persisting a non-main event RSVP', async () => {
+    const mockQueueSend = vi.fn().mockResolvedValue(undefined);
+
+    mockGetCloudflareContext.mockReturnValue({
+      env: { RSVP_NOTIFICATION_QUEUE: { send: mockQueueSend } },
+    } as never);
+
+    vi.mocked(RsvpRepository.findRsvpByGuestAndEvent)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(savedRsvpRow as never);
+
+    const inputWithExtras = {
+      guestId,
+      eventId,
+      attendanceStatus: 'attending' as const,
+      attendees: [
+        {
+          name: 'Chris Smith',
+          mealOption: 'option_a' as const,
+          dietaryRestrictions: null,
+        },
+      ],
+      specialRequests: 'No nuts please',
+    };
+
+    const result = await submitEventRsvp(inputWithExtras);
+
+    // mealOption and specialRequests should be null in the persisted output
+    expect(result.attendees[0].mealOption).toBeNull();
+    expect(result.specialRequests).toBeNull();
+
+    const upsertCall = vi.mocked(RsvpRepository.upsertRsvpResponse).mock
+      .calls[0];
+
+    expect(upsertCall[0].specialRequests).toBeNull();
+    expect(upsertCall[1].specialRequests).toBeNull();
+  });
 });

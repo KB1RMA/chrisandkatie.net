@@ -152,8 +152,10 @@ export default async function AdminGuestDetailPage({
                         >
                           <span className="font-medium">{attendee.name}</span>
                           {' — '}
-                          {MEAL_LABELS[attendee.mealOption] ??
-                            attendee.mealOption}
+                          {attendee.mealOption
+                            ? (MEAL_LABELS[attendee.mealOption] ??
+                              attendee.mealOption)
+                            : null}
                           {attendee.dietaryRestrictions && (
                             <span className="ml-2 text-[#9a8888]">
                               ({attendee.dietaryRestrictions})

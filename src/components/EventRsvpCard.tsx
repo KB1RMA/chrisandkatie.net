@@ -90,7 +90,10 @@ export function EventRsvpCard({ event, rsvp }: EventRsvpCardProps) {
   const deadlinePassed = isDeadlinePassed();
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-[#fffdfb] p-4 shadow-sm">
+    <div
+      data-testid="event-rsvp-card"
+      className="rounded-lg border border-gray-200 bg-[#fffdfb] p-4 shadow-sm"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">

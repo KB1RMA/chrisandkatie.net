@@ -7,8 +7,8 @@
  * Step 2 – Attendance and meal selections for each guest.
  * Step 3 – Additional events the invitation holder is invited to.
  */
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -20,6 +20,7 @@ import {
   updateInvitationAddressSchema,
   type UpdateInvitationAddressInput,
 } from '@/lib/schemas/rsvp';
+import { MEAL_CHOICE_LABELS } from '@/lib/constants';
 import type { WeddingEvent, RsvpResponse } from '@/lib/db/schema';
 
 export type InvitationAddress = {
@@ -66,18 +67,35 @@ const STEP_LABELS = [
  * Step progress indicator displayed at the top of the wizard.
  *
  * @param currentStep - The currently active step number (1-indexed).
+ * @param onStepClick - Called with the step number when a navigable step is clicked.
+ * @param isStepClickable - Returns true for steps the user is allowed to jump to.
  */
-function StepIndicator({ currentStep }: { currentStep: number }) {
+function StepIndicator({
+  currentStep,
+  onStepClick,
+  isStepClickable,
+}: {
+  currentStep: number;
+  onStepClick: (step: number) => void;
+  isStepClickable: (step: number) => boolean;
+}) {
   return (
     <div className="mb-8 flex items-center justify-center">
       {STEP_LABELS.map((label, i) => {
         const stepNum = i + 1;
         const isActive = stepNum === currentStep;
         const isCompleted = stepNum < currentStep;
+        const clickable = isStepClickable(stepNum);
 
         return (
           <div key={label} className="flex items-center">
-            <div className="flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => clickable && onStepClick(stepNum)}
+              disabled={!clickable}
+              aria-current={isActive ? 'step' : undefined}
+              className={`flex flex-col items-center ${clickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+            >
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
                   isCompleted
@@ -96,7 +114,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
               >
                 {label}
               </span>
-            </div>
+            </button>
             {i < STEP_LABELS.length - 1 && (
               <div
                 className={`mx-2 mb-5 h-px w-10 transition-colors sm:w-16 ${
@@ -456,6 +474,118 @@ function EventsStep({ additionalEvents, onBack }: EventsStepProps) {
   );
 }
 
+type RsvpSummaryProps = {
+  guests: GuestRSVP[];
+  submittedAt: string | null;
+  onEdit: () => void;
+  onViewEvents: () => void;
+};
+
+/**
+ * Collapsed view of a previously submitted RSVP.
+ *
+ * Shows each guest's name, attendance status, and meal choice.
+ * An "Edit responses" button expands the full form.
+ *
+ * @param guests - Guest list with current responses.
+ * @param submittedAt - ISO timestamp of the last submission.
+ * @param onEdit - Called when the guest clicks to edit.
+ * @param onViewEvents - Called when the guest clicks to view additional events.
+ */
+function RsvpSummary({
+  guests,
+  submittedAt,
+  onEdit,
+  onViewEvents,
+}: RsvpSummaryProps) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded border border-amber-400 bg-amber-50 px-4 py-4 text-amber-800">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-1 font-medium">✓ You&#39;ve already submitted</p>
+            {submittedAt && (
+              <p className="text-sm">
+                Your responses were last updated on{' '}
+                <strong>
+                  {new Date(submittedAt).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </strong>
+                .
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onViewEvents}
+            className="shrink-0 text-sm text-[#9e3f3f] underline underline-offset-2 hover:text-[#b76565]"
+          >
+            Additional Events →
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {guests.map((guest) => {
+          const displayName =
+            guest.firstName.toLowerCase() === 'guest'
+              ? 'Plus One'
+              : `${guest.firstName} ${guest.lastName}`;
+
+          return (
+            <div
+              key={guest.id}
+              className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3"
+            >
+              <div>
+                <p className="font-medium text-gray-900">{displayName}</p>
+                {guest.attending && guest.mealChoice && (
+                  <p className="text-sm text-gray-500">
+                    {MEAL_CHOICE_LABELS[guest.mealChoice]}
+                  </p>
+                )}
+                {guest.attending && guest.dietaryRestrictions && (
+                  <p className="text-xs text-gray-400">
+                    {guest.dietaryRestrictions}
+                  </p>
+                )}
+              </div>
+
+              <span
+                className={`rounded-full px-3 py-1 text-sm font-medium ${
+                  guest.attending === true
+                    ? 'bg-green-100 text-green-800'
+                    : guest.attending === false
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {guest.attending === true
+                  ? 'Attending'
+                  : guest.attending === false
+                    ? 'Declining'
+                    : 'No response'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={onEdit}
+        className="text-sm text-[#9e3f3f] underline underline-offset-2 hover:text-[#b76565]"
+      >
+        Edit responses
+      </button>
+    </div>
+  );
+}
+
 /**
  * Three-step RSVP wizard.
  *
@@ -473,8 +603,29 @@ export function RSVPWizard({
   contactEmail,
   additionalEvents,
 }: RSVPWizardProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Support ?step=3 deep-link (e.g. returning from an additional-event RSVP).
+  const stepParam = Number(searchParams.get('step'));
+  const initialStep =
+    stepParam >= 1 && stepParam <= 3 ? stepParam : isSubmitted ? 2 : 1;
+
   // Return visits start at step 2 — address was confirmed on first RSVP
-  const [currentStep, setCurrentStep] = useState(isSubmitted ? 2 : 1);
+  const [currentStep, setCurrentStep] = useState(initialStep);
+  // Collapse the form when a prior RSVP exists; expand on edit
+  const [isFormExpanded, setIsFormExpanded] = useState(!isSubmitted);
+
+  // Capture at mount whether the URL had a ?step param so we can strip it once,
+  // without re-running the effect every time searchParams changes.
+  const hadStepParam = useRef(searchParams.has('step'));
+
+  // Strip the ?step param from the URL once the wizard has consumed it.
+  useEffect(() => {
+    if (hadStepParam.current) {
+      router.replace('/rsvp', { scroll: false });
+    }
+  }, [router]);
 
   const goForward = useCallback(() => {
     setCurrentStep((s) => Math.min(s + 1, 3));
@@ -482,11 +633,26 @@ export function RSVPWizard({
 
   const goBack = useCallback(() => {
     setCurrentStep((s) => Math.max(s - 1, 1));
+    // Auto-expand the RSVP form when navigating back to step 2 so the guest
+    // can immediately edit their responses rather than seeing the collapsed summary.
+    setIsFormExpanded(true);
   }, []);
+
+  const handleSubmitSuccess = useCallback(() => {
+    setIsFormExpanded(false);
+    goForward();
+  }, [goForward]);
 
   return (
     <div>
-      <StepIndicator currentStep={currentStep} />
+      <StepIndicator
+        currentStep={currentStep}
+        onStepClick={setCurrentStep}
+        isStepClickable={(step) =>
+          step !== currentStep &&
+          (step < currentStep || (step === 3 && isSubmitted))
+        }
+      />
 
       {currentStep === 1 && (
         <AddressStep
@@ -506,13 +672,23 @@ export function RSVPWizard({
           >
             ← Back to address
           </button>
-          <RSVPForm
-            invitationId={invitationId}
-            guests={guests}
-            isSubmitted={isSubmitted}
-            submittedAt={submittedAt ?? undefined}
-            onSubmitSuccess={goForward}
-          />
+
+          {isSubmitted && !isFormExpanded ? (
+            <RsvpSummary
+              guests={guests}
+              submittedAt={submittedAt ?? null}
+              onEdit={() => setIsFormExpanded(true)}
+              onViewEvents={goForward}
+            />
+          ) : (
+            <RSVPForm
+              invitationId={invitationId}
+              guests={guests}
+              isSubmitted={isSubmitted}
+              submittedAt={submittedAt ?? undefined}
+              onSubmitSuccess={handleSubmitSuccess}
+            />
+          )}
         </div>
       )}
 

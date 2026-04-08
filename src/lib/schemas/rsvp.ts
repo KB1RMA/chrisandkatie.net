@@ -94,10 +94,10 @@ export type UpdateInvitationAddressInput = z.infer<
  */
 export const eventAttendeeInputSchema = z.object({
   name: z.string().min(1, 'Attendee name is required'),
-  mealOption: z.enum([
-    EVENT_MEAL_OPTIONS.OPTION_A,
-    EVENT_MEAL_OPTIONS.OPTION_B,
-  ]),
+  mealOption: z
+    .enum([EVENT_MEAL_OPTIONS.OPTION_A, EVENT_MEAL_OPTIONS.OPTION_B])
+    .nullable()
+    .optional(),
   dietaryRestrictions: z.string().nullable().optional(),
 });
 
@@ -158,7 +158,7 @@ export type SubmitEventRsvpInput = z.infer<typeof submitEventRsvpSchema>;
 export type AttendeeOutput = {
   id: string;
   name: string;
-  mealOption: 'option_a' | 'option_b';
+  mealOption: 'option_a' | 'option_b' | null;
   dietaryRestrictions: string | null;
   sortOrder: number;
 };

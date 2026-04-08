@@ -108,6 +108,19 @@ export async function submitEventRsvp(
     throw new Error('Not invited to this event');
   }
 
+  const isMainEvent = event.type === 'main';
+
+  // For main events every attending attendee must have a meal option selected.
+  if (isMainEvent && input.attendanceStatus === 'attending') {
+    const missingMeal = input.attendees.some((a) => !a.mealOption);
+
+    if (missingMeal) {
+      throw new Error(
+        'Meal option is required for all attendees at this event',
+      );
+    }
+  }
+
   // Check whether a prior RSVP exists before upserting (determines isUpdate flag)
   const existingRsvpBeforeUpsert = await RsvpRepository.findRsvpByGuestAndEvent(
     input.guestId,
@@ -126,14 +139,14 @@ export async function submitEventRsvp(
       eventId: input.eventId,
       attendanceStatus: input.attendanceStatus,
       numberOfAttending: input.attendees.length,
-      specialRequests: input.specialRequests ?? null,
+      specialRequests: isMainEvent ? (input.specialRequests ?? null) : null,
       submittedAt: now,
       updatedAt: now,
     },
     {
       attendanceStatus: input.attendanceStatus,
       numberOfAttending: input.attendees.length,
-      specialRequests: input.specialRequests ?? null,
+      specialRequests: isMainEvent ? (input.specialRequests ?? null) : null,
       updatedAt: now,
     },
   );
@@ -153,7 +166,7 @@ export async function submitEventRsvp(
     id: crypto.randomUUID(),
     rsvpResponseId: savedRsvp.id,
     name: attendee.name,
-    mealOption: attendee.mealOption,
+    mealOption: isMainEvent ? (attendee.mealOption ?? null) : null,
     dietaryRestrictions: attendee.dietaryRestrictions ?? null,
     sortOrder: index,
   }));

@@ -11,9 +11,11 @@ import type { WeddingEvent, RsvpResponse } from '@/lib/db/schema';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockRouterRefresh = vi.fn();
+const mockRouterReplace = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: mockRouterRefresh }),
+  useRouter: () => ({ refresh: mockRouterRefresh, replace: mockRouterReplace }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const mockUpdateInvitationAddress = vi.fn();
@@ -156,10 +158,76 @@ describe('RSVPWizard', () => {
         />,
       );
 
-      expect(screen.getByTestId('rsvp-form')).toBeInTheDocument();
+      // Returning guests see the collapsed summary, not the full form immediately.
+      expect(screen.getByText(/You've already submitted/)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Edit responses' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('rsvp-form')).not.toBeInTheDocument();
       expect(
         screen.queryByText('Confirm Your Address'),
       ).not.toBeInTheDocument();
+    });
+
+    test('should allow clicking a completed step to navigate back', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <RSVPWizard
+          {...makeProps({
+            isSubmitted: true,
+            submittedAt: '2026-03-01T12:00:00Z',
+          })}
+        />,
+      );
+
+      // Start on step 2; navigate to step 3 first so step 2 becomes completed.
+      await user.click(
+        screen.getByRole('button', { name: 'Additional Events →' }),
+      );
+
+      // Step 2 ("Your RSVP") is now a completed step — clicking it goes back.
+      await user.click(screen.getByRole('button', { name: '✓ Your RSVP' }));
+
+      expect(screen.getByText(/You've already submitted/)).toBeInTheDocument();
+    });
+
+    test('should allow jumping to step 3 from step 2 when already submitted', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <RSVPWizard
+          {...makeProps({
+            isSubmitted: true,
+            submittedAt: '2026-03-01T12:00:00Z',
+          })}
+        />,
+      );
+
+      await user.click(
+        screen.getByRole('button', { name: '3 Additional Events' }),
+      );
+
+      expect(
+        screen.getByRole('heading', { name: 'Additional Events' }),
+      ).toBeInTheDocument();
+    });
+
+    test('should NOT allow clicking the current or future unsubmitted steps', () => {
+      render(<RSVPWizard {...makeProps({ isSubmitted: false })} />);
+
+      // Step 1 is active (current) — disabled
+      expect(
+        screen.getByRole('button', { name: '1 Confirm Address' }),
+      ).toBeDisabled();
+
+      // Steps 2 and 3 are future and not yet reachable — disabled
+      expect(
+        screen.getByRole('button', { name: '2 Your RSVP' }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole('button', { name: '3 Additional Events' }),
+      ).toBeDisabled();
     });
   });
 
@@ -455,6 +523,64 @@ describe('RSVPWizard', () => {
       );
 
       expect(screen.getByTestId('rsvp-form')).toBeInTheDocument();
+    });
+
+    test('should show the collapsed summary when isSubmitted is true', () => {
+      render(
+        <RSVPWizard
+          {...makeProps({
+            isSubmitted: true,
+            submittedAt: '2026-03-01T12:00:00Z',
+          })}
+        />,
+      );
+
+      expect(screen.getByText(/You've already submitted/)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Edit responses' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('rsvp-form')).not.toBeInTheDocument();
+    });
+
+    test('should expand the full form when "Edit responses" is clicked', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <RSVPWizard
+          {...makeProps({
+            isSubmitted: true,
+            submittedAt: '2026-03-01T12:00:00Z',
+          })}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Edit responses' }));
+
+      expect(screen.getByTestId('rsvp-form')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Edit responses' }),
+      ).not.toBeInTheDocument();
+    });
+
+    test('should navigate to step 3 when "Additional Events →" is clicked', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <RSVPWizard
+          {...makeProps({
+            isSubmitted: true,
+            submittedAt: '2026-03-01T12:00:00Z',
+          })}
+        />,
+      );
+
+      await user.click(
+        screen.getByRole('button', { name: 'Additional Events →' }),
+      );
+
+      expect(
+        screen.getByRole('heading', { name: 'Additional Events' }),
+      ).toBeInTheDocument();
     });
 
     test('should show a back link to address step', async () => {
