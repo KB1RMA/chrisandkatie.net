@@ -2,6 +2,9 @@
 
 import { recoverSchema } from '@/lib/schemas/recover';
 import { findInvitationCodeByLastNameAndAddress } from '@/lib/db/repositories/invitations';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('rsvp-recover');
 
 type RecoverInvitationCodeSuccess = {
   success: true;
@@ -56,10 +59,7 @@ export async function recoverInvitationCode(
 
     return { success: true, invitationCode };
   } catch (error) {
-    console.error(
-      '[recoverInvitationCode] Unexpected error during lookup',
-      error,
-    );
+    logger.error({ err: error }, 'Unexpected error during lookup');
 
     return { success: false, error: GENERIC_ERROR };
   }

@@ -11,15 +11,23 @@ const eslintConfig = [
       '**/node_modules/**',
       '**/.next/**',
       '**/.open-next/**',
+      '**/.wrangler/**',
       '**/out/**',
       '**/build/**',
       '**/prisma/generated/**',
       '**/src/generated/**',
+      '**/coverage/**',
+      '**/test-reports/**',
+      '**/test-results/**',
     ],
   },
   prettierConfig,
   {
-    files: ['**/*.{js,mjs,cjs}'],
+    files: [
+      'src/**/*.{js,mjs,cjs}',
+      'scripts/**/*.{js,mjs,cjs}',
+      '*.{js,mjs,cjs}',
+    ],
     plugins: {
       prettier: prettierPlugin,
     },
@@ -46,7 +54,7 @@ const eslintConfig = [
     },
   },
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts', '*.ts', '*.tsx'],
     plugins: {
       '@typescript-eslint': tseslint.plugin,
       prettier: prettierPlugin,

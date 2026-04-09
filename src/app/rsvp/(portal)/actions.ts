@@ -5,6 +5,7 @@
  */
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth, getAuthIdentity } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getDb } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import {
@@ -20,6 +21,8 @@ import * as InvitationRepository from '@/lib/db/repositories/invitations';
 import * as GuestEventRepository from '@/lib/db/repositories/guestEvents';
 import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 import type { RsvpNotificationPayload } from '@/lib/email/notification';
+
+const logger = createLogger('rsvp-actions');
 
 /**
  * Update RSVP responses for all guests on an invitation.
@@ -103,9 +106,17 @@ export async function submitRsvp(input: SubmitRsvpInput) {
       (g) => g.attending !== null,
     );
 
-    console.log(
-      `[submitRsvp] ${wasAlreadySubmitted ? 'Updated' : 'Submitted'} RSVP for invitation ${authorizedInvitationId} —`,
-      `${verifiedGuestUpdates.filter((g) => g.attending).length}/${verifiedGuestUpdates.length} attending`,
+    const attendingCount = verifiedGuestUpdates.filter(
+      (g) => g.attending,
+    ).length;
+
+    logger.info(
+      {
+        invitationId: authorizedInvitationId,
+        attending: attendingCount,
+        total: verifiedGuestUpdates.length,
+      },
+      wasAlreadySubmitted ? 'Updated RSVP' : 'Submitted RSVP',
     );
 
     // Fire-and-forget: enqueue notification email — failure must never block the RSVP save.
@@ -144,10 +155,7 @@ export async function submitRsvp(input: SubmitRsvpInput) {
         contentType: 'json',
       });
     } catch (notifyError) {
-      console.error(
-        '[rsvp-notification] Failed to enqueue main RSVP notification:',
-        notifyError,
-      );
+      logger.warn({ err: notifyError }, 'Failed to enqueue RSVP notification');
     }
 
     // Persist contact email when provided
@@ -171,10 +179,7 @@ export async function submitRsvp(input: SubmitRsvpInput) {
             .where(eq(users.id, userId));
         }
       } catch (emailError) {
-        console.error(
-          '[submitRsvp] Failed to persist contact email:',
-          emailError,
-        );
+        logger.warn({ err: emailError }, 'Failed to persist contact email');
       }
     }
 
@@ -313,10 +318,7 @@ export async function updateInvitationAddress(
             .where(eq(users.id, userId));
         }
       } catch (emailError) {
-        console.error(
-          '[updateInvitationAddress] Failed to persist contact email:',
-          emailError,
-        );
+        logger.warn({ err: emailError }, 'Failed to persist contact email');
       }
     }
 

@@ -8,11 +8,14 @@
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 import { auth, getAuthIdentity } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { eventFormSchema } from '@/lib/schemas/event';
 import type { EventFormData } from '@/lib/schemas/event';
 import { geocodeLocation } from '@/lib/geocoding';
 import * as EventRepository from '@/lib/db/repositories/events';
 import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
+
+const logger = createLogger('admin-events');
 
 type ActionResult<T = void> =
   | { success: true; data?: T }
@@ -73,7 +76,7 @@ export async function createEvent(
       await EventRepository.addAllGuestsToEvent(id);
     }
   } catch (error) {
-    console.error('Failed to create event:', error);
+    logger.error({ err: error }, 'Failed to create event');
 
     return {
       success: false,
@@ -135,7 +138,7 @@ export async function updateEvent(
       updatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Failed to update event:', error);
+    logger.error({ err: error }, 'Failed to update event');
 
     return {
       success: false,
