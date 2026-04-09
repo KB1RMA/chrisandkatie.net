@@ -55,7 +55,7 @@ export const HOTELS: Hotel[] = [
     address: 'Newburyport, MA 01950',
     lat: 42.81191777636066,
     lng: -70.87510424536882,
-    websiteUrl: 'https://www.cutwaterinn.com',
+    websiteUrl: 'https://www.cutwaterinnandsuites.com/',
   },
 ];
 
@@ -154,6 +154,12 @@ export default async function LodgingPage() {
           >
             Recommended Hotels
           </h2>
+
+          <p className="mb-6 text-[#6a5555]">
+            We have found a few nice inns locally within walking distance of the
+            reception venue. We don&apos;t have an explicit block of rooms but
+            have confirmed availability as of April.
+          </p>
 
           <div className="mb-12 flex flex-col gap-6">
             {HOTELS.map((hotel) => {
