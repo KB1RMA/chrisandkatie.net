@@ -1,0 +1,5 @@
+{
+  "name": "wedding-album",
+  "main": "parties/photo-album.ts",
+  "compatibilityDate": "2024-01-01"
+}

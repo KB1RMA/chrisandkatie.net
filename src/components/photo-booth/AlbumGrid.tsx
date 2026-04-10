@@ -1,0 +1,253 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePartySocket } from 'partysocket/react';
+import { MasonryPhotoAlbum } from 'react-photo-album';
+import 'react-photo-album/masonry.css';
+import { PolaroidCard } from '@/components/photo-booth/PolaroidCard';
+
+type AlbumPhoto = {
+  id: string;
+  publicUrl: string;
+  width: number | null;
+  height: number | null;
+  uploadedAt: string;
+};
+
+type AlbumGridProps = {
+  /** Initial photos fetched server-side to avoid layout shift on first render. */
+  initialPhotos: AlbumPhoto[];
+};
+
+const DEFAULT_WIDTH = 3;
+const DEFAULT_HEIGHT = 4;
+const PAGE_SIZE = 24;
+
+/** Converts an AlbumPhoto to the shape react-photo-album requires. */
+function toReactPhotoAlbumPhoto(photo: AlbumPhoto) {
+  return {
+    src: photo.publicUrl,
+    width: photo.width ?? DEFAULT_WIDTH,
+    height: photo.height ?? DEFAULT_HEIGHT,
+    key: photo.id,
+    alt: 'Guest photo',
+    _albumPhoto: photo,
+  };
+}
+
+/**
+ * Real-time masonry grid of guest photos.
+ *
+ * Subscribes to the `wedding-album` PartyKit room for live photo-added and
+ * photo-removed events. Falls back to 5-second polling when the WebSocket
+ * is unavailable. Loads additional pages via IntersectionObserver.
+ *
+ * @param initialPhotos - First page of photos fetched on the server.
+ * @returns The interactive album grid element.
+ */
+export function AlbumGrid({ initialPhotos }: AlbumGridProps) {
+  const [photos, setPhotos] = useState<AlbumPhoto[]>(initialPhotos);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch the latest first page and merge new photos at the front
+  const pollForNewPhotos = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `/api/photo-booth/photos?limit=${PAGE_SIZE}`,
+      );
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data: {
+        photos: AlbumPhoto[];
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await response.json();
+
+      setPhotos((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const newPhotos = data.photos.filter((p) => !existingIds.has(p.id));
+
+        return newPhotos.length > 0 ? [...newPhotos, ...prev] : prev;
+      });
+    } catch {
+      // Silently ignore polling errors
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      return;
+    }
+
+    setIsPolling(true);
+    pollingIntervalRef.current = setInterval(pollForNewPhotos, 5000);
+  }, [pollForNewPhotos]);
+
+  const stopPolling = useCallback(() => {
+    if (!pollingIntervalRef.current) {
+      return;
+    }
+
+    clearInterval(pollingIntervalRef.current);
+    pollingIntervalRef.current = null;
+    setIsPolling(false);
+  }, []);
+
+  usePartySocket({
+    host: process.env.NEXT_PUBLIC_PARTYKIT_HOST,
+    room: 'wedding-album',
+    onMessage(event) {
+      try {
+        const message = JSON.parse(event.data as string);
+
+        if (message.type === 'photo-added') {
+          const incoming = message.photo as AlbumPhoto;
+
+          setPhotos((prev) => {
+            const alreadyExists = prev.some((p) => p.id === incoming.id);
+
+            return alreadyExists ? prev : [incoming, ...prev];
+          });
+        } else if (message.type === 'photo-removed') {
+          const { photoId } = message as { photoId: string };
+
+          setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+        }
+      } catch {
+        // Ignore malformed messages
+      }
+    },
+    onClose() {
+      startPolling();
+    },
+    onError() {
+      startPolling();
+    },
+    onOpen() {
+      stopPolling();
+    },
+  });
+
+  // Load the next page of photos when the sentinel scrolls into view
+  const loadMore = useCallback(async () => {
+    if (!hasMore || isLoadingMore || !nextCursor) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+
+    try {
+      const url = `/api/photo-booth/photos?cursor=${encodeURIComponent(nextCursor)}&limit=${PAGE_SIZE}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data: {
+        photos: AlbumPhoto[];
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await response.json();
+
+      setPhotos((prev) => [...prev, ...data.photos]);
+      setNextCursor(data.nextCursor);
+      setHasMore(data.hasMore);
+    } catch {
+      // Silently ignore load-more errors
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, isLoadingMore, nextCursor]);
+
+  // Set up IntersectionObserver on the sentinel element
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+
+    if (!sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+
+        if (entry?.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loadMore]);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  if (photos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-lg text-stone-500">
+          No photos yet — be the first to take one!
+        </p>
+      </div>
+    );
+  }
+
+  const albumPhotos = photos.map(toReactPhotoAlbumPhoto);
+
+  return (
+    <div>
+      {isPolling && (
+        <p className="mb-4 text-center text-sm text-amber-600">
+          Live updates paused — checking for new photos every 5 seconds
+        </p>
+      )}
+      <MasonryPhotoAlbum
+        photos={albumPhotos}
+        columns={(containerWidth) => {
+          if (containerWidth < 640) return 2;
+          if (containerWidth < 1024) return 3;
+
+          return 4;
+        }}
+        render={{
+          photo: (_props, { photo, index }) => (
+            <PolaroidCard
+              key={photo.key}
+              src={photo.src}
+              alt="Guest photo"
+              index={index}
+            />
+          ),
+        }}
+      />
+      <div ref={sentinelRef} className="h-8" aria-hidden="true" />
+      {isLoadingMore && (
+        <p className="mt-4 text-center text-sm text-stone-500">
+          Loading more photos…
+        </p>
+      )}
+    </div>
+  );
+}

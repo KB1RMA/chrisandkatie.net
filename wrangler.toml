@@ -27,6 +27,10 @@ binding = "DB"
 database_name = "prisma-demo-db-local"
 database_id = "adf4fe80-e376-4096-8655-8a7479ac844c"
 
+[[r2_buckets]]
+binding = "GUEST_PHOTOS_BUCKET"
+bucket_name = "chrisandkatiedotnet-guest-photos"
+
 [[queues.producers]]
 queue = "rsvp-notification-queue"
 binding = "RSVP_NOTIFICATION_QUEUE"
@@ -39,6 +43,10 @@ max_retries = 3
 
 [env.production]
 vars = { ANALYTICS_ENABLED = "true", AUTH_URL = "https://chrisandkatie.net", NEXTAUTH_URL = "https://chrisandkatie.net" }
+
+[[env.production.r2_buckets]]
+binding = "GUEST_PHOTOS_BUCKET"
+bucket_name = "chrisandkatiedotnet-guest-photos-prod"
 
 [[env.production.analytics_engine_datasets]]
 binding = "ANALYTICS"

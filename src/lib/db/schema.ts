@@ -171,6 +171,7 @@ export const guestsRelations = relations(guests, ({ one, many }) => ({
   }),
   guestEvents: many(guestEvents),
   rsvpResponses: many(rsvpResponses),
+  guestPhotos: many(guestPhotos),
 }));
 
 // Event table for wedding & additional events
@@ -359,3 +360,46 @@ export type WeddingEvent = typeof events.$inferSelect;
 export type GuestEvent = typeof guestEvents.$inferSelect;
 export type RsvpResponse = typeof rsvpResponses.$inferSelect;
 export type Attendee = typeof attendees.$inferSelect;
+
+// Guest photo booth — guest-uploaded event photos
+export const guestPhotos = sqliteTable(
+  'GuestPhoto',
+  {
+    id: text('id').primaryKey(),
+    r2Key: text('r2Key').notNull(),
+    publicUrl: text('publicUrl').notNull(),
+    guestId: text('guestId')
+      .notNull()
+      .references(() => guests.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    status: text('status', { enum: ['visible', 'removed'] })
+      .notNull()
+      .default('visible'),
+    width: integer('width'),
+    height: integer('height'),
+    takenAt: text('takenAt'),
+    uploadedAt: text('uploadedAt').notNull().default(timestampDefault),
+    updatedAt: text('updatedAt').notNull().default(timestampDefault),
+    removedAt: text('removedAt'),
+    removedBy: text('removedBy'),
+  },
+  (table) => ({
+    statusUploadedAtIndex: index('GuestPhoto_status_uploadedAt_idx').on(
+      table.status,
+      table.uploadedAt,
+    ),
+    guestIdIndex: index('GuestPhoto_guestId_idx').on(table.guestId),
+  }),
+);
+
+export const guestPhotosRelations = relations(guestPhotos, ({ one }) => ({
+  guest: one(guests, {
+    fields: [guestPhotos.guestId],
+    references: [guests.id],
+  }),
+}));
+
+export type GuestPhoto = typeof guestPhotos.$inferSelect;
+export type NewGuestPhoto = typeof guestPhotos.$inferInsert;
