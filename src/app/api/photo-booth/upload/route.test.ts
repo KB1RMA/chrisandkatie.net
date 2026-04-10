@@ -56,12 +56,22 @@ const guestSession = {
   expires: new Date(Date.now() + 86400_000).toISOString(),
 };
 
-const guestIdentity = { type: 'guest' as const, invitationId: MOCK_INVITATION_ID };
+const guestIdentity = {
+  type: 'guest' as const,
+  invitationId: MOCK_INVITATION_ID,
+};
 const adminIdentity = { type: 'admin' as const, username: 'admin' };
 
 const mockInvitation = {
   id: MOCK_INVITATION_ID,
-  guests: [{ id: MOCK_GUEST_ID, invitationId: MOCK_INVITATION_ID, firstName: 'Alice', lastName: 'Test' }],
+  guests: [
+    {
+      id: MOCK_GUEST_ID,
+      invitationId: MOCK_INVITATION_ID,
+      firstName: 'Alice',
+      lastName: 'Test',
+    },
+  ],
 };
 
 const insertedPhoto = {
@@ -113,10 +123,7 @@ function makeUploadRequest(
  * @param mimeType - MIME type for the file.
  * @returns A File object with the specified size and type.
  */
-function makeImageFile(
-  sizeBytes = 1024,
-  mimeType = 'image/jpeg',
-): File {
+function makeImageFile(sizeBytes = 1024, mimeType = 'image/jpeg'): File {
   const buffer = new Uint8Array(sizeBytes).fill(0xff);
 
   return new File([buffer], 'test-photo.jpg', { type: mimeType });
@@ -130,8 +137,8 @@ describe('POST /api/photo-booth/upload', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Set R2 public domain for URL construction in the route
-    process.env.R2_PUBLIC_DOMAIN = MOCK_R2_PUBLIC_DOMAIN;
+    // Set R2 base URL for public URL construction in the route
+    process.env.R2_PUBLIC_BASE_URL = `https://${MOCK_R2_PUBLIC_DOMAIN}`;
 
     mockGetCloudflareContext.mockReturnValue({
       env: {
@@ -238,8 +245,7 @@ describe('POST /api/photo-booth/upload', () => {
     const request = makeUploadRequest(makeImageFile());
     await POST(request);
 
-    expect(mockInsertGuestPhoto).toHaveBeenCalledOnce();
-    expect(mockInsertGuestPhoto).toHaveBeenCalledWith(
+    expect(mockInsertGuestPhoto).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         id: expect.any(String),
         r2Key: expect.stringMatching(/^guest-photos\//),

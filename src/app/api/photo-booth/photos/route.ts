@@ -24,6 +24,7 @@ export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const cursorParam = url.searchParams.get('cursor') ?? undefined;
   const limitParam = url.searchParams.get('limit');
+  const eventIdParam = url.searchParams.get('eventId') ?? undefined;
 
   let effectiveLimit = DEFAULT_LIMIT;
 
@@ -46,6 +47,7 @@ export async function GET(request: Request): Promise<Response> {
   const results = await findVisiblePhotos({
     limit: effectiveLimit + 1,
     cursor: cursorParam,
+    eventId: eventIdParam,
   });
 
   const hasMore = results.length > effectiveLimit;
@@ -58,6 +60,7 @@ export async function GET(request: Request): Promise<Response> {
     width: p.width,
     height: p.height,
     uploadedAt: p.uploadedAt,
+    takenBy: p.takenBy,
   }));
 
   return Response.json({ photos, nextCursor, hasMore });

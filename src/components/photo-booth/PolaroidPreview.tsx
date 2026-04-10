@@ -5,6 +5,7 @@ import { PolaroidCard } from '@/components/photo-booth/PolaroidCard';
 
 type PolaroidPreviewProps = {
   blob: Blob;
+  eventId: string;
   onRetake: () => void;
   onConfirm: (result: {
     id: string;
@@ -28,6 +29,7 @@ type PolaroidPreviewProps = {
  */
 export function PolaroidPreview({
   blob,
+  eventId,
   onRetake,
   onConfirm,
   onError,
@@ -57,6 +59,7 @@ export function PolaroidPreview({
 
       formData.append('photo', blob, 'photo.jpg');
       formData.append('takenAt', new Date().toISOString());
+      formData.append('eventId', eventId);
 
       const response = await fetch('/api/photo-booth/upload', {
         method: 'POST',

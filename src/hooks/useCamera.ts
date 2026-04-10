@@ -75,8 +75,7 @@ export function useCamera(): UseCameraReturn {
 
   // Detect fallback mode at mount — mediaDevices may be undefined in HTTP or older browsers
   const isFallbackMode =
-    typeof navigator === 'undefined' ||
-    !navigator.mediaDevices?.getUserMedia;
+    typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia;
 
   /**
    * Stops all tracks on the current stream and clears state.

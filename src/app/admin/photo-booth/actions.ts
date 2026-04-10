@@ -8,7 +8,6 @@ import {
 import {
   softDeletePhoto as repoSoftDelete,
   restorePhoto as repoRestore,
-  findGuestPhotoById,
 } from '@/lib/db/repositories/guestPhotos';
 import { notifyPartyKit } from '@/lib/partykit';
 
@@ -30,9 +29,10 @@ export async function softDeletePhoto(input: unknown): Promise<void> {
     throw new Error('Unauthorized');
   }
 
-  await repoSoftDelete(data.photoId, identity.username);
+  const photo = await repoSoftDelete(data.photoId, identity.username);
+  const room = photo.eventId ?? 'wedding-album';
 
-  void notifyPartyKit({ type: 'photo-removed', photoId: data.photoId });
+  void notifyPartyKit({ type: 'photo-removed', photoId: data.photoId }, room);
 }
 
 /**
@@ -53,16 +53,18 @@ export async function restorePhoto(input: unknown): Promise<void> {
     throw new Error('Unauthorized');
   }
 
-  await repoRestore(data.photoId);
+  const photo = await repoRestore(data.photoId);
+  const room = photo.eventId ?? 'wedding-album';
 
-  const photo = await findGuestPhotoById(data.photoId);
-
-  void notifyPartyKit({
-    type: 'photo-added',
-    photo: {
-      id: data.photoId,
-      publicUrl: photo?.publicUrl ?? '',
-      uploadedAt: photo?.uploadedAt ?? '',
+  void notifyPartyKit(
+    {
+      type: 'photo-added',
+      photo: {
+        id: photo.id,
+        publicUrl: photo.publicUrl,
+        uploadedAt: photo.uploadedAt,
+      },
     },
-  });
+    room,
+  );
 }

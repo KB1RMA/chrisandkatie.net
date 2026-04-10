@@ -49,6 +49,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Parse optional metadata fields
     const rawFields = {
       guestId: formData.get('guestId') ?? undefined,
+      eventId: formData.get('eventId') ?? undefined,
       takenAt: formData.get('takenAt') ?? undefined,
       width: formData.get('width') ?? undefined,
       height: formData.get('height') ?? undefined,
@@ -61,10 +62,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const invitation = await findInvitationWithGuests(identity.invitationId);
     const firstGuest = invitation?.guests[0];
 
-    const matchedGuest =
-      photoData?.guestId
-        ? invitation?.guests.find((g) => g.id === photoData.guestId)
-        : undefined;
+    const matchedGuest = photoData?.guestId
+      ? invitation?.guests.find((g) => g.id === photoData.guestId)
+      : undefined;
 
     const resolvedGuestId = (matchedGuest ?? firstGuest)?.id;
 
@@ -86,8 +86,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       httpMetadata: { contentType: file.type },
     });
 
-    // Construct public URL — R2_PUBLIC_DOMAIN is set as a process env var
-    const publicUrl = `https://${process.env.R2_PUBLIC_DOMAIN}/${r2Key}`;
+    // Construct public URL.
+    // R2_PUBLIC_BASE_URL is the full base (e.g. "https://pub-xxx.r2.dev" in production
+    // or "http://localhost:8787/api/photo-booth/files" in local dev).
+    // Falls back to https:// + R2_PUBLIC_DOMAIN for backwards compatibility.
+    // For localhost URLs we store a relative path so the URL works regardless of port.
+    const rawBase =
+      process.env.R2_PUBLIC_BASE_URL ??
+      `https://${process.env.R2_PUBLIC_DOMAIN}`;
+    const parsedBase = new URL(rawBase);
+    const baseUrl =
+      parsedBase.hostname === 'localhost'
+        ? parsedBase.pathname.replace(/\/$/, '')
+        : rawBase.replace(/\/$/, '');
+    const publicUrl = `${baseUrl}/${r2Key}`;
 
     // Insert database record
     await insertGuestPhoto({
@@ -95,22 +107,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       r2Key,
       publicUrl,
       guestId: resolvedGuestId,
+      eventId: photoData?.eventId,
       width: photoData?.width,
       height: photoData?.height,
       takenAt: photoData?.takenAt,
     });
 
     // Fire-and-forget PartyKit broadcast
-    notifyPartyKit({
-      type: 'photo-added',
-      photo: {
-        id,
-        publicUrl,
-        width: photoData?.width,
-        height: photoData?.height,
-        uploadedAt,
+    const room = photoData?.eventId ?? 'wedding-album';
+
+    void notifyPartyKit(
+      {
+        type: 'photo-added',
+        photo: {
+          id,
+          publicUrl,
+          width: photoData?.width,
+          height: photoData?.height,
+          uploadedAt,
+        },
       },
-    });
+      room,
+    );
 
     return NextResponse.json({ id, publicUrl, uploadedAt }, { status: 201 });
   } catch (err) {

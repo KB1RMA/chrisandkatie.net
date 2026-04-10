@@ -57,7 +57,6 @@ export function Header() {
     { href: '/schedule', label: 'Schedule' },
     { href: '/rsvp', label: 'RSVP' },
     { href: '/gallery', label: 'Gallery' },
-    { href: '/photo-booth', label: 'Photo Booth' },
     { href: '/lodging', label: 'Hotels & FAQ' },
   ];
 

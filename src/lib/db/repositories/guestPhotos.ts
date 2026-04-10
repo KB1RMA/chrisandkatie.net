@@ -6,10 +6,15 @@
  * calling the Drizzle client directly.
  */
 
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, lt } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { guestPhotos } from '@/lib/db/schema';
+import { guestPhotos, guests } from '@/lib/db/schema';
 import type { GuestPhoto } from '@/lib/db/schema';
+
+/**
+ * A GuestPhoto row extended with the uploader's first name.
+ */
+export type GuestPhotoWithTakenBy = GuestPhoto & { takenBy: string | null };
 
 /**
  * Typed input for inserting a new guest photo row.
@@ -19,6 +24,7 @@ export type NewGuestPhotoData = {
   r2Key: string;
   publicUrl: string;
   guestId: string;
+  eventId?: string;
   width?: number;
   height?: number;
   takenAt?: string;
@@ -59,19 +65,26 @@ export async function insertGuestPhoto(
 export async function findVisiblePhotos({
   limit,
   cursor,
+  eventId,
 }: {
   limit: number;
   cursor?: string;
-}): Promise<GuestPhoto[]> {
+  eventId?: string;
+}): Promise<GuestPhotoWithTakenBy[]> {
   const conditions = [eq(guestPhotos.status, 'visible')];
 
   if (cursor) {
     conditions.push(lt(guestPhotos.uploadedAt, cursor));
   }
 
+  if (eventId) {
+    conditions.push(eq(guestPhotos.eventId, eventId));
+  }
+
   return getDb()
-    .select()
+    .select({ ...getTableColumns(guestPhotos), takenBy: guests.firstName })
     .from(guestPhotos)
+    .leftJoin(guests, eq(guestPhotos.guestId, guests.id))
     .where(and(...conditions))
     .orderBy(desc(guestPhotos.uploadedAt))
     .limit(limit);

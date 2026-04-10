@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import type { Route } from 'next';
 
 export type EventSummaryCardProps = {
   eventId: string;
@@ -26,7 +25,7 @@ export function EventSummaryCard({
   const total = attending + notAttending + noResponse;
 
   return (
-    <Link href={`/admin/rsvp/${eventId}` as Route}>
+    <Link href={`/admin/rsvp/${eventId}`}>
       <div className="cursor-pointer rounded-lg bg-[#fffdfb] p-6 shadow transition-shadow hover:shadow-md">
         <h3 className="mb-4 text-lg font-semibold text-[#9e3f3f]">
           {eventName}

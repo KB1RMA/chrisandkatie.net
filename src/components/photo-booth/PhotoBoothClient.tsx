@@ -13,6 +13,11 @@ type UploadResult = {
 
 type BoothState = 'viewfinder' | 'preview' | 'success' | 'error';
 
+type PhotoBoothClientProps = {
+  /** The event ID to associate uploaded photos with. */
+  eventId: string;
+};
+
 /**
  * Client-side state machine for the photo booth flow.
  *
@@ -21,7 +26,7 @@ type BoothState = 'viewfinder' | 'preview' | 'success' | 'error';
  *
  * @returns The photo booth state machine UI.
  */
-export function PhotoBoothClient() {
+export function PhotoBoothClient({ eventId }: PhotoBoothClientProps) {
   const [state, setState] = useState<BoothState>('viewfinder');
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
@@ -69,6 +74,7 @@ export function PhotoBoothClient() {
       <div className="flex flex-col items-center gap-6 px-4 py-8">
         <PolaroidPreview
           blob={capturedBlob}
+          eventId={eventId}
           onRetake={handleRetake}
           onConfirm={handleConfirm}
           onError={handleError}
@@ -82,7 +88,7 @@ export function PhotoBoothClient() {
       <div className="flex flex-col items-center gap-6 px-4 py-8">
         <h2 className="text-2xl font-bold text-[#9e3f3f]">Photo shared! 🎉</h2>
         <p className="text-center text-[#6a5555]">
-          Your photo has been added to the album.
+          Your photo just appeared in the album below!
         </p>
         <div className="flex justify-center">
           <PolaroidCard
@@ -91,21 +97,13 @@ export function PhotoBoothClient() {
             index={0}
           />
         </div>
-        <div className="flex flex-wrap justify-center gap-4">
-          <a
-            href="/photo-booth/album"
-            className="inline-flex min-h-[48px] items-center rounded-full bg-[#9e3f3f] px-8 py-3 text-base font-semibold text-white shadow-md transition hover:bg-[#7a2e2e]"
-          >
-            🖼️ View Album
-          </a>
-          <button
-            type="button"
-            onClick={handleRetry}
-            className="min-h-[48px] min-w-[140px] rounded-full border-2 border-[#9e3f3f] px-8 py-3 text-base font-semibold text-[#9e3f3f] transition hover:bg-[#fff0ee]"
-          >
-            📸 Take Another
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="min-h-[48px] min-w-[140px] rounded-full border-2 border-[#9e3f3f] px-8 py-3 text-base font-semibold text-[#9e3f3f] transition hover:bg-[#fff0ee]"
+        >
+          📸 Take Another
+        </button>
       </div>
     );
   }

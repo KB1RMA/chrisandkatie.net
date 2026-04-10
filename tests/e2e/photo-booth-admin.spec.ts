@@ -32,14 +32,10 @@ test.describe('Admin Photo Booth — moderation page', () => {
     ).toBeVisible({ timeout: 10_000 });
 
     // Either photos are present or the empty state is shown
-    const hasPhotos = await page.locator('img[alt="Guest photo"]').count();
+    const photos = page.locator('img[alt="Guest photo"]');
     const emptyState = page.getByText('No photos yet.');
 
-    if (hasPhotos === 0) {
-      await expect(emptyState).toBeVisible();
-    } else {
-      expect(hasPhotos).toBeGreaterThan(0);
-    }
+    await expect(photos.or(emptyState).first()).toBeVisible();
   });
 
   test('admin photo booth page shows remove/restore controls when photos exist', async ({
@@ -51,15 +47,13 @@ test.describe('Admin Photo Booth — moderation page', () => {
       page.getByRole('heading', { name: 'Photo Booth' }),
     ).toBeVisible({ timeout: 10_000 });
 
-    const photoCount = await page.locator('img[alt="Guest photo"]').count();
+    // When photos exist the moderation controls must be visible;
+    // when none are seeded the empty state is acceptable.
+    const removeOrRestoreButtons = page.getByRole('button', {
+      name: /remove|restore/i,
+    });
+    const emptyState = page.getByText('No photos yet.');
 
-    // Only validate controls if photos are present; otherwise skip.
-    if (photoCount > 0) {
-      const removeOrRestoreButtons = page.getByRole('button', {
-        name: /remove|restore/i,
-      });
-
-      await expect(removeOrRestoreButtons.first()).toBeVisible();
-    }
+    await expect(removeOrRestoreButtons.first().or(emptyState)).toBeVisible();
   });
 });

@@ -50,9 +50,9 @@ describe('softDeletePhoto', () => {
     mockAuth.mockResolvedValue(null);
     mockGetAuthIdentity.mockReturnValue(null);
 
-    await expect(
-      softDeletePhoto({ photoId: VALID_PHOTO_ID }),
-    ).rejects.toThrow('Unauthorized');
+    await expect(softDeletePhoto({ photoId: VALID_PHOTO_ID })).rejects.toThrow(
+      'Unauthorized',
+    );
   });
 
   test('should throw Unauthorized when called by guest (not admin)', async () => {
@@ -62,9 +62,9 @@ describe('softDeletePhoto', () => {
       invitationId: 'some-invitation',
     });
 
-    await expect(
-      softDeletePhoto({ photoId: VALID_PHOTO_ID }),
-    ).rejects.toThrow('Unauthorized');
+    await expect(softDeletePhoto({ photoId: VALID_PHOTO_ID })).rejects.toThrow(
+      'Unauthorized',
+    );
   });
 
   test('should throw Zod validation error when photoId is not a UUID', async () => {
@@ -97,7 +97,10 @@ describe('softDeletePhoto', () => {
 
     await softDeletePhoto({ photoId: VALID_PHOTO_ID });
 
-    expect(mockRepoSoftDelete).toHaveBeenCalledWith(VALID_PHOTO_ID, 'admin-user');
+    expect(mockRepoSoftDelete).toHaveBeenCalledWith(
+      VALID_PHOTO_ID,
+      'admin-user',
+    );
   });
 
   test('should call notifyPartyKit with { type: photo-removed, photoId } after soft delete', async () => {
@@ -135,9 +138,9 @@ describe('restorePhoto', () => {
     mockAuth.mockResolvedValue(null);
     mockGetAuthIdentity.mockReturnValue(null);
 
-    await expect(
-      restorePhoto({ photoId: VALID_PHOTO_ID }),
-    ).rejects.toThrow('Unauthorized');
+    await expect(restorePhoto({ photoId: VALID_PHOTO_ID })).rejects.toThrow(
+      'Unauthorized',
+    );
   });
 
   test('should throw Unauthorized when called by guest', async () => {
@@ -147,9 +150,9 @@ describe('restorePhoto', () => {
       invitationId: 'some-invitation',
     });
 
-    await expect(
-      restorePhoto({ photoId: VALID_PHOTO_ID }),
-    ).rejects.toThrow('Unauthorized');
+    await expect(restorePhoto({ photoId: VALID_PHOTO_ID })).rejects.toThrow(
+      'Unauthorized',
+    );
   });
 
   test('should validate photoId is UUID', async () => {

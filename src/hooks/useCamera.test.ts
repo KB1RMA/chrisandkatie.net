@@ -43,7 +43,9 @@ describe('useCamera', () => {
       Object.defineProperty(navigator, 'mediaDevices', {
         writable: true,
         value: {
-          getUserMedia: vi.fn().mockRejectedValue(makeDOMException('NotAllowedError')),
+          getUserMedia: vi
+            .fn()
+            .mockRejectedValue(makeDOMException('NotAllowedError')),
         },
       });
 
@@ -61,7 +63,9 @@ describe('useCamera', () => {
       Object.defineProperty(navigator, 'mediaDevices', {
         writable: true,
         value: {
-          getUserMedia: vi.fn().mockRejectedValue(makeDOMException('NotFoundError')),
+          getUserMedia: vi
+            .fn()
+            .mockRejectedValue(makeDOMException('NotFoundError')),
         },
       });
 
@@ -78,7 +82,9 @@ describe('useCamera', () => {
       Object.defineProperty(navigator, 'mediaDevices', {
         writable: true,
         value: {
-          getUserMedia: vi.fn().mockRejectedValue(makeDOMException('NotSupportedError')),
+          getUserMedia: vi
+            .fn()
+            .mockRejectedValue(makeDOMException('NotSupportedError')),
         },
       });
 

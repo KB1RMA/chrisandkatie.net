@@ -20,7 +20,9 @@ import type { GuestPhoto } from '@/lib/db/schema';
 
 const mockAuth = vi.mocked(auth);
 const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
-const mockFindVisiblePhotos = vi.mocked(GuestPhotosRepository.findVisiblePhotos);
+const mockFindVisiblePhotos = vi.mocked(
+  GuestPhotosRepository.findVisiblePhotos,
+);
 
 /** Builds a minimal GuestPhoto fixture. */
 function makePhoto(overrides: Partial<GuestPhoto> = {}): GuestPhoto {

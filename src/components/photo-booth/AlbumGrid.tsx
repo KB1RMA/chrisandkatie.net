@@ -12,11 +12,14 @@ type AlbumPhoto = {
   width: number | null;
   height: number | null;
   uploadedAt: string;
+  takenBy: string | null;
 };
 
 type AlbumGridProps = {
   /** Initial photos fetched server-side to avoid layout shift on first render. */
   initialPhotos: AlbumPhoto[];
+  /** Optional event ID to scope the album to a specific event. */
+  eventId?: string;
 };
 
 const DEFAULT_WIDTH = 3;
@@ -38,28 +41,49 @@ function toReactPhotoAlbumPhoto(photo: AlbumPhoto) {
 /**
  * Real-time masonry grid of guest photos.
  *
- * Subscribes to the `wedding-album` PartyKit room for live photo-added and
- * photo-removed events. Falls back to 5-second polling when the WebSocket
- * is unavailable. Loads additional pages via IntersectionObserver.
+ * Subscribes to the PartyKit room for live photo-added and photo-removed
+ * events. Falls back to 5-second polling when the WebSocket is unavailable.
+ * Loads additional pages via IntersectionObserver.
+ *
+ * When `eventId` is provided the grid is scoped to that event's album and
+ * subscribes to the event-specific PartyKit room; otherwise it shows the
+ * main wedding album.
  *
  * @param initialPhotos - First page of photos fetched on the server.
+ * @param eventId - Optional event ID to scope the album to a specific event.
  * @returns The interactive album grid element.
  */
-export function AlbumGrid({ initialPhotos }: AlbumGridProps) {
+export function AlbumGrid({ initialPhotos, eventId }: AlbumGridProps) {
   const [photos, setPhotos] = useState<AlbumPhoto[]>(initialPhotos);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Build a URL for the photos API, optionally scoped to an event
+  const buildPhotosUrl = useCallback(
+    (params: Record<string, string>) => {
+      const searchParams = new URLSearchParams(params);
+
+      if (eventId) {
+        searchParams.set('eventId', eventId);
+      }
+
+      return `/api/photo-booth/photos?${searchParams.toString()}`;
+    },
+    [eventId],
+  );
 
   // Fetch the latest first page and merge new photos at the front
   const pollForNewPhotos = useCallback(async () => {
     try {
       const response = await fetch(
-        `/api/photo-booth/photos?limit=${PAGE_SIZE}`,
+        buildPhotosUrl({ limit: String(PAGE_SIZE) }),
       );
 
       if (!response.ok) {
@@ -81,7 +105,7 @@ export function AlbumGrid({ initialPhotos }: AlbumGridProps) {
     } catch {
       // Silently ignore polling errors
     }
-  }, []);
+  }, [buildPhotosUrl]);
 
   const startPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
@@ -102,15 +126,20 @@ export function AlbumGrid({ initialPhotos }: AlbumGridProps) {
     setIsPolling(false);
   }, []);
 
+  const partyKitRoom = eventId ?? 'wedding-album';
+
   usePartySocket({
     host: process.env.NEXT_PUBLIC_PARTYKIT_HOST,
-    room: 'wedding-album',
+    room: partyKitRoom,
     onMessage(event) {
       try {
         const message = JSON.parse(event.data as string);
 
         if (message.type === 'photo-added') {
-          const incoming = message.photo as AlbumPhoto;
+          const incoming = {
+            ...(message.photo as Omit<AlbumPhoto, 'takenBy'>),
+            takenBy: null,
+          } satisfies AlbumPhoto;
 
           setPhotos((prev) => {
             const alreadyExists = prev.some((p) => p.id === incoming.id);
@@ -146,7 +175,10 @@ export function AlbumGrid({ initialPhotos }: AlbumGridProps) {
     setIsLoadingMore(true);
 
     try {
-      const url = `/api/photo-booth/photos?cursor=${encodeURIComponent(nextCursor)}&limit=${PAGE_SIZE}`;
+      const url = buildPhotosUrl({
+        cursor: nextCursor,
+        limit: String(PAGE_SIZE),
+      });
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -238,7 +270,9 @@ export function AlbumGrid({ initialPhotos }: AlbumGridProps) {
               src={photo.src}
               alt="Guest photo"
               index={index}
-            />
+            >
+              {photo._albumPhoto.takenBy}
+            </PolaroidCard>
           ),
         }}
       />

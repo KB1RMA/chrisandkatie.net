@@ -374,6 +374,10 @@ export const guestPhotos = sqliteTable(
         onDelete: 'cascade',
         onUpdate: 'cascade',
       }),
+    eventId: text('eventId').references(() => events.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
     status: text('status', { enum: ['visible', 'removed'] })
       .notNull()
       .default('visible'),
@@ -391,6 +395,7 @@ export const guestPhotos = sqliteTable(
       table.uploadedAt,
     ),
     guestIdIndex: index('GuestPhoto_guestId_idx').on(table.guestId),
+    eventIdIndex: index('GuestPhoto_eventId_idx').on(table.eventId),
   }),
 );
 
@@ -398,6 +403,10 @@ export const guestPhotosRelations = relations(guestPhotos, ({ one }) => ({
   guest: one(guests, {
     fields: [guestPhotos.guestId],
     references: [guests.id],
+  }),
+  event: one(events, {
+    fields: [guestPhotos.eventId],
+    references: [events.id],
   }),
 }));
 

@@ -93,7 +93,7 @@ function createMockDb(
   const updateFn = vi.fn().mockReturnValue({ set: updateSetFn });
 
   const selectResult = overrides.selectResult ?? [photo];
-  const selectFromFn = vi.fn().mockReturnValue({
+  const queryChain = {
     where: vi.fn().mockReturnValue({
       orderBy: vi.fn().mockReturnValue({
         limit: vi.fn().mockResolvedValue(selectResult),
@@ -102,6 +102,10 @@ function createMockDb(
     orderBy: vi.fn().mockReturnValue({
       limit: vi.fn().mockResolvedValue(selectResult),
     }),
+  };
+  const selectFromFn = vi.fn().mockReturnValue({
+    ...queryChain,
+    leftJoin: vi.fn().mockReturnValue(queryChain),
   });
   const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
 

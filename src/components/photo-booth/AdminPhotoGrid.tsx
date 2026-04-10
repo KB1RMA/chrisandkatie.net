@@ -73,7 +73,6 @@ export function AdminPhotoGrid({ photos: initialPhotos }: AdminPhotoGridProps) {
           >
             {/* Photo image */}
             <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.publicUrl}
                 alt="Guest photo"

@@ -10,11 +10,13 @@ import { loginAsGuest } from './helpers/login';
  *
  * Prerequisites:
  *   - A guest account exists (seeded via e2e-seed.sql with code 'test-swift')
+ *   - Alice/Bob (test-swift) are linked to event-e2e-pool-day and event-e2e-bbq
  *   - The upload API route is functional
  *   - R2 is configured (or stubbed) in the local dev environment
  */
 
 const VALID_CODE = 'test-swift';
+const EVENT_ID = 'event-e2e-pool-day';
 
 // Path to a small test image bundled with the repo
 const TEST_IMAGE_PATH = path.resolve(
@@ -29,7 +31,9 @@ test.describe('Photo Booth — Guest Takes and Shares a Photo (US1)', () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test('should show the photo booth page after login', async ({ page }) => {
+  test('should show the photo booth event list after login', async ({
+    page,
+  }) => {
     await loginAsGuest(page, VALID_CODE);
 
     await page.goto('/photo-booth');
@@ -45,7 +49,7 @@ test.describe('Photo Booth — Guest Takes and Shares a Photo (US1)', () => {
   }) => {
     await loginAsGuest(page, VALID_CODE);
 
-    await page.goto('/photo-booth');
+    await page.goto(`/photo-booth/${EVENT_ID}`);
 
     // The camera API is unavailable in the test environment, so the
     // file input fallback should be shown
@@ -57,7 +61,7 @@ test.describe('Photo Booth — Guest Takes and Shares a Photo (US1)', () => {
   }) => {
     await loginAsGuest(page, VALID_CODE);
 
-    await page.goto('/photo-booth');
+    await page.goto(`/photo-booth/${EVENT_ID}`);
 
     // Use the camera capture file input (first file input with capture attr)
     const fileInput = page
@@ -68,13 +72,15 @@ test.describe('Photo Booth — Guest Takes and Shares a Photo (US1)', () => {
 
     // The preview should now be visible with retake/confirm buttons
     await expect(page.getByRole('button', { name: /retake/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /share photo/i })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /share photo/i }),
+    ).toBeVisible();
   });
 
-  test('should navigate to album after confirming upload', async ({ page }) => {
+  test('should show success state after confirming upload', async ({ page }) => {
     await loginAsGuest(page, VALID_CODE);
 
-    await page.goto('/photo-booth');
+    await page.goto(`/photo-booth/${EVENT_ID}`);
 
     const fileInput = page
       .locator('input[type="file"][accept="image/*"]')
@@ -82,20 +88,19 @@ test.describe('Photo Booth — Guest Takes and Shares a Photo (US1)', () => {
 
     await fileInput.setInputFiles(TEST_IMAGE_PATH);
 
-    // Wait for preview to be visible
-    await expect(page.getByRole('button', { name: /share photo/i })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /share photo/i }),
+    ).toBeVisible();
 
-    // Confirm the upload
     await page.getByRole('button', { name: /share photo/i }).click();
 
-    // On success, the success state should show with album link
-    await expect(page.getByRole('link', { name: /view album/i })).toBeVisible({
-      timeout: 15_000,
-    });
+    // On success, the success heading and "Take Another" button should appear
+    await expect(
+      page.getByRole('heading', { name: /photo shared/i }),
+    ).toBeVisible({ timeout: 15_000 });
 
-    // Navigate to the album
-    await page.getByRole('link', { name: /view album/i }).click();
-
-    await expect(page).toHaveURL('/photo-booth/album');
+    await expect(
+      page.getByRole('button', { name: /take another/i }),
+    ).toBeVisible();
   });
 });
