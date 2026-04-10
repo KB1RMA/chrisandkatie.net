@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { asc } from 'drizzle-orm';
 import { auth, getAuthIdentity } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { events } from '@/lib/db/schema';
-import { findEventsByInvitationId } from '@/lib/db/repositories/events';
+import {
+  findAllEvents,
+  findEventsByInvitationId,
+} from '@/lib/db/repositories/events';
 import type { WeddingEvent } from '@/lib/db/schema';
 
 export const metadata: Metadata = {
@@ -22,8 +22,9 @@ function formatEventDate(isoDate: string) {
 }
 
 /**
- * Photo booth landing page — lists the events the current guest is invited to.
- * Admins see all events.
+ * Photo booth landing page — lists the events visible to the current user.
+ *
+ * Admins see all events. Guests see only events linked to their invitation.
  *
  * @returns The event selection page.
  */
@@ -35,14 +36,10 @@ export default async function PhotoBoothPage() {
     redirect('/login?callbackUrl=/photo-booth');
   }
 
-  const db = getDb();
   let visibleEvents: WeddingEvent[];
 
   if (identity.type === 'admin') {
-    visibleEvents = await db
-      .select()
-      .from(events)
-      .orderBy(asc(events.sortOrder));
+    visibleEvents = await findAllEvents();
   } else {
     visibleEvents = await findEventsByInvitationId(identity.invitationId);
   }

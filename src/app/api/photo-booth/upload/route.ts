@@ -4,7 +4,11 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { uploadPhotoSchema } from '@/lib/schemas/photo-booth';
 import { insertGuestPhoto } from '@/lib/db/repositories/guestPhotos';
 import { findInvitationWithGuests } from '@/lib/db/repositories/invitations';
+import { findEventsByInvitationId } from '@/lib/db/repositories/events';
 import { notifyPartyKit } from '@/lib/partykit';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/photo-booth/upload');
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -56,13 +60,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     };
 
     const parsed = uploadPhotoSchema.safeParse(rawFields);
-    const photoData = parsed.success ? parsed.data : null;
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'INVALID_FIELDS' }, { status: 400 });
+    }
+
+    const photoData = parsed.data;
 
     // Resolve guestId from the invitation
     const invitation = await findInvitationWithGuests(identity.invitationId);
     const firstGuest = invitation?.guests[0];
 
-    const matchedGuest = photoData?.guestId
+    const matchedGuest = photoData.guestId
       ? invitation?.guests.find((g) => g.id === photoData.guestId)
       : undefined;
 
@@ -70,6 +79,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!resolvedGuestId) {
       return NextResponse.json({ error: 'GUEST_NOT_FOUND' }, { status: 400 });
+    }
+
+    // Validate the eventId (if provided) is one the guest is invited to
+    if (photoData.eventId) {
+      const visibleEvents = await findEventsByInvitationId(
+        identity.invitationId,
+      );
+      const isAllowed = visibleEvents.some((e) => e.id === photoData.eventId);
+
+      if (!isAllowed) {
+        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+      }
     }
 
     // Generate identifiers and upload path
@@ -107,14 +128,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       r2Key,
       publicUrl,
       guestId: resolvedGuestId,
-      eventId: photoData?.eventId,
-      width: photoData?.width,
-      height: photoData?.height,
-      takenAt: photoData?.takenAt,
+      eventId: photoData.eventId,
+      width: photoData.width,
+      height: photoData.height,
+      takenAt: photoData.takenAt,
     });
 
     // Fire-and-forget PartyKit broadcast
-    const room = photoData?.eventId ?? 'wedding-album';
+    const room = photoData.eventId;
 
     void notifyPartyKit(
       {
@@ -122,8 +143,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         photo: {
           id,
           publicUrl,
-          width: photoData?.width,
-          height: photoData?.height,
+          width: photoData.width,
+          height: photoData.height,
           uploadedAt,
         },
       },
@@ -132,7 +153,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ id, publicUrl, uploadedAt }, { status: 201 });
   } catch (err) {
-    console.error('[photo-booth/upload] Unhandled error:', err);
+    logger.error({ err }, 'Unhandled error in photo upload');
 
     return NextResponse.json({ error: 'UPLOAD_FAILED' }, { status: 500 });
   }

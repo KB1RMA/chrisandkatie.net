@@ -16,7 +16,7 @@ import { auth, getAuthIdentity } from '@/lib/auth';
 import * as GuestPhotosRepository from '@/lib/db/repositories/guestPhotos';
 import { GET } from './route';
 import { makeSession } from '@/tests/helpers';
-import type { GuestPhoto } from '@/lib/db/schema';
+import type { GuestPhotoWithTakenBy } from '@/lib/db/repositories/guestPhotos';
 
 const mockAuth = vi.mocked(auth);
 const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
@@ -24,13 +24,16 @@ const mockFindVisiblePhotos = vi.mocked(
   GuestPhotosRepository.findVisiblePhotos,
 );
 
-/** Builds a minimal GuestPhoto fixture. */
-function makePhoto(overrides: Partial<GuestPhoto> = {}): GuestPhoto {
+/** Builds a minimal GuestPhotoWithTakenBy fixture. */
+function makePhoto(
+  overrides: Partial<GuestPhotoWithTakenBy> = {},
+): GuestPhotoWithTakenBy {
   return {
     id: 'photo-1',
     r2Key: 'photos/photo-1.jpg',
     publicUrl: 'https://cdn.example.com/photos/photo-1.jpg',
     guestId: 'guest-1',
+    eventId: null,
     status: 'visible',
     width: 1200,
     height: 1600,
@@ -39,6 +42,7 @@ function makePhoto(overrides: Partial<GuestPhoto> = {}): GuestPhoto {
     updatedAt: '2024-06-01T12:00:00.000Z',
     removedAt: null,
     removedBy: null,
+    takenBy: null,
     ...overrides,
   };
 }

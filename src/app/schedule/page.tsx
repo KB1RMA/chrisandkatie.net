@@ -1,14 +1,15 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { asc } from 'drizzle-orm';
 import { Button } from '@/components/Button';
 import { ScheduleMapLayout } from '@/components/ScheduleMapLayout';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { events } from '@/lib/db/schema';
 import type { WeddingEvent } from '@/lib/db/schema';
-import { findEventsByInvitationId } from '@/lib/db/repositories/events';
+import {
+  findAllEvents,
+  findEventsByInvitationId,
+} from '@/lib/db/repositories/events';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,10 +45,7 @@ export default async function SchedulePage() {
 
   if (identity.type === 'admin') {
     welcomeName = identity.username;
-    displayEvents = await db
-      .select()
-      .from(events)
-      .orderBy(asc(events.sortOrder));
+    displayEvents = await findAllEvents();
   } else {
     // Guest path: look up invitation and filter events for the whole party
     const invitation = await db.query.invitations.findFirst({

@@ -24,7 +24,7 @@ export type NewGuestPhotoData = {
   r2Key: string;
   publicUrl: string;
   guestId: string;
-  eventId?: string;
+  eventId: string;
   width?: number;
   height?: number;
   takenAt?: string;
@@ -43,10 +43,16 @@ export async function insertGuestPhoto(
 ): Promise<GuestPhoto> {
   const now = new Date().toISOString();
 
-  const [inserted] = await getDb()
+  const result = await getDb()
     .insert(guestPhotos)
     .values({ ...data, uploadedAt: now, updatedAt: now })
     .returning();
+
+  const inserted = result[0];
+
+  if (!inserted) {
+    throw new Error(`Failed to insert guest photo with id ${data.id}`);
+  }
 
   return inserted;
 }
@@ -153,11 +159,17 @@ export async function softDeletePhoto(
 ): Promise<GuestPhoto> {
   const now = new Date().toISOString();
 
-  const [updated] = await getDb()
+  const result = await getDb()
     .update(guestPhotos)
     .set({ status: 'removed', removedAt: now, removedBy, updatedAt: now })
     .where(eq(guestPhotos.id, id))
     .returning();
+
+  const updated = result[0];
+
+  if (!updated) {
+    throw new Error(`Guest photo not found: ${id}`);
+  }
 
   return updated;
 }
@@ -173,7 +185,7 @@ export async function softDeletePhoto(
 export async function restorePhoto(id: string): Promise<GuestPhoto> {
   const now = new Date().toISOString();
 
-  const [updated] = await getDb()
+  const result = await getDb()
     .update(guestPhotos)
     .set({
       status: 'visible',
@@ -183,6 +195,12 @@ export async function restorePhoto(id: string): Promise<GuestPhoto> {
     })
     .where(eq(guestPhotos.id, id))
     .returning();
+
+  const updated = result[0];
+
+  if (!updated) {
+    throw new Error(`Guest photo not found: ${id}`);
+  }
 
   return updated;
 }

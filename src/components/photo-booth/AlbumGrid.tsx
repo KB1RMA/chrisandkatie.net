@@ -18,6 +18,10 @@ type AlbumPhoto = {
 type AlbumGridProps = {
   /** Initial photos fetched server-side to avoid layout shift on first render. */
   initialPhotos: AlbumPhoto[];
+  /** Cursor for the next page, derived from the server-side fetch. */
+  initialNextCursor?: string | null;
+  /** Whether more pages exist beyond the initial server-side fetch. */
+  initialHasMore?: boolean;
   /** Optional event ID to scope the album to a specific event. */
   eventId?: string;
 };
@@ -53,10 +57,17 @@ function toReactPhotoAlbumPhoto(photo: AlbumPhoto) {
  * @param eventId - Optional event ID to scope the album to a specific event.
  * @returns The interactive album grid element.
  */
-export function AlbumGrid({ initialPhotos, eventId }: AlbumGridProps) {
+export function AlbumGrid({
+  initialPhotos,
+  initialNextCursor = null,
+  initialHasMore = false,
+  eventId,
+}: AlbumGridProps) {
   const [photos, setPhotos] = useState<AlbumPhoto[]>(initialPhotos);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    initialNextCursor,
+  );
+  const [hasMore, setHasMore] = useState(initialHasMore);
   const [isPolling, setIsPolling] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 

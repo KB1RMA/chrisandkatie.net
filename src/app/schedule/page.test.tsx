@@ -54,7 +54,8 @@ function createAdminSelectChainMock(events: WeddingEvent[]) {
 function createGuestSelectDistinctChainMock(rows: { event: WeddingEvent }[]) {
   const orderByFn = vi.fn().mockResolvedValue(rows);
   const whereFn = vi.fn().mockReturnValue({ orderBy: orderByFn });
-  const innerJoinFn = vi.fn().mockReturnValue({ where: whereFn });
+  const innerJoin2Fn = vi.fn().mockReturnValue({ where: whereFn });
+  const innerJoinFn = vi.fn().mockReturnValue({ innerJoin: innerJoin2Fn });
   const fromFn = vi.fn().mockReturnValue({ innerJoin: innerJoinFn });
 
   return vi.fn().mockReturnValue({ from: fromFn });

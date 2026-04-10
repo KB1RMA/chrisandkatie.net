@@ -33,6 +33,7 @@ function makeGuestPhoto(overrides: Partial<GuestPhoto> = {}): GuestPhoto {
     r2Key: 'photos/photo-uuid-1.jpg',
     publicUrl: 'https://cdn.example.com/photos/photo-uuid-1.jpg',
     guestId: 'guest-uuid-1',
+    eventId: null,
     status: 'visible',
     width: 1920,
     height: 1080,
@@ -54,6 +55,7 @@ function makeNewGuestPhotoData(
     r2Key: 'photos/photo-uuid-1.jpg',
     publicUrl: 'https://cdn.example.com/photos/photo-uuid-1.jpg',
     guestId: 'guest-uuid-1',
+    eventId: 'event-uuid-1',
     ...overrides,
   };
 }

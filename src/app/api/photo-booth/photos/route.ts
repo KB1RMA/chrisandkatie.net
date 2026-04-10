@@ -1,5 +1,6 @@
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { findVisiblePhotos } from '@/lib/db/repositories/guestPhotos';
+import { findEventsByInvitationId } from '@/lib/db/repositories/events';
 
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
@@ -9,9 +10,11 @@ const MAX_LIMIT = 100;
  *
  * Returns a paginated list of visible guest photos.
  * Supports cursor-based pagination via `cursor` and `limit` query params.
+ * When `eventId` is provided, verifies the authenticated guest is invited to
+ * that event before returning scoped photos.
  *
  * @param request - The incoming HTTP request.
- * @returns 200 JSON with `photos`, `nextCursor`, and `hasMore`; 401 if unauthenticated; 400 for invalid params.
+ * @returns 200 JSON with `photos`, `nextCursor`, and `hasMore`; 401 if unauthenticated; 400 for invalid params; 403 if the guest is not invited to the requested event.
  */
 export async function GET(request: Request): Promise<Response> {
   const session = await auth();
@@ -25,6 +28,16 @@ export async function GET(request: Request): Promise<Response> {
   const cursorParam = url.searchParams.get('cursor') ?? undefined;
   const limitParam = url.searchParams.get('limit');
   const eventIdParam = url.searchParams.get('eventId') ?? undefined;
+
+  // For guest sessions, validate the requested event is visible to their invitation
+  if (eventIdParam && identity.type === 'guest') {
+    const visibleEvents = await findEventsByInvitationId(identity.invitationId);
+    const isAllowed = visibleEvents.some((e) => e.id === eventIdParam);
+
+    if (!isAllowed) {
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
 
   let effectiveLimit = DEFAULT_LIMIT;
 

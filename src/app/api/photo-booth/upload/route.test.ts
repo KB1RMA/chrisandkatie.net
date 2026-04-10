@@ -15,6 +15,10 @@ vi.mock('@/lib/db/repositories/invitations', () => ({
   findInvitationWithGuests: vi.fn(),
 }));
 
+vi.mock('@/lib/db/repositories/events', () => ({
+  findEventsByInvitationId: vi.fn(),
+}));
+
 vi.mock('@/lib/partykit', () => ({
   notifyPartyKit: vi.fn(),
 }));
@@ -28,6 +32,7 @@ import { NextRequest } from 'next/server';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { insertGuestPhoto } from '@/lib/db/repositories/guestPhotos';
 import { findInvitationWithGuests } from '@/lib/db/repositories/invitations';
+import { findEventsByInvitationId } from '@/lib/db/repositories/events';
 import { notifyPartyKit } from '@/lib/partykit';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { POST } from './route';
@@ -36,6 +41,7 @@ const mockAuth = vi.mocked(auth);
 const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
 const mockInsertGuestPhoto = vi.mocked(insertGuestPhoto);
 const mockFindInvitationWithGuests = vi.mocked(findInvitationWithGuests);
+const mockFindEventsByInvitationId = vi.mocked(findEventsByInvitationId);
 const mockNotifyPartyKit = vi.mocked(notifyPartyKit);
 const mockGetCloudflareContext = vi.mocked(getCloudflareContext);
 
@@ -74,11 +80,14 @@ const mockInvitation = {
   ],
 };
 
+const MOCK_EVENT_ID = 'event-wedding-main';
+
 const insertedPhoto = {
   id: 'photo-uuid-1234',
   r2Key: `guest-photos/2024-01-01T00:00:00.000Z/photo-uuid-1234.jpg`,
   publicUrl: `https://${MOCK_R2_PUBLIC_DOMAIN}/guest-photos/2024-01-01T00:00:00.000Z/photo-uuid-1234.jpg`,
   guestId: MOCK_GUEST_ID,
+  eventId: null,
   status: 'visible' as const,
   uploadedAt: '2024-01-01T00:00:00.000Z',
   updatedAt: '2024-01-01T00:00:00.000Z',
@@ -147,6 +156,9 @@ describe('POST /api/photo-booth/upload', () => {
     } as unknown as ReturnType<typeof getCloudflareContext>);
 
     mockFindInvitationWithGuests.mockResolvedValue(mockInvitation as never);
+    mockFindEventsByInvitationId.mockResolvedValue([
+      { id: MOCK_EVENT_ID } as never,
+    ]);
     mockInsertGuestPhoto.mockResolvedValue(insertedPhoto);
   });
 
@@ -212,7 +224,9 @@ describe('POST /api/photo-booth/upload', () => {
     mockAuth.mockResolvedValue(guestSession as never);
     mockGetAuthIdentity.mockReturnValue(guestIdentity);
 
-    const request = makeUploadRequest(makeImageFile());
+    const request = makeUploadRequest(makeImageFile(), {
+      eventId: MOCK_EVENT_ID,
+    });
     const response = await POST(request);
     const body = (await response.json()) as Record<string, unknown>;
 
@@ -228,7 +242,9 @@ describe('POST /api/photo-booth/upload', () => {
     mockAuth.mockResolvedValue(guestSession as never);
     mockGetAuthIdentity.mockReturnValue(guestIdentity);
 
-    const request = makeUploadRequest(makeImageFile());
+    const request = makeUploadRequest(makeImageFile(), {
+      eventId: MOCK_EVENT_ID,
+    });
     await POST(request);
 
     expect(mockR2Bucket.put).toHaveBeenCalledOnce();
@@ -242,7 +258,9 @@ describe('POST /api/photo-booth/upload', () => {
     mockAuth.mockResolvedValue(guestSession as never);
     mockGetAuthIdentity.mockReturnValue(guestIdentity);
 
-    const request = makeUploadRequest(makeImageFile());
+    const request = makeUploadRequest(makeImageFile(), {
+      eventId: MOCK_EVENT_ID,
+    });
     await POST(request);
 
     expect(mockInsertGuestPhoto).toHaveBeenCalledExactlyOnceWith(
@@ -259,7 +277,9 @@ describe('POST /api/photo-booth/upload', () => {
     mockAuth.mockResolvedValue(guestSession as never);
     mockGetAuthIdentity.mockReturnValue(guestIdentity);
 
-    const request = makeUploadRequest(makeImageFile());
+    const request = makeUploadRequest(makeImageFile(), {
+      eventId: MOCK_EVENT_ID,
+    });
     await POST(request);
 
     // Allow fire-and-forget to execute
@@ -267,6 +287,7 @@ describe('POST /api/photo-booth/upload', () => {
 
     expect(mockNotifyPartyKit).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'photo-added' }),
+      MOCK_EVENT_ID,
     );
   });
 });

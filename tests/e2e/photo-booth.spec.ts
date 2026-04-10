@@ -77,7 +77,9 @@ test.describe('Photo Booth — Guest Takes and Shares a Photo (US1)', () => {
     ).toBeVisible();
   });
 
-  test('should show success state after confirming upload', async ({ page }) => {
+  test('should show success state after confirming upload', async ({
+    page,
+  }) => {
     await loginAsGuest(page, VALID_CODE);
 
     await page.goto(`/photo-booth/${EVENT_ID}`);

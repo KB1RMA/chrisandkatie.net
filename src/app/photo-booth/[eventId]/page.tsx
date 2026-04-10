@@ -2,7 +2,11 @@ import { notFound } from 'next/navigation';
 import { PhotoBoothClient } from '@/components/photo-booth/PhotoBoothClient';
 import { AlbumGrid } from '@/components/photo-booth/AlbumGrid';
 import { findVisiblePhotos } from '@/lib/db/repositories/guestPhotos';
-import { findEventById } from '@/lib/db/repositories/events';
+import {
+  findEventById,
+  findEventsByInvitationId,
+} from '@/lib/db/repositories/events';
+import { auth, getAuthIdentity } from '@/lib/auth';
 
 const INITIAL_PAGE_SIZE = 24;
 
@@ -13,24 +17,50 @@ type Props = {
 /**
  * Per-event photo booth page.
  *
- * Validates the event exists, then renders the camera and live album scoped
- * to that event. Photos taken here are tagged with the event ID.
+ * Validates the event exists and that the authenticated guest is invited to
+ * it, then renders the camera and live album scoped to that event.
+ * Photos taken here are tagged with the event ID.
  *
  * @param params - Dynamic route params containing `eventId`.
- * @returns The event-scoped camera and album page, or 404 if the event is not found.
+ * @returns The event-scoped camera and album page, or 404 if the event is not found or the guest is not invited.
  */
 export default async function EventPhotoBoothPage({ params }: Props) {
   const { eventId } = await params;
 
-  const event = await findEventById(eventId);
+  const session = await auth();
+  const identity = getAuthIdentity(session);
+
+  if (!identity || identity.type !== 'guest') {
+    notFound();
+  }
+
+  const [event, visibleEvents] = await Promise.all([
+    findEventById(eventId),
+    findEventsByInvitationId(identity.invitationId),
+  ]);
 
   if (!event) {
     notFound();
   }
 
-  const photos = await findVisiblePhotos({ limit: INITIAL_PAGE_SIZE, eventId });
+  const isAllowed = visibleEvents.some((e) => e.id === eventId);
 
-  const initialPhotos = photos.map((p) => ({
+  if (!isAllowed) {
+    notFound();
+  }
+
+  const photos = await findVisiblePhotos({
+    limit: INITIAL_PAGE_SIZE + 1,
+    eventId,
+  });
+
+  const hasMore = photos.length > INITIAL_PAGE_SIZE;
+  const trimmed = hasMore ? photos.slice(0, INITIAL_PAGE_SIZE) : photos;
+  const initialNextCursor = hasMore
+    ? trimmed[trimmed.length - 1].uploadedAt
+    : null;
+
+  const initialPhotos = trimmed.map((p) => ({
     id: p.id,
     publicUrl: p.publicUrl,
     width: p.width,
@@ -54,7 +84,12 @@ export default async function EventPhotoBoothPage({ params }: Props) {
         <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-stone-800">
           Album
         </h2>
-        <AlbumGrid initialPhotos={initialPhotos} eventId={eventId} />
+        <AlbumGrid
+          initialPhotos={initialPhotos}
+          initialNextCursor={initialNextCursor}
+          initialHasMore={hasMore}
+          eventId={eventId}
+        />
       </div>
     </main>
   );

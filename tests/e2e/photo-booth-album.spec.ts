@@ -28,9 +28,7 @@ test.describe('Photo Booth Album', () => {
     await page.goto(`/photo-booth/${EVENT_ID}`);
 
     await expect(page).toHaveURL(`/photo-booth/${EVENT_ID}`);
-    await expect(
-      page.getByRole('heading', { name: EVENT_NAME }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: EVENT_NAME })).toBeVisible();
   });
 
   test('should show empty state message when no photos exist', async ({

@@ -458,6 +458,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "eventId": {
+          "name": "eventId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -533,6 +540,13 @@
             "guestId"
           ],
           "isUnique": false
+        },
+        "GuestPhoto_eventId_idx": {
+          "name": "GuestPhoto_eventId_idx",
+          "columns": [
+            "eventId"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -547,6 +561,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "GuestPhoto_eventId_Event_id_fk": {
+          "name": "GuestPhoto_eventId_Event_id_fk",
+          "tableFrom": "GuestPhoto",
+          "tableTo": "Event",
+          "columnsFrom": [
+            "eventId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "cascade"
         }
       },

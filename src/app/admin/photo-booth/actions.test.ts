@@ -86,6 +86,7 @@ describe('softDeletePhoto', () => {
       r2Key: 'key',
       publicUrl: 'https://example.com/photo.jpg',
       guestId: 'guest-1',
+      eventId: null,
       width: null,
       height: null,
       takenAt: null,
@@ -115,6 +116,7 @@ describe('softDeletePhoto', () => {
       r2Key: 'key',
       publicUrl: 'https://example.com/photo.jpg',
       guestId: 'guest-1',
+      eventId: null,
       width: null,
       height: null,
       takenAt: null,
@@ -126,10 +128,13 @@ describe('softDeletePhoto', () => {
 
     await softDeletePhoto({ photoId: VALID_PHOTO_ID });
 
-    expect(mockNotifyPartyKit).toHaveBeenCalledWith({
-      type: 'photo-removed',
-      photoId: VALID_PHOTO_ID,
-    });
+    expect(mockNotifyPartyKit).toHaveBeenCalledWith(
+      {
+        type: 'photo-removed',
+        photoId: VALID_PHOTO_ID,
+      },
+      'wedding-album',
+    );
   });
 });
 
@@ -174,6 +179,7 @@ describe('restorePhoto', () => {
       r2Key: 'key',
       publicUrl: 'https://example.com/photo.jpg',
       guestId: 'guest-1',
+      eventId: null,
       width: null,
       height: null,
       takenAt: null,
@@ -188,6 +194,7 @@ describe('restorePhoto', () => {
       r2Key: 'key',
       publicUrl: 'https://example.com/photo.jpg',
       guestId: 'guest-1',
+      eventId: null,
       width: null,
       height: null,
       takenAt: null,
@@ -217,6 +224,7 @@ describe('restorePhoto', () => {
       r2Key: 'key',
       publicUrl: photoUrl,
       guestId: 'guest-1',
+      eventId: null,
       width: null,
       height: null,
       takenAt: null,
@@ -231,6 +239,7 @@ describe('restorePhoto', () => {
       r2Key: 'key',
       publicUrl: photoUrl,
       guestId: 'guest-1',
+      eventId: null,
       width: null,
       height: null,
       takenAt: null,
@@ -244,6 +253,7 @@ describe('restorePhoto', () => {
 
     expect(mockNotifyPartyKit).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'photo-added' }),
+      'wedding-album',
     );
   });
 });

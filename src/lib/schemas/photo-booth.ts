@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const uploadPhotoSchema = z.object({
   guestId: z.string().uuid().optional(),
-  eventId: z.string().uuid().optional(),
+  eventId: z.string().min(1),
   takenAt: z.string().datetime({ offset: true }).optional(),
   width: z.coerce.number().int().positive().optional(),
   height: z.coerce.number().int().positive().optional(),

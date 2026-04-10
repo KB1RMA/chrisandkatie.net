@@ -15,10 +15,20 @@ test.describe('Admin Photo Booth — moderation page', () => {
     // Sign in as admin using the credential-based login flow.
     await page.goto('/login');
 
-    // Use admin credentials (name-based login)
-    await page.getByLabel('First Name').fill('Admin');
-    await page.getByLabel('Last Name').fill('User');
-    await page.getByRole('button', { name: /sign in/i }).click();
+    // Reveal the admin credentials form (hidden by default behind a toggle).
+    await page.getByText('Admin sign in').click();
+
+    // Fill in username/password from environment variables (defaults match CI).
+    await page
+      .getByLabel('Username')
+      .fill(process.env.ADMIN_USERNAME ?? 'admin');
+    await page
+      .getByLabel('Password')
+      .fill(process.env.ADMIN_PASSWORD ?? 'testpassword');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+
+    // Wait for the post-login redirect to complete so the session cookie is set.
+    await page.waitForURL(/\/admin\//);
   });
 
   test('admin can navigate to /admin/photo-booth and page loads', async ({
