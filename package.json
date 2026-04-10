@@ -91,7 +91,6 @@
 		"typescript": "^5.9.3",
 		"vitest": "^4.0.18",
 		"vitest-github-actions-reporter": "^0.11.1",
-		"vitest-plugin-rsc": "^0.0.0-experimental-64e35ee-20250807",
 		"wrangler": "^4.80.0"
 	},
 	"optionalDependencies": {
