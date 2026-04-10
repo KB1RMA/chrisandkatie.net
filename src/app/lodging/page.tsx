@@ -48,7 +48,7 @@ export const HOTELS: Hotel[] = [
     address: 'Newburyport, MA 01950',
     lat: 42.80946670508678,
     lng: -70.8695609742041,
-    websiteUrl: 'https://www.hyggehouse.com',
+    websiteUrl: 'https://hyggehousestay.com/',
   },
   {
     name: 'Cutwater Inn',
