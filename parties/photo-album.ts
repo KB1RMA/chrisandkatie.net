@@ -1,5 +1,10 @@
 import type * as Party from 'partykit/server';
 
+/** Shape of the environment variables available to the photo-album party. */
+type PhotoAlbumEnv = {
+  PARTYKIT_SERVER_SECRET?: string;
+};
+
 export default class PhotoAlbumParty implements Party.Server {
   constructor(public room: Party.Room) {}
 
@@ -18,8 +23,7 @@ export default class PhotoAlbumParty implements Party.Server {
     }
 
     // Validate shared secret when configured so only the Next.js server can broadcast.
-    const secret = (this.room.env as Record<string, string | undefined>)
-      .PARTYKIT_SERVER_SECRET;
+    const secret = (this.room.env as PhotoAlbumEnv).PARTYKIT_SERVER_SECRET;
 
     if (secret) {
       const authHeader = req.headers.get('Authorization') ?? '';

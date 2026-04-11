@@ -305,6 +305,6 @@ describe('POST /api/photo-booth/upload', () => {
     const body = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe('SERVER_MISCONFIGURATION');
+    expect(body.error).toBe('R2_PUBLIC_BASE_URL or R2_PUBLIC_DOMAIN must be configured');
   });
 });

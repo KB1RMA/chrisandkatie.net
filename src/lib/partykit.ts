@@ -18,16 +18,14 @@ export async function notifyPartyKit(
   }
 
   const url = `https://${host}/parties/photo-album/${encodeURIComponent(room)}`;
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const secret = process.env.PARTYKIT_SERVER_SECRET;
-
-  if (secret) {
-    headers['Authorization'] = `Bearer ${secret}`;
-  }
 
   await fetch(url, {
     method: 'POST',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
+    },
     body: JSON.stringify(message),
   }).catch(() => undefined);
 }

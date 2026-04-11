@@ -116,7 +116,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       logger.error('R2 public URL is not configured (R2_PUBLIC_BASE_URL / R2_PUBLIC_DOMAIN)');
 
       return NextResponse.json(
-        { error: 'SERVER_MISCONFIGURATION' },
+        { error: 'R2_PUBLIC_BASE_URL or R2_PUBLIC_DOMAIN must be configured' },
         { status: 500 },
       );
     }
