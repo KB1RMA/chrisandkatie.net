@@ -5,14 +5,29 @@ export default class PhotoAlbumParty implements Party.Server {
 
   /**
    * Handles HTTP POST requests from Next.js API routes to broadcast messages.
+   * Requires a valid `Authorization: Bearer <PARTYKIT_SERVER_SECRET>` header to
+   * prevent unauthenticated callers from spoofing photo events.
    * Relays the POST body as a broadcast to all connected WebSocket clients.
    *
    * @param req - The incoming HTTP request from the Next.js server.
-   * @returns 200 OK on POST success, 405 for other methods.
+   * @returns 200 OK on POST success, 401 when the secret is missing/invalid, 405 for other methods.
    */
   async onRequest(req: Party.Request): Promise<Response> {
     if (req.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405 });
+    }
+
+    // Validate shared secret when configured so only the Next.js server can broadcast.
+    const secret = (this.room.env as Record<string, string | undefined>)
+      .PARTYKIT_SERVER_SECRET;
+
+    if (secret) {
+      const authHeader = req.headers.get('Authorization') ?? '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+
+      if (token !== secret) {
+        return new Response('Unauthorized', { status: 401 });
+      }
     }
 
     const message = await req.text();

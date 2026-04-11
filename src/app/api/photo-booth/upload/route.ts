@@ -112,6 +112,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // or "http://localhost:8787/api/photo-booth/files" in local dev).
     // Falls back to https:// + R2_PUBLIC_DOMAIN for backwards compatibility.
     // For localhost URLs we store a relative path so the URL works regardless of port.
+    if (!process.env.R2_PUBLIC_BASE_URL && !process.env.R2_PUBLIC_DOMAIN) {
+      logger.error('R2 public URL is not configured (R2_PUBLIC_BASE_URL / R2_PUBLIC_DOMAIN)');
+
+      return NextResponse.json(
+        { error: 'SERVER_MISCONFIGURATION' },
+        { status: 500 },
+      );
+    }
+
     const rawBase =
       process.env.R2_PUBLIC_BASE_URL ??
       `https://${process.env.R2_PUBLIC_DOMAIN}`;

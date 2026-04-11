@@ -46,7 +46,9 @@ export async function GET(
     status: 200,
     headers: {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      // Private caching — content is auth-gated and must not be stored in
+      // shared/CDN caches where it could be served to other users.
+      'Cache-Control': 'private, max-age=31536000, immutable',
     },
   });
 }
