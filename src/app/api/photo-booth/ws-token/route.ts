@@ -41,8 +41,12 @@ export async function GET(): Promise<Response> {
   // Encode the secret as a Uint8Array for use with the symmetric HS256 algorithm.
   const keyBytes = new TextEncoder().encode(secret);
 
+  // Extract a stable subject identifier from the identity.
+  const subject =
+    identity.type === 'admin' ? identity.username : identity.invitationId;
+
   // Build a minimal JWT scoped to PartyKit WebSocket connections only.
-  const token = await new SignJWT({ sub: identity.type === 'admin' ? identity.username : identity.invitationId })
+  const token = await new SignJWT({ sub: subject })
     .setProtectedHeader({ alg: 'HS256' })
     .setAudience('partykit-ws')
     .setIssuedAt()

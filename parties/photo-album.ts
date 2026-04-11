@@ -57,9 +57,12 @@ export default class PhotoAlbumParty implements Party.Server {
    * Verifies the short-lived JWT issued by `/api/photo-booth/ws-token` so that
    * only authenticated Next.js sessions can establish a real-time connection.
    *
-   * Returning a `Response` from this hook rejects the connection before it is
-   * opened, keeping unauthenticated clients out entirely.
+   * This is a PartyKit static edge hook (see `Party.Worker`). Returning a
+   * `Response` short-circuits the upgrade and sends that response to the client
+   * instead of opening the connection; returning the original `req` allows it
+   * to proceed normally.
    *
+   * @see https://docs.partykit.io/reference/partyserver-api/#static-onbeforeconnect
    * @param req - The incoming WebSocket upgrade request.
    * @param lobby - The lobby context containing environment variables.
    * @returns The original request to allow the connection, or a 401 Response to reject it.
