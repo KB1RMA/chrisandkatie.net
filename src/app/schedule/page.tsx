@@ -1,13 +1,15 @@
 import { Marcellus } from 'next/font/google';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { eq, asc, inArray } from 'drizzle-orm';
 import { Button } from '@/components/Button';
 import { ScheduleMapLayout } from '@/components/ScheduleMapLayout';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { events, guestEvents } from '@/lib/db/schema';
 import type { WeddingEvent } from '@/lib/db/schema';
+import {
+  findAllEvents,
+  findEventsByInvitationId,
+} from '@/lib/db/repositories/events';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,10 +45,7 @@ export default async function SchedulePage() {
 
   if (identity.type === 'admin') {
     welcomeName = identity.username;
-    displayEvents = await db
-      .select()
-      .from(events)
-      .orderBy(asc(events.sortOrder));
+    displayEvents = await findAllEvents();
   } else {
     // Guest path: look up invitation and filter events for the whole party
     const invitation = await db.query.invitations.findFirst({
@@ -60,16 +59,7 @@ export default async function SchedulePage() {
 
     welcomeName = invitation.guests.map((g) => g.firstName).join(' & ');
 
-    const guestIds = invitation.guests.map((g) => g.id);
-
-    const visibleEventRows = await db
-      .selectDistinct({ event: events })
-      .from(guestEvents)
-      .innerJoin(events, eq(guestEvents.eventId, events.id))
-      .where(inArray(guestEvents.guestId, guestIds))
-      .orderBy(asc(events.sortOrder));
-
-    displayEvents = visibleEventRows.map((row) => row.event);
+    displayEvents = await findEventsByInvitationId(identity.invitationId);
   }
 
   return (

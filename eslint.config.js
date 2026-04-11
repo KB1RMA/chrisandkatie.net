@@ -19,6 +19,7 @@ const eslintConfig = [
       '**/coverage/**',
       '**/test-reports/**',
       '**/test-results/**',
+      'next-env.d.ts',
     ],
   },
   prettierConfig,

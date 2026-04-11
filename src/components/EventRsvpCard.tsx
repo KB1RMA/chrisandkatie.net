@@ -5,7 +5,6 @@
  * Renders as locked (no link) once the RSVP deadline has passed.
  */
 import Link from 'next/link';
-import type { Route } from 'next';
 import { isDeadlinePassed } from '@/lib/rsvp';
 import type { WeddingEvent, RsvpResponse } from '@/lib/db/schema';
 
@@ -117,7 +116,7 @@ export function EventRsvpCard({ event, rsvp }: EventRsvpCardProps) {
             </span>
           ) : (
             <Link
-              href={`/rsvp/${event.id}` as Route}
+              href={`/rsvp/${event.id}`}
               className="inline-block rounded-md bg-[#9e3f3f] px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#b76565]"
             >
               {rsvp ? 'Update RSVP' : 'RSVP Now'}

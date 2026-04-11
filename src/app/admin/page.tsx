@@ -38,6 +38,11 @@ const adminRoutes: { href: Route; label: string; description: string }[] = [
     label: 'Print Inserts',
     description: 'Generate printable invitation inserts with QR codes.',
   },
+  {
+    href: '/admin/photo-booth',
+    label: 'Photo Booth',
+    description: 'Review and moderate guest photo booth submissions.',
+  },
 ];
 
 /**

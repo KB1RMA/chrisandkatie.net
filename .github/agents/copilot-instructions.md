@@ -38,6 +38,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 - SQLite (development) / Cloudflare D1 (production) via Drizzle ORM (013-additional-event-rsvp-ux)
 - TypeScript 5.9, Node.js 22 (local dev) / V8 edge (Cloudflare Workers production) + Next.js 16 (App Router), `pino` v10 (browser mode), React 19 (014-structured-logging)
 - Cloudflare D1 via Drizzle ORM (no schema changes for this feature) (014-structured-logging)
+- TypeScript 5.9, React 19, Next.js 16 (App Router) + Drizzle ORM, Next-Auth v5, `partysocket` (PartyKit client SDK), `partykit` (CLI + Durable Object server), `react-photo-album` (already installed), `yet-another-react-lightbox` (already installed), Zod v4 (015-guest-photo-booth)
+- Cloudflare D1 (SQLite via Drizzle) for metadata; Cloudflare R2 for photo objects (015-guest-photo-booth)
 
 - TypeScript 5.9, React 19, Next.js 16.1 + Next.js App Router, Auth.js v5, Drizzle ORM + D1 adapter, Zod, react-hook-form, Tailwind CSS, OpenNext (Cloudflare) (001-wedding-rsvp-portal)
 
@@ -57,8 +59,8 @@ npm test && npm run lint
 TypeScript 5.9, React 19, Next.js 16.1: Follow standard conventions
 
 ## Recent Changes
+- 015-guest-photo-booth: Added TypeScript 5.9, React 19, Next.js 16 (App Router) + Drizzle ORM, Next-Auth v5, `partysocket` (PartyKit client SDK), `partykit` (CLI + Durable Object server), `react-photo-album` (already installed), `yet-another-react-lightbox` (already installed), Zod v4
 - 014-structured-logging: Added TypeScript 5.9, Node.js 22 (local dev) / V8 edge (Cloudflare Workers production) + Next.js 16 (App Router), `pino` v10 (browser mode), React 19
-- 013-additional-event-rsvp-ux: Added TypeScript 5.x + Next.js 16 (App Router), React 19, react-hook-form, Zod, Drizzle ORM, Playwright (e2e)
 - 013-additional-event-rsvp-ux: Added TypeScript 5.x + Next.js 16 (App Router), React 19, react-hook-form, Zod, Drizzle ORM, Playwright (e2e)
 
 

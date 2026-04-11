@@ -5,10 +5,38 @@
  * should use these functions instead of calling the Drizzle client directly.
  */
 
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '@/lib/db';
-import { events, guestEvents } from '@/lib/db/schema';
+import { events, guestEvents, guests } from '@/lib/db/schema';
+
+/**
+ * Find all events an invitation's guests have access to, via the GuestEvent
+ * junction table. Ordered by sortOrder ascending.
+ *
+ * @param invitationId - The invitation id to look up events for.
+ * @returns An array of event rows the invitation's guests are linked to.
+ */
+export async function findEventsByInvitationId(invitationId: string) {
+  const rows = await getDb()
+    .selectDistinct({ event: events })
+    .from(guestEvents)
+    .innerJoin(events, eq(guestEvents.eventId, events.id))
+    .innerJoin(guests, eq(guestEvents.guestId, guests.id))
+    .where(eq(guests.invitationId, invitationId))
+    .orderBy(asc(events.sortOrder));
+
+  return rows.map((row) => row.event);
+}
+
+/**
+ * Find all events ordered by sortOrder ascending.
+ *
+ * @returns An array of all event rows.
+ */
+export async function findAllEvents() {
+  return getDb().select().from(events).orderBy(asc(events.sortOrder));
+}
 
 /**
  * Find a single event by its primary key.

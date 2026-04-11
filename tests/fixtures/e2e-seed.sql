@@ -91,13 +91,20 @@ VALUES
     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   );
 
--- Link both of the rsvpRequired=true events to alice and bob so Step 3 shows event cards.
+-- test-swift (Alice, Bob) gets all 4 events — mirrors a full-access invitation.
+-- test-code (Recovery) gets only the 2 main events — exercises GuestEvent filtering.
 INSERT INTO GuestEvent (id, guestId, eventId)
 VALUES
-  ('guestevent-e2e-alice-pool',  'guest-e2e-alice', 'event-e2e-pool-day'),
-  ('guestevent-e2e-bob-pool',    'guest-e2e-bob',   'event-e2e-pool-day'),
-  ('guestevent-e2e-alice-bbq',   'guest-e2e-alice', 'event-e2e-bbq'),
-  ('guestevent-e2e-bob-bbq',     'guest-e2e-bob',   'event-e2e-bbq');
+  ('guestevent-e2e-alice-wedding',    'guest-e2e-alice',   'event-e2e-wedding'),
+  ('guestevent-e2e-bob-wedding',      'guest-e2e-bob',     'event-e2e-wedding'),
+  ('guestevent-e2e-recover-wedding',  'guest-e2e-recover', 'event-e2e-wedding'),
+  ('guestevent-e2e-alice-cocktail',   'guest-e2e-alice',   'event-e2e-cocktail'),
+  ('guestevent-e2e-bob-cocktail',     'guest-e2e-bob',     'event-e2e-cocktail'),
+  ('guestevent-e2e-recover-cocktail', 'guest-e2e-recover', 'event-e2e-cocktail'),
+  ('guestevent-e2e-alice-pool',       'guest-e2e-alice',   'event-e2e-pool-day'),
+  ('guestevent-e2e-bob-pool',         'guest-e2e-bob',     'event-e2e-pool-day'),
+  ('guestevent-e2e-alice-bbq',        'guest-e2e-alice',   'event-e2e-bbq'),
+  ('guestevent-e2e-bob-bbq',          'guest-e2e-bob',     'event-e2e-bbq');
 
 -- No-extras invitation — intentionally has no GuestEvent rows so Step 3
 -- shows the "You're all set!" empty-state banner.

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Roboto } from 'next/font/google';
+import { Roboto, Dancing_Script } from 'next/font/google';
 import { CountdownPageTitle } from '@/components/CountdownPageTitle';
 import { SessionProvider } from '@/components/SessionProvider';
 import { Footer } from '@/components/Footer';
@@ -11,6 +11,12 @@ const roboto = Roboto({
   variable: '--font-roboto',
   subsets: ['latin'],
   weight: ['400', '500', '700'],
+});
+
+const dancingScript = Dancing_Script({
+  variable: '--font-dancing-script',
+  subsets: ['latin'],
+  weight: ['400', '700'],
 });
 
 export const metadata: Metadata = baseMetadata;
@@ -26,7 +32,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
       </head>
       <body
-        className={`${roboto.variable} flex min-h-screen flex-col antialiased`}
+        className={`${roboto.variable} ${dancingScript.variable} flex min-h-screen flex-col antialiased`}
       >
         <SessionProvider>
           <Header />
