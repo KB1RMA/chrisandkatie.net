@@ -1,8 +1,10 @@
+import { jwtVerify } from 'jose';
 import type * as Party from 'partykit/server';
 
 /** Shape of the environment variables available to the photo-album party. */
 type PhotoAlbumEnv = {
   PARTYKIT_SERVER_SECRET?: string;
+  AUTH_SECRET?: string;
 };
 
 export default class PhotoAlbumParty implements Party.Server {
@@ -49,4 +51,48 @@ export default class PhotoAlbumParty implements Party.Server {
   onConnect(conn: Party.Connection): void {
     // No initial state — clients fetch via REST on mount
   }
+
+  /**
+   * Runs before each WebSocket upgrade request is forwarded to the Durable Object.
+   * Verifies the short-lived JWT issued by `/api/photo-booth/ws-token` so that
+   * only authenticated Next.js sessions can establish a real-time connection.
+   *
+   * Returning a `Response` from this hook rejects the connection before it is
+   * opened, keeping unauthenticated clients out entirely.
+   *
+   * @param req - The incoming WebSocket upgrade request.
+   * @param lobby - The lobby context containing environment variables.
+   * @returns The original request to allow the connection, or a 401 Response to reject it.
+   */
+  static async onBeforeConnect(
+    req: Party.Request,
+    lobby: Party.Lobby,
+  ): Promise<Party.Request | Response> {
+    const env = lobby.env as PhotoAlbumEnv;
+    const authSecret = env.AUTH_SECRET;
+
+    if (!authSecret) {
+      // If AUTH_SECRET is not configured, allow the connection so local dev
+      // works without any env vars (same pattern as PARTYKIT_SERVER_SECRET).
+      return req;
+    }
+
+    const url = new URL(req.url);
+    const token = url.searchParams.get('token') ?? '';
+
+    if (!token) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    try {
+      const keyBytes = new TextEncoder().encode(authSecret);
+
+      await jwtVerify(token, keyBytes, { audience: 'partykit-ws' });
+
+      return req;
+    } catch {
+      return new Response('Unauthorized', { status: 401 });
+    }
+  }
 }
+

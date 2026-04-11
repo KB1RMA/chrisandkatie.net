@@ -1,5 +1,10 @@
 {
   "name": "wedding-album",
   "main": "parties/photo-album.ts",
-  "compatibilityDate": "2024-01-01"
+  "compatibilityDate": "2024-01-01",
+  "$schema": "https://www.partykit.io/schema.json",
+  "vars": {
+    "AUTH_SECRET": "",
+    "PARTYKIT_SERVER_SECRET": ""
+  }
 }
