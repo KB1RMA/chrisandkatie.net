@@ -267,7 +267,6 @@ describe('POST /api/photo-booth/upload', () => {
       expect.objectContaining({
         id: expect.any(String),
         r2Key: expect.stringMatching(/^guest-photos\//),
-        publicUrl: expect.stringContaining(MOCK_R2_PUBLIC_DOMAIN),
         guestId: MOCK_GUEST_ID,
       }),
     );

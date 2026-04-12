@@ -10,11 +10,19 @@ import { and, desc, eq, getTableColumns, lt } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { guestPhotos, guests } from '@/lib/db/schema';
 import type { GuestPhoto } from '@/lib/db/schema';
+import { buildPublicUrl } from '@/lib/photo-url';
 
 /**
- * A GuestPhoto row extended with the uploader's first name.
+ * A GuestPhoto row extended with the computed public URL.
  */
-export type GuestPhotoWithTakenBy = GuestPhoto & { takenBy: string | null };
+export type GuestPhotoWithUrl = GuestPhoto & { publicUrl: string };
+
+/**
+ * A GuestPhoto row extended with the computed public URL and uploader's first name.
+ */
+export type GuestPhotoWithTakenBy = GuestPhotoWithUrl & {
+  takenBy: string | null;
+};
 
 /**
  * Typed input for inserting a new guest photo row.
@@ -22,7 +30,6 @@ export type GuestPhotoWithTakenBy = GuestPhoto & { takenBy: string | null };
 export type NewGuestPhotoData = {
   id: string;
   r2Key: string;
-  publicUrl: string;
   guestId: string;
   eventId: string;
   width?: number;
@@ -40,7 +47,7 @@ export type NewGuestPhotoData = {
  */
 export async function insertGuestPhoto(
   data: NewGuestPhotoData,
-): Promise<GuestPhoto> {
+): Promise<GuestPhotoWithUrl> {
   const now = new Date().toISOString();
 
   const result = await getDb()
@@ -54,7 +61,7 @@ export async function insertGuestPhoto(
     throw new Error(`Failed to insert guest photo with id ${data.id}`);
   }
 
-  return inserted;
+  return { ...inserted, publicUrl: buildPublicUrl(inserted.r2Key) };
 }
 
 /**
@@ -87,13 +94,15 @@ export async function findVisiblePhotos({
     conditions.push(eq(guestPhotos.eventId, eventId));
   }
 
-  return getDb()
+  const rows = await getDb()
     .select({ ...getTableColumns(guestPhotos), takenBy: guests.firstName })
     .from(guestPhotos)
     .leftJoin(guests, eq(guestPhotos.guestId, guests.id))
     .where(and(...conditions))
     .orderBy(desc(guestPhotos.uploadedAt))
     .limit(limit);
+
+  return rows.map((row) => ({ ...row, publicUrl: buildPublicUrl(row.r2Key) }));
 }
 
 /**
@@ -113,21 +122,21 @@ export async function findAllPhotos({
 }: {
   limit: number;
   cursor?: string;
-}): Promise<GuestPhoto[]> {
-  if (cursor) {
-    return getDb()
-      .select()
-      .from(guestPhotos)
-      .where(lt(guestPhotos.uploadedAt, cursor))
-      .orderBy(desc(guestPhotos.uploadedAt))
-      .limit(limit);
-  }
+}): Promise<GuestPhotoWithUrl[]> {
+  const rows = cursor
+    ? await getDb()
+        .select()
+        .from(guestPhotos)
+        .where(lt(guestPhotos.uploadedAt, cursor))
+        .orderBy(desc(guestPhotos.uploadedAt))
+        .limit(limit)
+    : await getDb()
+        .select()
+        .from(guestPhotos)
+        .orderBy(desc(guestPhotos.uploadedAt))
+        .limit(limit);
 
-  return getDb()
-    .select()
-    .from(guestPhotos)
-    .orderBy(desc(guestPhotos.uploadedAt))
-    .limit(limit);
+  return rows.map((row) => ({ ...row, publicUrl: buildPublicUrl(row.r2Key) }));
 }
 
 /**
@@ -138,10 +147,16 @@ export async function findAllPhotos({
  */
 export async function findGuestPhotoById(
   id: string,
-): Promise<GuestPhoto | undefined> {
-  return getDb().query.guestPhotos.findFirst({
+): Promise<GuestPhotoWithUrl | undefined> {
+  const row = await getDb().query.guestPhotos.findFirst({
     where: eq(guestPhotos.id, id),
   });
+
+  if (!row) {
+    return undefined;
+  }
+
+  return { ...row, publicUrl: buildPublicUrl(row.r2Key) };
 }
 
 /**
@@ -156,7 +171,7 @@ export async function findGuestPhotoById(
 export async function softDeletePhoto(
   id: string,
   removedBy: string,
-): Promise<GuestPhoto> {
+): Promise<GuestPhotoWithUrl> {
   const now = new Date().toISOString();
 
   const result = await getDb()
@@ -171,7 +186,7 @@ export async function softDeletePhoto(
     throw new Error(`Guest photo not found: ${id}`);
   }
 
-  return updated;
+  return { ...updated, publicUrl: buildPublicUrl(updated.r2Key) };
 }
 
 /**
@@ -182,7 +197,7 @@ export async function softDeletePhoto(
  * @param id - The photo id to restore.
  * @returns The updated GuestPhoto row.
  */
-export async function restorePhoto(id: string): Promise<GuestPhoto> {
+export async function restorePhoto(id: string): Promise<GuestPhotoWithUrl> {
   const now = new Date().toISOString();
 
   const result = await getDb()
@@ -202,5 +217,5 @@ export async function restorePhoto(id: string): Promise<GuestPhoto> {
     throw new Error(`Guest photo not found: ${id}`);
   }
 
-  return updated;
+  return { ...updated, publicUrl: buildPublicUrl(updated.r2Key) };
 }
