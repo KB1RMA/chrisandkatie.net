@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import type { GuestPhoto } from '@/lib/db/schema';
+import type { GuestPhotoWithUrl } from '@/lib/db/repositories/guestPhotos';
 import { softDeletePhoto, restorePhoto } from '@/app/admin/photo-booth/actions';
 
 type AdminPhotoGridProps = {
-  photos: GuestPhoto[];
+  photos: GuestPhotoWithUrl[];
 };
 
 /**

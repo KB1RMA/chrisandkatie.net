@@ -10,6 +10,7 @@ applyTo: '**'
 - **Follow the Rule of Three**: Wait until you have three similar pieces of code before extracting shared functionality. This prevents premature abstraction and ensures abstractions are based on real usage patterns rather than speculation.
 - **Use functional programming patterns**: Favor immutable operations with methods like `.map()`, `.filter()`, `.reduce()`, and `.forEach()` over imperative loops and variable mutation. This promotes safer, more predictable code.
 - **Prefer early returns to reduce nesting and improve readability**: Use guard clauses and early returns instead of deeply nested if-else blocks. For example:
+- **Never use nested ternaries**: Ternary expressions must not be nested. Use `if/else` blocks or early returns instead. Nested ternaries are hard to read and easy to misparse.
   ```typescript
   // ✅ Good - Early return pattern
   if (!tracer) {

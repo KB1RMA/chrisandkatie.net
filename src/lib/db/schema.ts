@@ -367,7 +367,6 @@ export const guestPhotos = sqliteTable(
   {
     id: text('id').primaryKey(),
     r2Key: text('r2Key').notNull(),
-    publicUrl: text('publicUrl').notNull(),
     guestId: text('guestId')
       .notNull()
       .references(() => guests.id, {

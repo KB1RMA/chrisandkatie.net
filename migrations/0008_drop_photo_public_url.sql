@@ -1,0 +1,1 @@
+ALTER TABLE `GuestPhoto` DROP COLUMN `publicUrl`;

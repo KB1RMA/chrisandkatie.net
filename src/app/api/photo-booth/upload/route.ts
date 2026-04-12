@@ -7,6 +7,7 @@ import { findInvitationWithGuests } from '@/lib/db/repositories/invitations';
 import { findEventsByInvitationId } from '@/lib/db/repositories/events';
 import { notifyPartyKit } from '@/lib/partykit';
 import { createLogger } from '@/lib/logger';
+import { buildPublicUrl } from '@/lib/photo-url';
 
 const logger = createLogger('api/photo-booth/upload');
 
@@ -104,29 +105,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .GUEST_PHOTOS_BUCKET;
 
     await bucket.put(r2Key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type },
+      httpMetadata: {
+        contentType: file.type,
+        cacheControl: 'public, max-age=31536000, immutable',
+      },
     });
 
-    // Construct public URL.
-    // R2_PUBLIC_BASE_URL is the full base (e.g. "https://pub-xxx.r2.dev" in production
-    // or "http://localhost:8787/api/photo-booth/files" in local dev).
-    // Falls back to https:// + R2_PUBLIC_DOMAIN for backwards compatibility.
-    // For localhost URLs we store a relative path so the URL works regardless of port.
-    const rawBase =
-      process.env.R2_PUBLIC_BASE_URL ??
-      `https://${process.env.R2_PUBLIC_DOMAIN}`;
-    const parsedBase = new URL(rawBase);
-    const baseUrl =
-      parsedBase.hostname === 'localhost'
-        ? parsedBase.pathname.replace(/\/$/, '')
-        : rawBase.replace(/\/$/, '');
-    const publicUrl = `${baseUrl}/${r2Key}`;
+    // Build the public URL from the environment-configured base.
+    // Requires R2_PUBLIC_BASE_URL (preferred) or R2_PUBLIC_DOMAIN to be set.
+    const publicUrl = buildPublicUrl(r2Key);
 
     // Insert database record
     await insertGuestPhoto({
       id,
       r2Key,
-      publicUrl,
       guestId: resolvedGuestId,
       eventId: photoData.eventId,
       width: photoData.width,
