@@ -216,6 +216,30 @@ const photos: Photo[] = [
     height: 1584,
     alt: 'Katie and Chris celebration photo',
   },
+  {
+    src: '/images/gallery/IMG_0541.jpg',
+    width: 3088,
+    height: 2316,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_1288.jpg',
+    width: 4032,
+    height: 3024,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_3975.jpg',
+    width: 4032,
+    height: 3024,
+    alt: 'Katie and Chris celebration photo',
+  },
+  {
+    src: '/images/gallery/IMG_8050.jpg',
+    width: 1536,
+    height: 2234,
+    alt: 'Katie and Chris celebration photo',
+  },
 ];
 
 export default async function GalleryPage() {
