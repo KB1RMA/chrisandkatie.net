@@ -113,7 +113,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Falls back to https:// + R2_PUBLIC_DOMAIN for backwards compatibility.
     // For localhost URLs we store a relative path so the URL works regardless of port.
     if (!process.env.R2_PUBLIC_BASE_URL && !process.env.R2_PUBLIC_DOMAIN) {
-      logger.error('R2 public URL is not configured (R2_PUBLIC_BASE_URL / R2_PUBLIC_DOMAIN)');
+      logger.error(
+        'R2 public URL is not configured (R2_PUBLIC_BASE_URL / R2_PUBLIC_DOMAIN)',
+      );
 
       return NextResponse.json(
         { error: 'R2_PUBLIC_BASE_URL or R2_PUBLIC_DOMAIN must be configured' },

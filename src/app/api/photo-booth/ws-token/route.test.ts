@@ -60,7 +60,7 @@ describe('GET /api/photo-booth/ws-token', () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
-    const body = await response.json() as { token: string };
+    const body = (await response.json()) as { token: string };
     expect(typeof body.token).toBe('string');
 
     const keyBytes = new TextEncoder().encode(TEST_SECRET);
@@ -89,7 +89,7 @@ describe('GET /api/photo-booth/ws-token', () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
-    const body = await response.json() as { token: string };
+    const body = (await response.json()) as { token: string };
 
     const keyBytes = new TextEncoder().encode(TEST_SECRET);
     const { payload } = await jwtVerify(body.token, keyBytes, {
