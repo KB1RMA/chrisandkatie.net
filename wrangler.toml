@@ -13,6 +13,8 @@ binding = "ASSETS"
 # Base URL used by Auth.js when running via wrangler dev locally
 AUTH_URL = "http://localhost:8787"
 NEXTAUTH_URL = "http://localhost:8787"
+# R2 photo proxy route used by wrangler dev (photos are served through the worker locally)
+R2_PUBLIC_BASE_URL = "http://localhost:8787/api/photo-booth/files"
 
 [images]
 binding = "IMAGES"
@@ -42,7 +44,7 @@ max_batch_timeout = 30
 max_retries = 3
 
 [env.production]
-vars = { ANALYTICS_ENABLED = "true", AUTH_URL = "https://chrisandkatie.net", NEXTAUTH_URL = "https://chrisandkatie.net" }
+vars = { ANALYTICS_ENABLED = "true", AUTH_URL = "https://chrisandkatie.net", NEXTAUTH_URL = "https://chrisandkatie.net", R2_PUBLIC_BASE_URL = "https://photo-booth.chrisandkatie.net" }
 
 [[env.production.r2_buckets]]
 binding = "GUEST_PHOTOS_BUCKET"
@@ -71,7 +73,7 @@ max_retries = 3
 binding = "IMAGES"
 
 [env.staging]
-vars = { ANALYTICS_ENABLED = "false", AUTH_URL = "https://staging.chrisandkatie.net", NEXTAUTH_URL = "https://staging.chrisandkatie.net" }
+vars = { ANALYTICS_ENABLED = "false", AUTH_URL = "https://staging.chrisandkatie.net", NEXTAUTH_URL = "https://staging.chrisandkatie.net", R2_PUBLIC_BASE_URL = "https://photo-booth.chrisandkatie.net" }
 
 [[env.staging.analytics_engine_datasets]]
 binding = "ANALYTICS"

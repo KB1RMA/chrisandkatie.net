@@ -6,6 +6,10 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }));
 
+vi.mock('@/lib/photo-url', () => ({
+  buildPublicUrl: vi.fn((r2Key: string) => `https://cdn.example.com/${r2Key}`),
+}));
+
 import { expect, test, describe, beforeEach, vi } from 'vitest';
 import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
@@ -22,6 +26,12 @@ import type { GuestPhoto } from '@/lib/db/schema';
 
 const mockGetDb = vi.mocked(getDb);
 
+// Derives the expected publicUrl for a photo based on the mock buildPublicUrl.
+const withUrl = (photo: GuestPhoto) => ({
+  ...photo,
+  publicUrl: `https://cdn.example.com/${photo.r2Key}`,
+});
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -31,7 +41,6 @@ function makeGuestPhoto(overrides: Partial<GuestPhoto> = {}): GuestPhoto {
   return {
     id: 'photo-uuid-1',
     r2Key: 'photos/photo-uuid-1.jpg',
-    publicUrl: 'https://cdn.example.com/photos/photo-uuid-1.jpg',
     guestId: 'guest-uuid-1',
     eventId: null,
     status: 'visible',
@@ -53,7 +62,6 @@ function makeNewGuestPhotoData(
   return {
     id: 'photo-uuid-1',
     r2Key: 'photos/photo-uuid-1.jpg',
-    publicUrl: 'https://cdn.example.com/photos/photo-uuid-1.jpg',
     guestId: 'guest-uuid-1',
     eventId: 'event-uuid-1',
     ...overrides,
@@ -145,7 +153,7 @@ describe('insertGuestPhoto', () => {
 
     const result = await insertGuestPhoto(makeNewGuestPhotoData());
 
-    expect(result).toEqual(photo);
+    expect(result).toEqual(withUrl(photo));
     expect(mockDb.insert).toHaveBeenCalledOnce();
   });
 
@@ -198,7 +206,7 @@ describe('findVisiblePhotos', () => {
 
     const result = await findVisiblePhotos({ limit: 20 });
 
-    expect(result).toEqual(photos);
+    expect(result).toEqual(photos.map(withUrl));
   });
 
   test('should accept an optional cursor for pagination', async () => {
@@ -242,7 +250,7 @@ describe('findAllPhotos', () => {
 
     const result = await findAllPhotos({ limit: 20 });
 
-    expect(result).toEqual(photos);
+    expect(result).toEqual(photos.map(withUrl));
   });
 
   test('should accept an optional cursor for pagination', async () => {
@@ -283,7 +291,7 @@ describe('findGuestPhotoById', () => {
 
     const result = await findGuestPhotoById('photo-uuid-1');
 
-    expect(result).toEqual(photo);
+    expect(result).toEqual(withUrl(photo));
   });
 
   test('should return undefined when not found', async () => {
@@ -330,7 +338,7 @@ describe('softDeletePhoto', () => {
 
     const result = await softDeletePhoto('photo-uuid-1', 'admin');
 
-    expect(result).toEqual(removedPhoto);
+    expect(result).toEqual(withUrl(removedPhoto));
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
@@ -367,7 +375,7 @@ describe('restorePhoto', () => {
 
     const result = await restorePhoto('photo-uuid-1');
 
-    expect(result).toEqual(restoredPhoto);
+    expect(result).toEqual(withUrl(restoredPhoto));
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
