@@ -42,6 +42,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // workerd-only module — stubbed so Durable Objects are unit-testable
+      'cloudflare:workers': path.resolve(
+        __dirname,
+        './tests/stubs/cloudflare-workers.ts',
+      ),
       '@': path.resolve(__dirname, './src'),
     },
   },

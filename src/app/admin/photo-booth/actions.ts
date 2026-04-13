@@ -62,6 +62,8 @@ export async function restorePhoto(input: unknown): Promise<void> {
       photo: {
         id: photo.id,
         publicUrl: photo.publicUrl,
+        width: photo.width,
+        height: photo.height,
         uploadedAt: photo.uploadedAt,
       },
     },

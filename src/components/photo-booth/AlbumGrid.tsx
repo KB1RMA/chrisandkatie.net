@@ -5,6 +5,7 @@ import { usePartySocket } from 'partysocket/react';
 import { MasonryPhotoAlbum } from 'react-photo-album';
 import 'react-photo-album/masonry.css';
 import { PolaroidCard } from '@/components/photo-booth/PolaroidCard';
+import { photoAlbumMessageSchema } from '@/lib/schemas/photo-booth';
 
 type AlbumPhoto = {
   id: string;
@@ -138,32 +139,47 @@ export function AlbumGrid({
   }, []);
 
   const partyKitRoom = eventId ?? 'wedding-album';
+  const partyKitHost = process.env.NEXT_PUBLIC_PARTYKIT_HOST;
 
   usePartySocket({
-    host: process.env.NEXT_PUBLIC_PARTYKIT_HOST,
+    host: partyKitHost ?? 'localhost:8787',
+    party: 'photo-album',
     room: partyKitRoom,
+    startClosed: !partyKitHost,
     onMessage(event) {
+      let parsed: ReturnType<typeof photoAlbumMessageSchema.safeParse>;
+
       try {
-        const message = JSON.parse(event.data as string);
-
-        if (message.type === 'photo-added') {
-          const incoming = {
-            ...(message.photo as Omit<AlbumPhoto, 'takenBy'>),
-            takenBy: null,
-          } satisfies AlbumPhoto;
-
-          setPhotos((prev) => {
-            const alreadyExists = prev.some((p) => p.id === incoming.id);
-
-            return alreadyExists ? prev : [incoming, ...prev];
-          });
-        } else if (message.type === 'photo-removed') {
-          const { photoId } = message as { photoId: string };
-
-          setPhotos((prev) => prev.filter((p) => p.id !== photoId));
-        }
+        parsed = photoAlbumMessageSchema.safeParse(
+          JSON.parse(event.data as string),
+        );
       } catch {
-        // Ignore malformed messages
+        // Ignore messages that are not valid JSON
+        return;
+      }
+
+      if (!parsed.success) {
+        // Ignore messages that do not match the shared contract
+        return;
+      }
+
+      const message = parsed.data;
+
+      if (message.type === 'photo-added') {
+        const incoming: AlbumPhoto = {
+          ...message.photo,
+          width: message.photo.width ?? null,
+          height: message.photo.height ?? null,
+          takenBy: null,
+        };
+
+        setPhotos((prev) => {
+          const alreadyExists = prev.some((p) => p.id === incoming.id);
+
+          return alreadyExists ? prev : [incoming, ...prev];
+        });
+      } else {
+        setPhotos((prev) => prev.filter((p) => p.id !== message.photoId));
       }
     },
     onClose() {
@@ -176,6 +192,12 @@ export function AlbumGrid({
       stopPolling();
     },
   });
+
+  useEffect(() => {
+    if (!partyKitHost) {
+      startPolling();
+    }
+  }, [partyKitHost, startPolling]);
 
   // Load the next page of photos when the sentinel scrolls into view
   const loadMore = useCallback(async () => {

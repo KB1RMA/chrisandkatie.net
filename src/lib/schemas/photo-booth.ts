@@ -15,3 +15,27 @@ export const deletePhotoSchema = z.object({
 export const restorePhotoSchema = z.object({
   photoId: z.string().uuid(),
 });
+
+/**
+ * Realtime messages broadcast to photo-album rooms. Shared by the server-side
+ * producers (`notifyPartyKit` callers) and the browser consumer (`AlbumGrid`)
+ * so both ends agree on the wire format.
+ */
+export const photoAlbumMessageSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('photo-added'),
+    photo: z.object({
+      id: z.string().min(1),
+      publicUrl: z.string().min(1),
+      width: z.number().int().positive().nullish(),
+      height: z.number().int().positive().nullish(),
+      uploadedAt: z.string().min(1),
+    }),
+  }),
+  z.object({
+    type: z.literal('photo-removed'),
+    photoId: z.string().min(1),
+  }),
+]);
+
+export type PhotoAlbumMessage = z.infer<typeof photoAlbumMessageSchema>;

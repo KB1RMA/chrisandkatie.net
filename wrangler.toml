@@ -13,6 +13,7 @@ binding = "ASSETS"
 # Base URL used by Auth.js when running via wrangler dev locally
 AUTH_URL = "http://localhost:8787"
 NEXTAUTH_URL = "http://localhost:8787"
+NEXT_PUBLIC_PARTYKIT_HOST = "localhost:8787"
 # R2 photo proxy route used by wrangler dev (photos are served through the worker locally)
 R2_PUBLIC_BASE_URL = "http://localhost:8787/api/photo-booth/files"
 
@@ -43,8 +44,23 @@ max_batch_size = 1
 max_batch_timeout = 30
 max_retries = 3
 
+# Durable Object room used for photo-album realtime broadcasts.
+# NOTE: durable_objects is a non-inheritable key — each named environment
+# below must declare its own binding. Migrations are shared across envs.
+[[durable_objects.bindings]]
+name = "PHOTO_ALBUM_ROOM"
+class_name = "PhotoAlbumRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PhotoAlbumRoom"]
+
 [env.production]
-vars = { ANALYTICS_ENABLED = "true", AUTH_URL = "https://chrisandkatie.net", NEXTAUTH_URL = "https://chrisandkatie.net", R2_PUBLIC_BASE_URL = "https://photo-booth.chrisandkatie.net" }
+vars = { ANALYTICS_ENABLED = "true", AUTH_URL = "https://chrisandkatie.net", NEXTAUTH_URL = "https://chrisandkatie.net", NEXT_PUBLIC_PARTYKIT_HOST = "chrisandkatie.net", R2_PUBLIC_BASE_URL = "https://photo-booth.chrisandkatie.net" }
+
+[[env.production.durable_objects.bindings]]
+name = "PHOTO_ALBUM_ROOM"
+class_name = "PhotoAlbumRoom"
 
 [[env.production.r2_buckets]]
 binding = "GUEST_PHOTOS_BUCKET"
@@ -73,7 +89,11 @@ max_retries = 3
 binding = "IMAGES"
 
 [env.staging]
-vars = { ANALYTICS_ENABLED = "false", AUTH_URL = "https://staging.chrisandkatie.net", NEXTAUTH_URL = "https://staging.chrisandkatie.net", R2_PUBLIC_BASE_URL = "https://photo-booth.chrisandkatie.net" }
+vars = { ANALYTICS_ENABLED = "false", AUTH_URL = "https://staging.chrisandkatie.net", NEXTAUTH_URL = "https://staging.chrisandkatie.net", NEXT_PUBLIC_PARTYKIT_HOST = "staging.chrisandkatie.net", R2_PUBLIC_BASE_URL = "https://photo-booth.chrisandkatie.net" }
+
+[[env.staging.durable_objects.bindings]]
+name = "PHOTO_ALBUM_ROOM"
+class_name = "PhotoAlbumRoom"
 
 [[env.staging.analytics_engine_datasets]]
 binding = "ANALYTICS"
