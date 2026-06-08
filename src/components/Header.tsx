@@ -56,6 +56,7 @@ export function Header() {
   const navLinks: { href: Route; label: string }[] = [
     { href: '/schedule', label: 'Schedule' },
     { href: '/rsvp', label: 'RSVP' },
+    { href: '/registry', label: 'Registry' },
     { href: '/gallery', label: 'Gallery' },
     { href: '/lodging', label: 'Hotels & FAQ' },
   ];
