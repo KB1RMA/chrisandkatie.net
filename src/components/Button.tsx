@@ -36,12 +36,16 @@ const secondaryVariantClassName = [
 
 export type ButtonProps = {
   children: ReactNode;
-  href?: Route;
+  href?: Route | string;
   onClick?: () => void;
   className?: string | string[];
   type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
   variant?: 'primary' | 'secondary';
+  /** Opens link in a new tab when set to "_blank". */
+  target?: '_blank' | '_self' | '_parent' | '_top';
+  /** Relationship attribute forwarded to the underlying anchor element. */
+  rel?: string;
 };
 
 /**
@@ -59,6 +63,8 @@ export function Button({
   type = 'button',
   disabled = false,
   variant = 'primary',
+  target,
+  rel,
 }: ButtonProps) {
   const variantClassName =
     variant === 'secondary'
@@ -79,8 +85,17 @@ export function Button({
   };
 
   if (href) {
+    const resolvedRel =
+      target === '_blank' ? (rel ?? 'noopener noreferrer') : rel;
+
     return (
-      <Link href={href} onClick={handleClick} className={combinedClassName}>
+      <Link
+        href={href as Route}
+        onClick={handleClick}
+        className={combinedClassName}
+        target={target}
+        rel={resolvedRel}
+      >
         {children}
       </Link>
     );

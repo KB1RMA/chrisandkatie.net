@@ -63,6 +63,8 @@ export default function Home() {
 
           <Button href="/schedule">Schedule</Button>
 
+          <Button href="/registry">Registry</Button>
+
           <Button href="/gallery" variant="secondary">
             Gallery
           </Button>
