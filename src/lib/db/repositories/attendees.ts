@@ -5,7 +5,7 @@
  * should use these functions instead of calling the Drizzle client directly.
  */
 
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { attendees } from '@/lib/db/schema';
 
@@ -20,26 +20,6 @@ export type InsertAttendeeValues = typeof attendees.$inferInsert;
 export async function findAttendeesByRsvpResponseId(rsvpResponseId: string) {
   return getDb().query.attendees.findMany({
     where: eq(attendees.rsvpResponseId, rsvpResponseId),
-    orderBy: asc(attendees.sortOrder),
-  });
-}
-
-/**
- * Fetch all attendees belonging to any of the given RSVP responses.
- *
- * Used to reconstruct per-person attendance from data as it is stored, where
- * attending people are recorded as attendee name rows under a party's response.
- *
- * @param rsvpResponseIds - The RSVP response ids to fetch attendees for.
- * @returns Attendee rows for the given responses, ordered by sortOrder.
- */
-export async function findAttendeesByResponseIds(rsvpResponseIds: string[]) {
-  if (rsvpResponseIds.length === 0) {
-    return [];
-  }
-
-  return getDb().query.attendees.findMany({
-    where: inArray(attendees.rsvpResponseId, rsvpResponseIds),
     orderBy: asc(attendees.sortOrder),
   });
 }

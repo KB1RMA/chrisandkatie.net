@@ -93,6 +93,13 @@ export default async function EventRsvpsPage({
       guestName,
       partyName: row.partyName,
       rsvpStatus: row.status,
+      // Per-person model: each row is one invited guest, so the count is 0 or 1.
+      // The legacy party-level `RsvpResponse.numberOfAttending` column (a single
+      // headcount per submitting party) is intentionally NOT read here — attendance
+      // is reconstructed per person from Attendee name rows instead. Attendee rows
+      // have been written alongside every response since the schema was introduced
+      // (migration 0002), so no historical rows hold a headcount without matching
+      // attendees that this 0/1 derivation would undercount.
       numberOfAttending: row.status === 'attending' ? 1 : 0,
       specialRequests: row.specialRequests,
       notes: row.notes,

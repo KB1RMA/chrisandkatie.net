@@ -146,11 +146,14 @@ export type EventRsvpReconstruction = {
 /**
  * Normalize a name for case-insensitive, whitespace-insensitive matching.
  *
+ * Lowercases, trims leading/trailing whitespace, and collapses internal
+ * whitespace runs so that `"John  Smith"` matches `"John Smith"`.
+ *
  * @param name - Raw name value.
- * @returns Lowercased, trimmed name.
+ * @returns Lowercased name with normalized whitespace.
  */
-function normalizeName(name: string): string {
-  return name.toLowerCase().trim();
+export function normalizeName(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 /**

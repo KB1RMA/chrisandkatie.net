@@ -10,6 +10,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { guestEvents, rsvpResponses } from '@/lib/db/schema';
 import {
+  normalizeName,
   reconstructEventRsvpStatuses,
   type EventReconstructionStatus,
   type EventResponseInput,
@@ -233,16 +234,6 @@ export type EventRsvpReconstructionResult = {
 };
 
 /**
- * Normalize a name for case- and whitespace-insensitive matching.
- *
- * @param name - Raw name value.
- * @returns Lowercased, trimmed name.
- */
-function normalizeName(name: string): string {
-  return name.toLowerCase().trim();
-}
-
-/**
  * Reconstruct per-person RSVP status for an event from stored data.
  *
  * Loads every invited guest, every response for the event (with the responder's
@@ -344,8 +335,12 @@ export async function getEventRsvpReconstruction(
       status,
       mealOption: attendeeDetail?.mealOption ?? null,
       dietaryRestrictions: attendeeDetail?.dietaryRestrictions ?? null,
+      // Special requests are recorded at the party level. Only surface them on
+      // attending guests so a declined member is not shown an unrelated note.
       specialRequests:
-        specialRequestsByInvitation.get(guest.invitationId) ?? null,
+        status === 'attending'
+          ? (specialRequestsByInvitation.get(guest.invitationId) ?? null)
+          : null,
     };
   });
 
