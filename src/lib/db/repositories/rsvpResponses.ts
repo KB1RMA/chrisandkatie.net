@@ -6,9 +6,9 @@
  * Drizzle client directly.
  */
 
-import { and, count, eq, inArray } from 'drizzle-orm';
+import { and, countDistinct, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { guestEvents, rsvpResponses } from '@/lib/db/schema';
+import { guestEvents, guests, rsvpResponses } from '@/lib/db/schema';
 
 export type InsertRsvpValues = typeof rsvpResponses.$inferInsert;
 
@@ -202,14 +202,15 @@ export async function updateRsvpTimestamp(
 }
 
 /**
- * Aggregate RSVP attendance counts for a single event.
+ * Aggregate RSVP attendance counts for a single event, counted at the
+ * invitation level rather than per guest.
  *
- * Counts total invited guests (from guestEvents), then attending and
- * not_attending responses (from rsvpResponses). noResponse is derived as
- * total minus the two known statuses.
+ * Counts distinct invitations with any guest invited to the event (total),
+ * then distinct invitations with an attending or not_attending rsvpResponse.
+ * noResponse is derived as total minus the two known statuses.
  *
  * @param eventId - The id of the event to summarise.
- * @returns Aggregated attendance counts.
+ * @returns Aggregated attendance counts per invitation.
  */
 export async function getRsvpSummaryForEvent(
   eventId: string,
@@ -218,12 +219,14 @@ export async function getRsvpSummaryForEvent(
 
   const [totalResult, attendingResult, notAttendingResult] = await Promise.all([
     db
-      .select({ count: count() })
+      .select({ count: countDistinct(guests.invitationId) })
       .from(guestEvents)
+      .innerJoin(guests, eq(guestEvents.guestId, guests.id))
       .where(eq(guestEvents.eventId, eventId)),
     db
-      .select({ count: count() })
+      .select({ count: countDistinct(guests.invitationId) })
       .from(rsvpResponses)
+      .innerJoin(guests, eq(rsvpResponses.guestId, guests.id))
       .where(
         and(
           eq(rsvpResponses.eventId, eventId),
@@ -231,8 +234,9 @@ export async function getRsvpSummaryForEvent(
         ),
       ),
     db
-      .select({ count: count() })
+      .select({ count: countDistinct(guests.invitationId) })
       .from(rsvpResponses)
+      .innerJoin(guests, eq(rsvpResponses.guestId, guests.id))
       .where(
         and(
           eq(rsvpResponses.eventId, eventId),
