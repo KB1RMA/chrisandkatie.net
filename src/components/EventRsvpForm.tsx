@@ -78,7 +78,7 @@ function buildDefaultAttendees(
  * @param guestId - ID of the authenticated guest.
  * @param invitationGuests - Pre-registered guests on the invitation.
  * @param existingRsvp - Guest's existing RSVP, or null if not yet submitted.
- * @param deadlinePassed - Whether the RSVP deadline has passed (locks form).
+ * @param deadlinePassed - Whether the RSVP deadline has passed (shows an advisory notice).
  * @param eventName - Display name of the event.
  * @param eventType - Type of event; controls whether meal/dietary/special fields render.
  */
@@ -111,7 +111,6 @@ export function EventRsvpForm({
       attendees: buildDefaultAttendees(invitationGuests, existingRsvp),
       specialRequests: existingRsvp?.specialRequests ?? '',
     },
-    disabled: deadlinePassed,
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -167,30 +166,28 @@ export function EventRsvpForm({
     [router, setError],
   );
 
-  if (deadlinePassed) {
-    return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
-        <p className="font-medium text-amber-800">RSVP Deadline Has Passed</p>
-        <p className="mt-1 text-sm text-amber-700">
-          The RSVP deadline was {RSVP_DEADLINE_DISPLAY}. Please contact us
-          directly if you need to make changes.
-        </p>
-        {existingRsvp && (
-          <p className="mt-2 text-sm text-amber-700">
-            Your current status:{' '}
-            <strong>
-              {existingRsvp.attendanceStatus === 'attending'
-                ? 'Attending'
-                : 'Not Attending'}
-            </strong>
-          </p>
-        )}
-      </div>
-    );
-  }
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {deadlinePassed && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="font-medium text-amber-800">RSVP Deadline Has Passed</p>
+          <p className="mt-1 text-sm text-amber-700">
+            The RSVP deadline was {RSVP_DEADLINE_DISPLAY}. You can still submit
+            or update your response below, but please do so as soon as possible.
+          </p>
+          {existingRsvp && (
+            <p className="mt-2 text-sm text-amber-700">
+              Your current status:{' '}
+              <strong>
+                {existingRsvp.attendanceStatus === 'attending'
+                  ? 'Attending'
+                  : 'Not Attending'}
+              </strong>
+            </p>
+          )}
+        </div>
+      )}
+
       {errors.root && (
         <div className="rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">
           {errors.root.message}

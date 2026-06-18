@@ -150,4 +150,48 @@ describe('EventRsvpForm', () => {
       expect(mockRouterRefresh).not.toHaveBeenCalled();
     });
   });
+
+  describe('past-deadline behaviour', () => {
+    test('should show an advisory notice but still allow submission when deadlinePassed', async () => {
+      const user = userEvent.setup();
+
+      mockSubmitEventRsvp.mockResolvedValue({
+        attendanceStatus: 'not_attending',
+      });
+
+      renderForm({ eventType: 'rehearsal', deadlinePassed: true });
+
+      expect(screen.getByText('RSVP Deadline Has Passed')).toBeInTheDocument();
+
+      await user.click(screen.getByText('No, I cannot make it'));
+
+      await user.click(screen.getByRole('button', { name: /Submit RSVP/i }));
+
+      await waitFor(() => {
+        expect(mockSubmitEventRsvp).toHaveBeenCalledOnce();
+        expect(mockRouterPush).toHaveBeenCalledWith('/rsvp?step=3');
+      });
+    });
+
+    test('should allow selecting attendees when deadlinePassed and attending', async () => {
+      const user = userEvent.setup();
+
+      mockSubmitEventRsvp.mockResolvedValue({
+        attendanceStatus: 'attending',
+      });
+
+      renderForm({ eventType: 'rehearsal', deadlinePassed: true });
+
+      await user.click(screen.getByText('Yes, I will attend'));
+      await user.click(screen.getByText('Alice E2E'));
+
+      await user.click(screen.getByRole('button', { name: /Submit RSVP/i }));
+
+      await waitFor(() => {
+        expect(mockSubmitEventRsvp).toHaveBeenCalledWith(
+          expect.objectContaining({ attendanceStatus: 'attending' }),
+        );
+      });
+    });
+  });
 });

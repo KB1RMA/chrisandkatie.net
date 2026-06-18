@@ -4,7 +4,8 @@
  * Server actions for event-specific RSVP operations.
  *
  * Handles submitting and retrieving RSVP responses for a given event,
- * enforcing authentication, invitation validation, and deadline checks.
+ * enforcing authentication and invitation validation. The RSVP deadline is
+ * advisory only and does not block submissions.
  */
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@/lib/auth';
@@ -43,14 +44,14 @@ type RetrieveEventRsvpResult = {
 /**
  * Submit or update an RSVP response for a specific event.
  *
- * Validates authentication, invitation membership, attendee names against
- * the registered guest list, and the RSVP deadline before persisting.
+ * Validates authentication, invitation membership, and attendee names against
+ * the registered guest list before persisting. The RSVP deadline is advisory
+ * only and is not enforced here.
  *
  * @param input - Validated RSVP submission data including attendees.
  * @returns The saved EventRsvpResponse with updated attendees.
  * @throws Error('Unauthorized') if the session is missing or guestId does not match.
  * @throws Error('Not invited to this event') if the guest is not in the event's junction table.
- * @throws Error('RSVP deadline has passed') if the submission window has closed.
  */
 export async function submitEventRsvp(
   input: SubmitEventRsvpInput,
@@ -66,10 +67,6 @@ export async function submitEventRsvp(
 
   if (submittedGuest?.invitationId !== session.user.invitationId) {
     throw new Error('Unauthorized');
-  }
-
-  if (isDeadlinePassed()) {
-    throw new Error('RSVP deadline has passed');
   }
 
   // Confirm guest is invited to this event
