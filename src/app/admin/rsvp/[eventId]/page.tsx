@@ -4,7 +4,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { events, guestEvents, rsvpResponses } from '@/lib/db/schema';
+import { events } from '@/lib/db/schema';
+import { getEventRsvpReconstruction } from '@/lib/db/repositories/rsvpResponses';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { EventRsvpTable } from '@/components/admin/EventRsvpTable';
 
@@ -58,31 +59,16 @@ export default async function AdminEventRsvpPage({
     notFound();
   }
 
-  // Fetch all guests invited to this event (with guest name data)
-  const invitedGuests = await db.query.guestEvents.findMany({
-    where: eq(guestEvents.eventId, eventId),
-    with: {
-      guest: true,
-    },
-  });
-
-  // Fetch all RSVP responses for this event
-  const eventRsvps = await db
-    .select()
-    .from(rsvpResponses)
-    .where(eq(rsvpResponses.eventId, eventId));
-
-  // Build a lookup map: guestId → attendanceStatus
-  const rsvpByGuestId = new Map(
-    eventRsvps.map((rsvp) => [rsvp.guestId, rsvp.attendanceStatus]),
-  );
+  // Reconstruct per-person RSVP status from stored data (attendees are recorded
+  // by name under each party's response, so non-submitting members must be
+  // matched back to their invited guest record).
+  const { rows: reconstructedRows } = await getEventRsvpReconstruction(eventId);
 
   // Derive status for each guest and sort attending → not_attending → no_response
-  const rows = invitedGuests
-    .map(({ guest }) => ({
-      guestName: `${guest.firstName} ${guest.lastName}`,
-      attendanceStatus: (rsvpByGuestId.get(guest.id) ??
-        'no_response') as AttendanceStatus,
+  const rows = reconstructedRows
+    .map((row) => ({
+      guestName: `${row.firstName} ${row.lastName}`,
+      attendanceStatus: row.status,
     }))
     .sort(
       (rowA, rowB) =>

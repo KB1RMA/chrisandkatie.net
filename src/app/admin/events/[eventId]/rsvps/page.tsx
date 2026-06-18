@@ -1,9 +1,8 @@
 import { Marcellus } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { eq } from 'drizzle-orm';
+import { getEventRsvpReconstruction } from '@/lib/db/repositories/rsvpResponses';
 import { getDb } from '@/lib/db';
-import { guestEvents, rsvpResponses } from '@/lib/db/schema';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import Link from 'next/link';
 import { EventRsvpTable, type EventRsvpRow } from './components/EventRsvpTable';
@@ -78,61 +77,28 @@ export default async function EventRsvpsPage({
     notFound();
   }
 
-  // Fetch all guest-event records and RSVP responses for this event in parallel
-  const [guestEventRows, rsvpRows] = await Promise.all([
-    db
-      .select({ guestId: guestEvents.guestId, eventId: guestEvents.eventId })
-      .from(guestEvents)
-      .where(eq(guestEvents.eventId, params.eventId)),
-    db
-      .select()
-      .from(rsvpResponses)
-      .where(eq(rsvpResponses.eventId, params.eventId)),
-  ]);
+  // Reconstruct per-person RSVP status from stored data (attendees are recorded
+  // by name under each party's response, so non-submitting members must be
+  // matched back to their invited guest record).
+  const { rows: reconstructedRows } = await getEventRsvpReconstruction(
+    params.eventId,
+  );
 
-  const guestIds = guestEventRows.map((ge) => ge.guestId);
+  // Build EventRsvpRow array; each row is a single invited person
+  const rows: EventRsvpRow[] = reconstructedRows.map((row) => {
+    const guestName = `${row.firstName} ${row.lastName}`;
 
-  // Fetch all invited guests with their invitation info
-  const guestDetails =
-    guestIds.length > 0
-      ? await db.query.guests.findMany({
-          where: (table, { inArray }) => inArray(table.id, guestIds),
-          with: { invitation: true },
-        })
-      : [];
-
-  // Build lookup maps for efficient row assembly
-  const rsvpByGuestId = new Map(rsvpRows.map((r) => [r.guestId, r]));
-  const guestById = new Map(guestDetails.map((g) => [g.id, g]));
-
-  // Build EventRsvpRow array via a left join on guestId
-  const rows: EventRsvpRow[] = guestEventRows
-    .map((ge) => {
-      const guest = guestById.get(ge.guestId);
-
-      if (!guest) {
-        return null;
-      }
-
-      const rsvp = rsvpByGuestId.get(ge.guestId);
-      const partyName =
-        guest.invitation?.mailingAddress?.trim() ||
-        `${guest.firstName} ${guest.lastName}`;
-
-      return {
-        id: rsvp?.id ?? ge.guestId,
-        guestName: `${guest.firstName} ${guest.lastName}`,
-        partyName,
-        rsvpStatus: (rsvp?.attendanceStatus ??
-          'no_response') as EventRsvpRow['rsvpStatus'],
-        numberOfAttending: rsvp?.numberOfAttending ?? 0,
-        specialRequests: rsvp?.specialRequests ?? null,
-        notes: guest.notes ?? null,
-        searchText:
-          `${guest.firstName} ${guest.lastName} ${partyName}`.toLowerCase(),
-      };
-    })
-    .filter((row): row is EventRsvpRow => row !== null);
+    return {
+      id: row.guestId,
+      guestName,
+      partyName: row.partyName,
+      rsvpStatus: row.status,
+      numberOfAttending: row.status === 'attending' ? 1 : 0,
+      specialRequests: row.specialRequests,
+      notes: row.notes,
+      searchText: `${guestName} ${row.partyName}`.toLowerCase(),
+    };
+  });
 
   return (
     <div className="font-roboto min-h-screen bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8">
