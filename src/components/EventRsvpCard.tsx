@@ -2,10 +2,8 @@
  * EventRsvpCard component for displaying a single additional event's RSVP status.
  *
  * Shows event details, current RSVP status badge, and a link to the RSVP form.
- * Renders as locked (no link) once the RSVP deadline has passed.
  */
 import Link from 'next/link';
-import { isDeadlinePassed } from '@/lib/rsvp';
 import type { WeddingEvent, RsvpResponse } from '@/lib/db/schema';
 
 type EventRsvpCardProps = {
@@ -86,8 +84,6 @@ function RsvpStatusBadge({
  * @param rsvp - The guest's existing RSVP response, or null if not yet submitted.
  */
 export function EventRsvpCard({ event, rsvp }: EventRsvpCardProps) {
-  const deadlinePassed = isDeadlinePassed();
-
   return (
     <div
       data-testid="event-rsvp-card"
@@ -110,18 +106,12 @@ export function EventRsvpCard({ event, rsvp }: EventRsvpCardProps) {
         </div>
 
         <div className="flex-shrink-0">
-          {deadlinePassed ? (
-            <span className="inline-block rounded-md border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-500">
-              RSVP Closed
-            </span>
-          ) : (
-            <Link
-              href={`/rsvp/${event.id}`}
-              className="inline-block rounded-md bg-[#9e3f3f] px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#b76565]"
-            >
-              {rsvp ? 'Update RSVP' : 'RSVP Now'}
-            </Link>
-          )}
+          <Link
+            href={`/rsvp/${event.id}`}
+            className="inline-block rounded-md bg-[#9e3f3f] px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#b76565]"
+          >
+            {rsvp ? 'Update RSVP' : 'RSVP Now'}
+          </Link>
         </div>
       </div>
     </div>
