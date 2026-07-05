@@ -6,15 +6,9 @@
  * Drizzle client directly.
  */
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import {
-  attendees,
-  guestEvents,
-  guests,
-  invitations,
-  rsvpResponses,
-} from '@/lib/db/schema';
+import { attendees, guestEvents, rsvpResponses } from '@/lib/db/schema';
 import {
   normalizeName,
   reconstructEventRsvpStatuses,
@@ -416,67 +410,52 @@ export async function findMealBreakdownForEvent(
 /**
  * The flattened shape returned by `findEventRsvpRowsForExport`.
  *
- * One row per attendee for responses with attendee records; guests without
- * a response (or without attendees) produce a single row with null attendee
- * fields.
+ * One row per invited guest, with status and meal details reconstructed the
+ * same way as the admin RSVP dashboard (see `getEventRsvpReconstruction`).
  */
 export type EventRsvpExportRow = {
   guestId: string;
   guestFirstName: string;
   guestLastName: string;
-  partyName: string | null;
-  attendanceStatus: 'attending' | 'not_attending' | null;
-  numberOfAttending: number | null;
+  partyName: string;
+  attendanceStatus: EventReconstructionStatus;
   specialRequests: string | null;
   guestNotes: string | null;
-  attendeeName: string | null;
-  attendeeMealOption: string | null;
-  attendeeDietaryRestrictions: string | null;
+  mealOption: string | null;
+  dietaryRestrictions: string | null;
 };
 
 /**
- * Return all invited guests for an event with their RSVP response and
- * per-attendee meal details, flattened for CSV export.
+ * Return all invited guests for an event with their reconstructed RSVP
+ * status and meal details, flattened for CSV export.
  *
- * Left-joins responses and attendees so every invited guest appears even
- * without a response. Ordered by guest name, then attendee sort order.
+ * Built on `getEventRsvpReconstruction` so the export always matches what
+ * the admin RSVP dashboard shows. Ordered by guest last name, then first
+ * name.
  *
  * @param eventId - The id of the event to export.
- * @returns One `EventRsvpExportRow` per attendee (or per guest when no
- *   attendee rows exist).
+ * @returns One `EventRsvpExportRow` per invited guest.
  */
 export async function findEventRsvpRowsForExport(
   eventId: string,
 ): Promise<EventRsvpExportRow[]> {
-  return getDb()
-    .select({
-      guestId: guestEvents.guestId,
-      guestFirstName: guests.firstName,
-      guestLastName: guests.lastName,
-      partyName: invitations.mailingAddress,
-      attendanceStatus: rsvpResponses.attendanceStatus,
-      numberOfAttending: rsvpResponses.numberOfAttending,
-      specialRequests: rsvpResponses.specialRequests,
-      guestNotes: guests.notes,
-      attendeeName: attendees.name,
-      attendeeMealOption: attendees.mealOption,
-      attendeeDietaryRestrictions: attendees.dietaryRestrictions,
-    })
-    .from(guestEvents)
-    .innerJoin(guests, eq(guests.id, guestEvents.guestId))
-    .leftJoin(invitations, eq(invitations.id, guests.invitationId))
-    .leftJoin(
-      rsvpResponses,
-      and(
-        eq(rsvpResponses.guestId, guestEvents.guestId),
-        eq(rsvpResponses.eventId, guestEvents.eventId),
-      ),
+  const { rows } = await getEventRsvpReconstruction(eventId);
+
+  return [...rows]
+    .sort(
+      (a, b) =>
+        a.lastName.localeCompare(b.lastName) ||
+        a.firstName.localeCompare(b.firstName),
     )
-    .leftJoin(attendees, eq(attendees.rsvpResponseId, rsvpResponses.id))
-    .where(eq(guestEvents.eventId, eventId))
-    .orderBy(
-      asc(guests.lastName),
-      asc(guests.firstName),
-      asc(attendees.sortOrder),
-    );
+    .map((row) => ({
+      guestId: row.guestId,
+      guestFirstName: row.firstName,
+      guestLastName: row.lastName,
+      partyName: row.partyName,
+      attendanceStatus: row.status,
+      specialRequests: row.specialRequests,
+      guestNotes: row.notes,
+      mealOption: row.mealOption,
+      dietaryRestrictions: row.dietaryRestrictions,
+    }));
 }

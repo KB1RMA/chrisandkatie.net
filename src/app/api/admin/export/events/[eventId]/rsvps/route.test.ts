@@ -42,25 +42,21 @@ const SAMPLE_ROWS: EventRsvpExportRow[] = [
     guestLastName: 'Smith',
     partyName: 'Smith Family',
     attendanceStatus: 'attending',
-    numberOfAttending: 2,
     specialRequests: 'High chair please',
     guestNotes: null,
-    attendeeName: 'Chris Smith',
-    attendeeMealOption: 'option_a',
-    attendeeDietaryRestrictions: 'Gluten free',
+    mealOption: 'option_a',
+    dietaryRestrictions: 'Gluten free',
   },
   {
     guestId: 'guest-2',
     guestFirstName: 'Jane',
     guestLastName: 'Doe',
-    partyName: null,
-    attendanceStatus: null,
-    numberOfAttending: null,
+    partyName: 'Jane Doe',
+    attendanceStatus: 'no_response',
     specialRequests: null,
     guestNotes: null,
-    attendeeName: null,
-    attendeeMealOption: null,
-    attendeeDietaryRestrictions: null,
+    mealOption: null,
+    dietaryRestrictions: null,
   },
 ];
 
@@ -181,8 +177,6 @@ describe('GET /api/admin/export/events/[eventId]/rsvps', () => {
     const response = await GET(...buildArgs());
     const text = await response.text();
 
-    expect(text).toContain(
-      '"Jane Doe","Jane Doe","No Response","","","","","",""',
-    );
+    expect(text).toContain('"Jane Doe","Jane Doe","No Response","","","",""');
   });
 });

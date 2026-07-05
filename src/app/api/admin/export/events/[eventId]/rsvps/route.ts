@@ -1,6 +1,9 @@
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { findEventById } from '@/lib/db/repositories/events';
-import { findEventRsvpRowsForExport } from '@/lib/db/repositories/rsvpResponses';
+import {
+  findEventRsvpRowsForExport,
+  type EventRsvpExportRow,
+} from '@/lib/db/repositories/rsvpResponses';
 import { csvDownloadResponse, serializeToCsv } from '@/lib/csv';
 import { EVENT_MEAL_OPTION_LABELS, MEAL_CHOICE_LABELS } from '@/lib/constants';
 
@@ -9,8 +12,6 @@ const EVENT_RSVP_HEADERS = [
   'Guest Name',
   'Party',
   'RSVP Status',
-  '# Attending',
-  'Attendee',
   'Meal Choice',
   'Dietary Restrictions / Allergies',
   'Special Requests',
@@ -20,10 +21,10 @@ const EVENT_RSVP_HEADERS = [
 /**
  * Convert an RSVP attendance status to a human-readable label.
  *
- * @param status - Raw attendance status, or null when no response exists.
+ * @param status - The guest's reconstructed attendance status.
  * @returns Human-readable RSVP status label.
  */
-function formatRsvpStatus(status: 'attending' | 'not_attending' | null) {
+function formatRsvpStatus(status: EventRsvpExportRow['attendanceStatus']) {
   if (status === 'attending') {
     return 'Attending';
   }
@@ -77,8 +78,8 @@ function slugify(name: string): string {
  * GET /api/admin/export/events/{eventId}/rsvps
  *
  * Generates a CSV download of all invited guests for an event with their
- * RSVP status and per-attendee meal details. Requires an active admin
- * session.
+ * reconstructed RSVP status and meal details (matching the admin RSVP
+ * dashboard). Requires an active admin session.
  *
  * @param request - The incoming HTTP request.
  * @param context - Route context containing the eventId param.
@@ -110,12 +111,10 @@ export async function GET(
 
     return [
       guestName,
-      row.partyName ?? guestName,
+      row.partyName,
       formatRsvpStatus(row.attendanceStatus),
-      row.numberOfAttending === null ? '' : String(row.numberOfAttending),
-      row.attendeeName ?? '',
-      formatMealOption(row.attendeeMealOption),
-      row.attendeeDietaryRestrictions ?? '',
+      formatMealOption(row.mealOption),
+      row.dietaryRestrictions ?? '',
       row.specialRequests ?? '',
       row.guestNotes ?? '',
     ];

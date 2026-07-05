@@ -13,7 +13,6 @@ import {
   findEventRsvpRowsForExport,
   findMealBreakdownForEvent,
 } from './rsvpResponses';
-import type { EventRsvpExportRow } from './rsvpResponses';
 
 const mockGetDb = vi.mocked(getDb);
 
@@ -51,23 +50,71 @@ function createSelectChainDb(rows: unknown[]) {
   return { db, selectFn, chain };
 }
 
-/** Creates a minimal EventRsvpExportRow fixture. */
-function makeExportRow(
-  overrides: Partial<EventRsvpExportRow> = {},
-): EventRsvpExportRow {
+/**
+ * Creates a mock Drizzle database whose `query.guestEvents.findMany` and
+ * `query.rsvpResponses.findMany` resolve with the given rows, matching the
+ * shape `getEventRsvpReconstruction` (and therefore `findEventRsvpRowsForExport`)
+ * queries against.
+ *
+ * @param invitedGuestRows - Rows resolved by `query.guestEvents.findMany`.
+ * @param responseRows - Rows resolved by `query.rsvpResponses.findMany`.
+ * @returns The mock DbClient.
+ */
+function createReconstructionDb(
+  invitedGuestRows: unknown[],
+  responseRows: unknown[],
+) {
+  const db = {
+    query: {
+      guestEvents: {
+        findMany: vi.fn().mockResolvedValue(invitedGuestRows),
+      },
+      rsvpResponses: {
+        findMany: vi.fn().mockResolvedValue(responseRows),
+      },
+    },
+  } as unknown as DbClient;
+
+  return { db };
+}
+
+/** Builds a minimal invited-guest row as returned by `query.guestEvents.findMany`. */
+function makeInvitedGuestRow(overrides: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  invitationId: string;
+  notes?: string | null;
+  mailingAddress?: string | null;
+}) {
   return {
-    guestId: 'guest-uuid-1',
-    guestFirstName: 'Jane',
-    guestLastName: 'Doe',
-    partyName: 'Doe Family',
-    attendanceStatus: 'attending',
-    numberOfAttending: 2,
-    specialRequests: null,
-    guestNotes: null,
-    attendeeName: 'Jane Doe',
-    attendeeMealOption: 'option_a',
-    attendeeDietaryRestrictions: null,
-    ...overrides,
+    guest: {
+      id: overrides.id,
+      firstName: overrides.firstName,
+      lastName: overrides.lastName,
+      invitationId: overrides.invitationId,
+      notes: overrides.notes ?? null,
+      invitation: { mailingAddress: overrides.mailingAddress ?? null },
+    },
+  };
+}
+
+/** Builds a minimal response row as returned by `query.rsvpResponses.findMany`. */
+function makeResponseRow(overrides: {
+  invitationId: string;
+  attendanceStatus: 'attending' | 'not_attending';
+  specialRequests?: string | null;
+  attendees?: Array<{
+    name: string;
+    mealOption?: string | null;
+    dietaryRestrictions?: string | null;
+  }>;
+}) {
+  return {
+    specialRequests: overrides.specialRequests ?? null,
+    attendanceStatus: overrides.attendanceStatus,
+    guest: { invitationId: overrides.invitationId },
+    attendees: overrides.attendees ?? [],
   };
 }
 
@@ -76,42 +123,114 @@ describe('findEventRsvpRowsForExport', () => {
     vi.resetAllMocks();
   });
 
-  test('should resolve with the flattened export rows', async () => {
-    const rows = [makeExportRow(), makeExportRow({ guestId: 'guest-uuid-2' })];
-    const { db } = createSelectChainDb(rows);
-
-    mockGetDb.mockReturnValue(db);
-
-    await expect(findEventRsvpRowsForExport('event-1')).resolves.toEqual(rows);
-  });
-
-  test('should join guests, invitations, responses, and attendees', async () => {
-    const { db, selectFn, chain } = createSelectChainDb([]);
-
-    mockGetDb.mockReturnValue(db);
-
-    await findEventRsvpRowsForExport('event-1');
-
-    expect(selectFn).toHaveBeenCalledOnce();
-    expect(chain.from).toHaveBeenCalledOnce();
-    expect(chain.innerJoin).toHaveBeenCalledOnce();
-    expect(chain.leftJoin).toHaveBeenCalledTimes(3);
-    expect(chain.where).toHaveBeenCalledOnce();
-    expect(chain.orderBy).toHaveBeenCalledOnce();
-  });
-
-  test('should select all EventRsvpExportRow columns', async () => {
-    const { db, selectFn } = createSelectChainDb([]);
-
-    mockGetDb.mockReturnValue(db);
-
-    await findEventRsvpRowsForExport('event-1');
-
-    const selection = selectFn.mock.calls[0][0];
-
-    expect(Object.keys(selection).sort()).toEqual(
-      Object.keys(makeExportRow()).sort(),
+  test('should reconstruct attending status and meal details from the matched attendee', async () => {
+    const { db } = createReconstructionDb(
+      [
+        makeInvitedGuestRow({
+          id: 'guest-1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          invitationId: 'inv-1',
+          mailingAddress: 'Doe Family',
+        }),
+      ],
+      [
+        makeResponseRow({
+          invitationId: 'inv-1',
+          attendanceStatus: 'attending',
+          specialRequests: 'High chair please',
+          attendees: [
+            {
+              name: 'Jane Doe',
+              mealOption: 'option_a',
+              dietaryRestrictions: 'Gluten free',
+            },
+          ],
+        }),
+      ],
     );
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findEventRsvpRowsForExport('event-1')).resolves.toEqual([
+      {
+        guestId: 'guest-1',
+        guestFirstName: 'Jane',
+        guestLastName: 'Doe',
+        partyName: 'Doe Family',
+        attendanceStatus: 'attending',
+        specialRequests: 'High chair please',
+        guestNotes: null,
+        mealOption: 'option_a',
+        dietaryRestrictions: 'Gluten free',
+      },
+    ]);
+  });
+
+  test('should produce a no_response row with null fields for a guest without a response', async () => {
+    const { db } = createReconstructionDb(
+      [
+        makeInvitedGuestRow({
+          id: 'guest-2',
+          firstName: 'John',
+          lastName: 'Smith',
+          invitationId: 'inv-2',
+        }),
+      ],
+      [],
+    );
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findEventRsvpRowsForExport('event-1')).resolves.toEqual([
+      {
+        guestId: 'guest-2',
+        guestFirstName: 'John',
+        guestLastName: 'Smith',
+        partyName: 'John Smith',
+        attendanceStatus: 'no_response',
+        specialRequests: null,
+        guestNotes: null,
+        mealOption: null,
+        dietaryRestrictions: null,
+      },
+    ]);
+  });
+
+  test('should sort rows by last name then first name', async () => {
+    const { db } = createReconstructionDb(
+      [
+        makeInvitedGuestRow({
+          id: 'guest-3',
+          firstName: 'Zed',
+          lastName: 'Adams',
+          invitationId: 'inv-3',
+        }),
+        makeInvitedGuestRow({
+          id: 'guest-4',
+          firstName: 'Amy',
+          lastName: 'Adams',
+          invitationId: 'inv-4',
+        }),
+        makeInvitedGuestRow({
+          id: 'guest-5',
+          firstName: 'Bob',
+          lastName: 'Baker',
+          invitationId: 'inv-5',
+        }),
+      ],
+      [],
+    );
+
+    mockGetDb.mockReturnValue(db);
+
+    const rows = await findEventRsvpRowsForExport('event-1');
+
+    expect(rows.map((r) => r.guestId)).toEqual([
+      'guest-4',
+      'guest-3',
+      'guest-5',
+    ]);
   });
 });
 
