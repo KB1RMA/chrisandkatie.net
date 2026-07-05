@@ -76,9 +76,9 @@ describe('Header — navigation', () => {
       'href',
       '/admin/guests',
     );
-    expect(screen.getByRole('link', { name: 'RSVPs' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Events' })).toHaveAttribute(
       'href',
-      '/admin/rsvp',
+      '/admin/events',
     );
   });
 

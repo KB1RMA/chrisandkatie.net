@@ -6,9 +6,15 @@
  * Drizzle client directly.
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { guestEvents, rsvpResponses } from '@/lib/db/schema';
+import {
+  attendees,
+  guestEvents,
+  guests,
+  invitations,
+  rsvpResponses,
+} from '@/lib/db/schema';
 import {
   normalizeName,
   reconstructEventRsvpStatuses,
@@ -363,4 +369,72 @@ export async function getRsvpSummaryForEvent(
   const { summary } = await getEventRsvpReconstruction(eventId);
 
   return summary;
+}
+
+/**
+ * The flattened shape returned by `findEventRsvpRowsForExport`.
+ *
+ * One row per attendee for responses with attendee records; guests without
+ * a response (or without attendees) produce a single row with null attendee
+ * fields.
+ */
+export type EventRsvpExportRow = {
+  guestId: string;
+  guestFirstName: string;
+  guestLastName: string;
+  partyName: string | null;
+  attendanceStatus: 'attending' | 'not_attending' | null;
+  numberOfAttending: number | null;
+  specialRequests: string | null;
+  guestNotes: string | null;
+  attendeeName: string | null;
+  attendeeMealOption: string | null;
+  attendeeDietaryRestrictions: string | null;
+};
+
+/**
+ * Return all invited guests for an event with their RSVP response and
+ * per-attendee meal details, flattened for CSV export.
+ *
+ * Left-joins responses and attendees so every invited guest appears even
+ * without a response. Ordered by guest name, then attendee sort order.
+ *
+ * @param eventId - The id of the event to export.
+ * @returns One `EventRsvpExportRow` per attendee (or per guest when no
+ *   attendee rows exist).
+ */
+export async function findEventRsvpRowsForExport(
+  eventId: string,
+): Promise<EventRsvpExportRow[]> {
+  return getDb()
+    .select({
+      guestId: guestEvents.guestId,
+      guestFirstName: guests.firstName,
+      guestLastName: guests.lastName,
+      partyName: invitations.mailingAddress,
+      attendanceStatus: rsvpResponses.attendanceStatus,
+      numberOfAttending: rsvpResponses.numberOfAttending,
+      specialRequests: rsvpResponses.specialRequests,
+      guestNotes: guests.notes,
+      attendeeName: attendees.name,
+      attendeeMealOption: attendees.mealOption,
+      attendeeDietaryRestrictions: attendees.dietaryRestrictions,
+    })
+    .from(guestEvents)
+    .innerJoin(guests, eq(guests.id, guestEvents.guestId))
+    .leftJoin(invitations, eq(invitations.id, guests.invitationId))
+    .leftJoin(
+      rsvpResponses,
+      and(
+        eq(rsvpResponses.guestId, guestEvents.guestId),
+        eq(rsvpResponses.eventId, guestEvents.eventId),
+      ),
+    )
+    .leftJoin(attendees, eq(attendees.rsvpResponseId, rsvpResponses.id))
+    .where(eq(guestEvents.eventId, eventId))
+    .orderBy(
+      asc(guests.lastName),
+      asc(guests.firstName),
+      asc(attendees.sortOrder),
+    );
 }

@@ -13,7 +13,16 @@ import {
 } from '@/components/admin/InvitationTable';
 
 const EXPORT_FORMATS = [
-  { id: 'minted', label: 'Minted Address Book' },
+  {
+    id: 'minted',
+    label: 'Minted Address Book',
+    href: '/api/admin/export/invitations?format=minted',
+  },
+  {
+    id: 'venue',
+    label: 'Venue Guest List (Meals & Allergies)',
+    href: '/api/admin/export/guests?format=venue',
+  },
 ] as const;
 
 export const dynamic = 'force-dynamic';

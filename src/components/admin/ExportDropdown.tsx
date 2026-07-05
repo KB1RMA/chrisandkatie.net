@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 type ExportOption = {
   id: string;
   label: string;
+  href: string;
 };
 
 type ExportDropdownProps = {
@@ -43,9 +44,9 @@ export function ExportDropdown({ options }: ExportDropdownProps) {
     };
   }, []);
 
-  function handleSelect(id: string) {
+  function handleSelect(href: string) {
     setIsOpen(false);
-    window.location.href = `/api/admin/export/invitations?format=${id}`;
+    window.location.href = href;
   }
 
   return (
@@ -69,7 +70,7 @@ export function ExportDropdown({ options }: ExportDropdownProps) {
             <li key={option.id} role="option" aria-selected={false}>
               <button
                 type="button"
-                onClick={() => handleSelect(option.id)}
+                onClick={() => handleSelect(option.href)}
                 className="block w-full px-4 py-2 text-left text-sm whitespace-nowrap text-[#6a5555] hover:bg-[#f3dedb] hover:text-[#9e3f3f]"
               >
                 {option.label}

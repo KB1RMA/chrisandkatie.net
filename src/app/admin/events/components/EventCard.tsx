@@ -7,6 +7,7 @@
  * Includes Edit and Delete buttons that open dialog modals.
  */
 import { useState } from 'react';
+import Link from 'next/link';
 import type { WeddingEvent } from '@/lib/db/schema';
 import RsvpSummary from './RsvpSummary';
 import EventEditModal from './EventEditModal';
@@ -123,6 +124,13 @@ export function EventCard({ event, rsvpSummary }: EventCardProps) {
             <div className="mt-4">
               <RsvpSummary summary={rsvpSummary} />
             </div>
+
+            <Link
+              href={`/admin/events/${event.id}/rsvps`}
+              className="mt-4 inline-block text-sm font-medium text-[#9e3f3f] hover:underline"
+            >
+              View RSVPs →
+            </Link>
           </div>
 
           <div className="flex flex-shrink-0 gap-2">

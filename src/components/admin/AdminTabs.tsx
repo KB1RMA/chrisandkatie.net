@@ -14,7 +14,6 @@ const adminTabs: AdminTab[] = [
   { href: '/admin/events', label: 'Events' },
   { href: '/admin/invitations', label: 'Invitations' },
   { href: '/admin/guests', label: 'Guests' },
-  { href: '/admin/rsvp', label: 'RSVPs' },
 ];
 
 const baseTabClassName =
@@ -32,7 +31,8 @@ export function AdminTabs() {
   return (
     <nav className="flex flex-wrap justify-center gap-2 border-b border-gray-200 pb-4">
       {adminTabs.map((tab) => {
-        const isActive = pathname === tab.href;
+        const isActive =
+          pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 
         return (
           <Link

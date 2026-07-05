@@ -66,7 +66,6 @@ export function Header() {
     { href: '/admin/invitations', label: 'Invitations' },
     { href: '/admin/events', label: 'Events' },
     { href: '/admin/guests', label: 'Guests' },
-    { href: '/admin/rsvp', label: 'RSVPs' },
   ];
 
   return (

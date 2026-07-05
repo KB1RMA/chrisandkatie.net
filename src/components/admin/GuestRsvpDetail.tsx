@@ -6,7 +6,7 @@ import {
   updateRsvpAttendance,
   cascadeRsvpNotAttending,
   updateAttendeeDetails,
-} from '@/app/admin/rsvp/actions';
+} from '@/app/admin/guests/actions';
 
 type AttendeeInput = {
   name: string;

@@ -5,9 +5,9 @@
  * should use these functions instead of calling the Drizzle client directly.
  */
 
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { guests } from '@/lib/db/schema';
+import { guests, invitations } from '@/lib/db/schema';
 
 export type UpdateGuestValues = Partial<typeof guests.$inferInsert>;
 
@@ -53,6 +53,52 @@ export async function findGuestWithInvitationAndPeers(id: string) {
       },
     },
   });
+}
+
+/**
+ * The flattened shape returned by `findGuestsForVenueExport`.
+ *
+ * Meal and dietary fields come from the guest's main wedding RSVP; the party
+ * name is the invitation's mailing address (envelope name), when present.
+ */
+export type VenueExportRow = {
+  guestId: string;
+  firstName: string;
+  lastName: string;
+  type: 'adult' | 'child';
+  attending: boolean | null;
+  mealChoice: string | null;
+  dietaryRestrictions: string | null;
+  notes: string | null;
+  partyName: string | null;
+};
+
+/**
+ * Return all guests with their wedding meal choice, dietary restrictions,
+ * and party (invitation) name, suitable for the venue guest-list export.
+ *
+ * @returns One `VenueExportRow` per guest, grouped by party then guest name.
+ */
+export async function findGuestsForVenueExport(): Promise<VenueExportRow[]> {
+  return getDb()
+    .select({
+      guestId: guests.id,
+      firstName: guests.firstName,
+      lastName: guests.lastName,
+      type: guests.type,
+      attending: guests.attending,
+      mealChoice: guests.mealChoice,
+      dietaryRestrictions: guests.dietaryRestrictions,
+      notes: guests.notes,
+      partyName: invitations.mailingAddress,
+    })
+    .from(guests)
+    .leftJoin(invitations, eq(guests.invitationId, invitations.id))
+    .orderBy(
+      asc(invitations.mailingAddress),
+      asc(guests.lastName),
+      asc(guests.firstName),
+    );
 }
 
 /**
