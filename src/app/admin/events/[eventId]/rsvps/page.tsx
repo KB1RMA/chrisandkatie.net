@@ -1,8 +1,12 @@
 import { Marcellus } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getEventRsvpReconstruction } from '@/lib/db/repositories/rsvpResponses';
-import { getDb } from '@/lib/db';
+import { findEventById } from '@/lib/db/repositories/events';
+import {
+  findMealBreakdownForEvent,
+  getEventRsvpReconstruction,
+} from '@/lib/db/repositories/rsvpResponses';
+import { EVENT_MEAL_OPTION_LABELS } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import Link from 'next/link';
 import { EventRsvpTable, type EventRsvpRow } from './components/EventRsvpTable';
@@ -65,13 +69,11 @@ function formatTime(timeStr: string): string {
 export default async function EventRsvpsPage({
   params,
 }: {
-  params: { eventId: string };
+  params: Promise<{ eventId: string }>;
 }) {
-  const db = getDb();
+  const { eventId } = await params;
 
-  const event = await db.query.events.findFirst({
-    where: (table, { eq: whereEq }) => whereEq(table.id, params.eventId),
-  });
+  const event = await findEventById(eventId);
 
   if (!event) {
     notFound();
@@ -79,10 +81,12 @@ export default async function EventRsvpsPage({
 
   // Reconstruct per-person RSVP status from stored data (attendees are recorded
   // by name under each party's response, so non-submitting members must be
-  // matched back to their invited guest record).
-  const { rows: reconstructedRows } = await getEventRsvpReconstruction(
-    params.eventId,
-  );
+  // matched back to their invited guest record), and fetch the meal preference
+  // breakdown for attending guests of this event in parallel.
+  const [{ rows: reconstructedRows }, mealBreakdown] = await Promise.all([
+    getEventRsvpReconstruction(eventId),
+    findMealBreakdownForEvent(eventId),
+  ]);
 
   // Build EventRsvpRow array; each row is a single invited person
   const rows: EventRsvpRow[] = reconstructedRows.map((row) => {
@@ -137,6 +141,13 @@ export default async function EventRsvpsPage({
             <h2 className="text-xl font-semibold text-[#6a5555]">
               All RSVPs ({rows.length})
             </h2>
+
+            <a
+              href={`/api/admin/export/events/${eventId}/rsvps`}
+              className="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-medium text-[#6a5555] shadow ring-1 ring-gray-200 ring-inset hover:bg-[#f3dedb] hover:text-[#9e3f3f]"
+            >
+              Export CSV
+            </a>
           </div>
 
           {rows.length === 0 ? (
@@ -147,6 +158,30 @@ export default async function EventRsvpsPage({
             <EventRsvpTable data={rows} />
           )}
         </div>
+
+        {mealBreakdown.length > 0 && (
+          <section className="mt-8">
+            <h2 className="mb-4 text-xl font-semibold text-[#6a5555]">
+              Meal Preferences
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {mealBreakdown.map((item) => (
+                <div
+                  key={item.mealOption}
+                  className="rounded-lg border-l-4 border-[#b76565] bg-[#fffdfb] p-4 shadow"
+                >
+                  <p className="text-sm font-medium text-[#7a6666]">
+                    {EVENT_MEAL_OPTION_LABELS[item.mealOption] ??
+                      item.mealOption}
+                  </p>
+                  <p className="text-2xl font-bold text-[#9e3f3f]">
+                    {item.count}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

@@ -79,7 +79,8 @@ export async function updateRsvpAttendance(input: {
     });
   }
 
-  revalidatePath('/admin/rsvp');
+  revalidatePath('/admin/guests');
+  revalidatePath('/admin/events');
 
   return { success: true };
 }
@@ -127,7 +128,8 @@ export async function cascadeRsvpNotAttending(input: {
     }
   }
 
-  revalidatePath('/admin/rsvp');
+  revalidatePath('/admin/guests');
+  revalidatePath('/admin/events');
 
   return { success: true };
 }
@@ -178,7 +180,8 @@ export async function updateAttendeeDetails(input: {
 
   await RsvpRepository.updateRsvpTimestamp(input.rsvpResponseId, now);
 
-  revalidatePath('/admin/rsvp');
+  revalidatePath('/admin/guests');
+  revalidatePath('/admin/events');
 
   return { success: true };
 }

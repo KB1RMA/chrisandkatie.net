@@ -39,3 +39,24 @@ export function serializeToCsv(headers: string[], rows: string[][]): string {
 
   return allLines.map((line) => `${line}\r\n`).join('');
 }
+
+/**
+ * Build a Response that delivers CSV content as a file download.
+ *
+ * @param csvBody - The RFC 4180 CSV string to send.
+ * @param filename - The suggested filename for the browser download dialog.
+ * @returns A Response with appropriate CSV download headers.
+ */
+export function csvDownloadResponse(
+  csvBody: string,
+  filename: string,
+): Response {
+  return new Response(csvBody, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'no-store',
+    },
+  });
+}

@@ -36,7 +36,7 @@ export default async function RsvpLayout({ children }: RsvpLayoutProps) {
             visit the admin dashboard.
           </p>
           <Link
-            href="/admin/rsvp"
+            href="/admin/events"
             className="inline-block rounded bg-[#9e3f3f] px-5 py-2 text-sm font-medium text-white hover:bg-[#7d3232]"
           >
             Go to Admin Dashboard

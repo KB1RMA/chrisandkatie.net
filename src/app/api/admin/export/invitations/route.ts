@@ -1,6 +1,6 @@
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { findInvitationsForExport } from '@/lib/db/repositories/invitations';
-import { serializeToCsv } from '@/lib/csv';
+import { csvDownloadResponse, serializeToCsv } from '@/lib/csv';
 
 /** Ordered Minted address-book column headers (RFC 4180). */
 const MINTED_HEADERS = [
@@ -29,24 +29,6 @@ function resolveEnvelopeName(
   }
 
   return [firstName, lastName].filter(Boolean).join(' ');
-}
-
-/**
- * Build a Response that delivers CSV content as a file download.
- *
- * @param csvBody - The RFC 4180 CSV string to send.
- * @param filename - The suggested filename for the browser download dialog.
- * @returns A Response with appropriate CSV download headers.
- */
-function csvDownloadResponse(csvBody: string, filename: string): Response {
-  return new Response(csvBody, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Cache-Control': 'no-store',
-    },
-  });
 }
 
 /**

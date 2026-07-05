@@ -6,9 +6,9 @@
  * Drizzle client directly.
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { guestEvents, rsvpResponses } from '@/lib/db/schema';
+import { attendees, guestEvents, rsvpResponses } from '@/lib/db/schema';
 import {
   normalizeName,
   reconstructEventRsvpStatuses,
@@ -363,4 +363,99 @@ export async function getRsvpSummaryForEvent(
   const { summary } = await getEventRsvpReconstruction(eventId);
 
   return summary;
+}
+
+/** A single meal option count among attending guests of an event. */
+export type MealBreakdownItem = {
+  mealOption: 'option_a' | 'option_b';
+  count: number;
+};
+
+/**
+ * Aggregate meal option counts for attending guests of an event.
+ *
+ * Counts attendee rows grouped by meal option, restricted to responses for
+ * the given event with status 'attending'. Attendees who have not selected
+ * a meal option are excluded.
+ *
+ * @param eventId - The id of the event to summarise.
+ * @returns One `MealBreakdownItem` per selected meal option.
+ */
+export async function findMealBreakdownForEvent(
+  eventId: string,
+): Promise<MealBreakdownItem[]> {
+  const rows = await getDb()
+    .select({
+      mealOption: attendees.mealOption,
+      count: sql<number>`count(*)`,
+    })
+    .from(attendees)
+    .innerJoin(rsvpResponses, eq(attendees.rsvpResponseId, rsvpResponses.id))
+    .where(
+      and(
+        eq(rsvpResponses.eventId, eventId),
+        eq(rsvpResponses.attendanceStatus, 'attending'),
+      ),
+    )
+    .groupBy(attendees.mealOption);
+
+  return rows
+    .filter((row) => row.mealOption !== null)
+    .map((row) => ({
+      mealOption: row.mealOption as MealBreakdownItem['mealOption'],
+      count: Number(row.count),
+    }));
+}
+
+/**
+ * The flattened shape returned by `findEventRsvpRowsForExport`.
+ *
+ * One row per invited guest, with status and meal details reconstructed the
+ * same way as the admin RSVP dashboard (see `getEventRsvpReconstruction`).
+ */
+export type EventRsvpExportRow = {
+  guestId: string;
+  guestFirstName: string;
+  guestLastName: string;
+  partyName: string;
+  attendanceStatus: EventReconstructionStatus;
+  specialRequests: string | null;
+  guestNotes: string | null;
+  mealOption: string | null;
+  dietaryRestrictions: string | null;
+};
+
+/**
+ * Return all invited guests for an event with their reconstructed RSVP
+ * status and meal details, flattened for CSV export.
+ *
+ * Built on `getEventRsvpReconstruction` so the export always matches what
+ * the admin RSVP dashboard shows. Ordered by guest last name, then first
+ * name.
+ *
+ * @param eventId - The id of the event to export.
+ * @returns One `EventRsvpExportRow` per invited guest.
+ */
+export async function findEventRsvpRowsForExport(
+  eventId: string,
+): Promise<EventRsvpExportRow[]> {
+  const { rows } = await getEventRsvpReconstruction(eventId);
+
+  return [...rows]
+    .sort(
+      (a, b) =>
+        a.lastName.localeCompare(b.lastName) ||
+        a.firstName.localeCompare(b.firstName),
+    )
+    .map((row) => ({
+      guestId: row.guestId,
+      guestFirstName: row.firstName,
+      guestLastName: row.lastName,
+      partyName: row.partyName,
+      attendanceStatus: row.status,
+      specialRequests: row.specialRequests,
+      guestNotes: row.notes,
+      mealOption: row.mealOption,
+      dietaryRestrictions: row.dietaryRestrictions,
+    }));
 }

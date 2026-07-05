@@ -26,12 +26,8 @@ const adminRoutes: { href: Route; label: string; description: string }[] = [
   {
     href: '/admin/events',
     label: 'Events',
-    description: 'Manage wedding events and their visibility.',
-  },
-  {
-    href: '/admin/rsvp',
-    label: 'RSVP Dashboard',
-    description: 'Overall RSVP summary and attendance dashboard.',
+    description:
+      'Manage wedding events, their visibility, and per-event RSVPs.',
   },
   {
     href: '/admin/print-inserts',

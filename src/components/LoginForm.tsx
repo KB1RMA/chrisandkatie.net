@@ -34,7 +34,7 @@ export function LoginForm({ marcellusClassName }: LoginFormProps) {
   const searchParams = useSearchParams();
   const [authError, setAuthError] = useState('');
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/admin/rsvp';
+  const callbackUrl = searchParams.get('callbackUrl') || '/admin/events';
 
   const {
     register,
