@@ -9,8 +9,8 @@ vi.mock('@/lib/db', () => ({
 import { expect, test, describe, beforeEach, vi } from 'vitest';
 import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
-import { createGuest, deleteGuest } from './guests';
-import type { NewGuestData } from './guests';
+import { createGuest, deleteGuest, findGuestsForVenueExport } from './guests';
+import type { NewGuestData, VenueExportRow } from './guests';
 
 const mockGetDb = vi.mocked(getDb);
 
@@ -105,6 +105,86 @@ describe('createGuest', () => {
     await createGuest(makeNewGuestData());
 
     expect(mockGetDb).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * Creates a mock Drizzle database whose select → from → leftJoin → orderBy
+ * chain resolves to the given venue export rows.
+ *
+ * @param rows - The rows the query chain should resolve with.
+ * @returns The mock DbClient plus the chain spies for assertions.
+ */
+function createVenueExportDb(rows: VenueExportRow[]) {
+  const orderByFn = vi.fn().mockResolvedValue(rows);
+  const leftJoinFn = vi.fn().mockReturnValue({ orderBy: orderByFn });
+  const fromFn = vi.fn().mockReturnValue({ leftJoin: leftJoinFn });
+  const selectFn = vi.fn().mockReturnValue({ from: fromFn });
+
+  const db = { select: selectFn } as unknown as DbClient;
+
+  return { db, selectFn, fromFn, leftJoinFn, orderByFn };
+}
+
+/** Creates a minimal VenueExportRow fixture. */
+function makeVenueExportRow(
+  overrides: Partial<VenueExportRow> = {},
+): VenueExportRow {
+  return {
+    guestId: 'guest-uuid-1',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    type: 'adult',
+    attending: true,
+    mealChoice: 'short-rib',
+    dietaryRestrictions: null,
+    notes: null,
+    partyName: 'Doe Family',
+    ...overrides,
+  };
+}
+
+describe('findGuestsForVenueExport', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('should resolve with the flattened venue export rows', async () => {
+    const rows = [
+      makeVenueExportRow(),
+      makeVenueExportRow({ guestId: 'guest-uuid-2', attending: null }),
+    ];
+    const { db } = createVenueExportDb(rows);
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findGuestsForVenueExport()).resolves.toEqual(rows);
+  });
+
+  test('should select all VenueExportRow columns', async () => {
+    const { db, selectFn } = createVenueExportDb([]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await findGuestsForVenueExport();
+
+    const selection = selectFn.mock.calls[0][0];
+
+    expect(Object.keys(selection).sort()).toEqual(
+      Object.keys(makeVenueExportRow()).sort(),
+    );
+  });
+
+  test('should left-join invitations and order by party then guest name', async () => {
+    const { db, leftJoinFn, orderByFn } = createVenueExportDb([]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await findGuestsForVenueExport();
+
+    expect(leftJoinFn).toHaveBeenCalledOnce();
+    expect(orderByFn).toHaveBeenCalledOnce();
+    expect(orderByFn.mock.calls[0]).toHaveLength(3);
   });
 });
 

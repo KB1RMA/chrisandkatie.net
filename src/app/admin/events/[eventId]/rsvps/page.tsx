@@ -1,10 +1,11 @@
 import { Marcellus } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { and, eq, sql } from 'drizzle-orm';
-import { getEventRsvpReconstruction } from '@/lib/db/repositories/rsvpResponses';
-import { getDb } from '@/lib/db';
-import { attendees, rsvpResponses } from '@/lib/db/schema';
+import { findEventById } from '@/lib/db/repositories/events';
+import {
+  findMealBreakdownForEvent,
+  getEventRsvpReconstruction,
+} from '@/lib/db/repositories/rsvpResponses';
 import { EVENT_MEAL_OPTION_LABELS } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import Link from 'next/link';
@@ -72,11 +73,7 @@ export default async function EventRsvpsPage({
 }) {
   const { eventId } = await params;
 
-  const db = getDb();
-
-  const event = await db.query.events.findFirst({
-    where: (table, { eq: whereEq }) => whereEq(table.id, eventId),
-  });
+  const event = await findEventById(eventId);
 
   if (!event) {
     notFound();
@@ -86,30 +83,10 @@ export default async function EventRsvpsPage({
   // by name under each party's response, so non-submitting members must be
   // matched back to their invited guest record), and fetch the meal preference
   // breakdown for attending guests of this event in parallel.
-  const [{ rows: reconstructedRows }, mealCounts] = await Promise.all([
+  const [{ rows: reconstructedRows }, mealBreakdown] = await Promise.all([
     getEventRsvpReconstruction(eventId),
-    db
-      .select({
-        mealOption: attendees.mealOption,
-        count: sql<number>`count(*)`,
-      })
-      .from(attendees)
-      .innerJoin(rsvpResponses, eq(attendees.rsvpResponseId, rsvpResponses.id))
-      .where(
-        and(
-          eq(rsvpResponses.eventId, eventId),
-          eq(rsvpResponses.attendanceStatus, 'attending'),
-        ),
-      )
-      .groupBy(attendees.mealOption),
+    findMealBreakdownForEvent(eventId),
   ]);
-
-  const mealBreakdown = mealCounts
-    .filter((item) => item.mealOption !== null)
-    .map((item) => ({
-      mealOption: item.mealOption as 'option_a' | 'option_b',
-      count: Number(item.count),
-    }));
 
   // Build EventRsvpRow array; each row is a single invited person
   const rows: EventRsvpRow[] = reconstructedRows.map((row) => {
