@@ -6,9 +6,16 @@
  * Drizzle client directly.
  */
 
-import { and, count, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { guestEvents, rsvpResponses } from '@/lib/db/schema';
+import {
+  normalizeName,
+  reconstructEventRsvpStatuses,
+  type EventReconstructionStatus,
+  type EventResponseInput,
+  type InvitedGuestInput,
+} from '@/lib/rsvp';
 
 export type InsertRsvpValues = typeof rsvpResponses.$inferInsert;
 
@@ -202,49 +209,158 @@ export async function updateRsvpTimestamp(
 }
 
 /**
+ * A single invited guest's reconstructed RSVP for an event.
+ *
+ * Status is derived from data as it is stored: attending people are recorded as
+ * attendee name rows under their party's response, so non-submitting party
+ * members are resolved by matching their name against the party's attendees.
+ */
+export type EventRsvpGuestRow = {
+  guestId: string;
+  firstName: string;
+  lastName: string;
+  invitationId: string;
+  partyName: string;
+  notes: string | null;
+  status: EventReconstructionStatus;
+  mealOption: string | null;
+  dietaryRestrictions: string | null;
+  specialRequests: string | null;
+};
+
+export type EventRsvpReconstructionResult = {
+  rows: EventRsvpGuestRow[];
+  summary: RsvpSummary;
+};
+
+/**
+ * Reconstruct per-person RSVP status for an event from stored data.
+ *
+ * Loads every invited guest, every response for the event (with the responder's
+ * invitation and attendee names), then resolves each guest's true status by
+ * matching their name against their party's attending attendees. This corrects
+ * for the storage model where only the submitting guest of a party has a
+ * response row while the rest are recorded as attendee names.
+ *
+ * @param eventId - The event to reconstruct RSVPs for.
+ * @returns Per-guest rows enriched with party/meal data and the aggregated summary.
+ */
+export async function getEventRsvpReconstruction(
+  eventId: string,
+): Promise<EventRsvpReconstructionResult> {
+  const db = getDb();
+
+  const [invitedGuestRows, responseRows] = await Promise.all([
+    db.query.guestEvents.findMany({
+      where: eq(guestEvents.eventId, eventId),
+      with: { guest: { with: { invitation: true } } },
+    }),
+    db.query.rsvpResponses.findMany({
+      where: eq(rsvpResponses.eventId, eventId),
+      with: { guest: true, attendees: true },
+    }),
+  ]);
+
+  const invitedGuests: InvitedGuestInput[] = invitedGuestRows.map((row) => ({
+    guestId: row.guest.id,
+    firstName: row.guest.firstName,
+    lastName: row.guest.lastName,
+    invitationId: row.guest.invitationId,
+  }));
+
+  const responses: EventResponseInput[] = responseRows.map((response) => ({
+    invitationId: response.guest.invitationId,
+    attendanceStatus: response.attendanceStatus,
+    attendeeNames: response.attendees.map((attendee) => attendee.name),
+  }));
+
+  const { statuses, summary } = reconstructEventRsvpStatuses(
+    invitedGuests,
+    responses,
+  );
+
+  // Party-level special requests, keyed by invitation
+  const specialRequestsByInvitation = new Map<string, string>();
+
+  responseRows.forEach((response) => {
+    if (
+      response.specialRequests &&
+      !specialRequestsByInvitation.has(response.guest.invitationId)
+    ) {
+      specialRequestsByInvitation.set(
+        response.guest.invitationId,
+        response.specialRequests,
+      );
+    }
+  });
+
+  // Matched attendee details (meal/dietary) keyed by "invitationId|normalizedName"
+  const attendeeDetailByKey = new Map<
+    string,
+    { mealOption: string | null; dietaryRestrictions: string | null }
+  >();
+
+  responseRows.forEach((response) => {
+    response.attendees.forEach((attendee) => {
+      const key = `${response.guest.invitationId}|${normalizeName(attendee.name)}`;
+
+      if (!attendeeDetailByKey.has(key)) {
+        attendeeDetailByKey.set(key, {
+          mealOption: attendee.mealOption ?? null,
+          dietaryRestrictions: attendee.dietaryRestrictions ?? null,
+        });
+      }
+    });
+  });
+
+  const statusByGuestId = new Map(statuses.map((s) => [s.guestId, s.status]));
+
+  const rows: EventRsvpGuestRow[] = invitedGuestRows.map((row) => {
+    const guest = row.guest;
+    const status = statusByGuestId.get(guest.id) ?? 'no_response';
+    const partyName =
+      guest.invitation?.mailingAddress?.trim() ||
+      `${guest.firstName} ${guest.lastName}`;
+    const attendeeDetail = attendeeDetailByKey.get(
+      `${guest.invitationId}|${normalizeName(`${guest.firstName} ${guest.lastName}`)}`,
+    );
+
+    return {
+      guestId: guest.id,
+      firstName: guest.firstName,
+      lastName: guest.lastName,
+      invitationId: guest.invitationId,
+      partyName,
+      notes: guest.notes ?? null,
+      status,
+      mealOption: attendeeDetail?.mealOption ?? null,
+      dietaryRestrictions: attendeeDetail?.dietaryRestrictions ?? null,
+      // Special requests are recorded at the party level. Only surface them on
+      // attending guests so a declined member is not shown an unrelated note.
+      specialRequests:
+        status === 'attending'
+          ? (specialRequestsByInvitation.get(guest.invitationId) ?? null)
+          : null,
+    };
+  });
+
+  return { rows, summary };
+}
+
+/**
  * Aggregate RSVP attendance counts for a single event.
  *
- * Counts total invited guests (from guestEvents), then attending and
- * not_attending responses (from rsvpResponses). noResponse is derived as
- * total minus the two known statuses.
+ * Counts are per person, reconstructed from stored data: attending people are
+ * recorded as attendee name rows under their party's response, so members who
+ * did not personally submit a response are still attributed correctly.
  *
  * @param eventId - The id of the event to summarise.
- * @returns Aggregated attendance counts.
+ * @returns Aggregated per-person attendance counts.
  */
 export async function getRsvpSummaryForEvent(
   eventId: string,
 ): Promise<RsvpSummary> {
-  const db = getDb();
+  const { summary } = await getEventRsvpReconstruction(eventId);
 
-  const [totalResult, attendingResult, notAttendingResult] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(guestEvents)
-      .where(eq(guestEvents.eventId, eventId)),
-    db
-      .select({ count: count() })
-      .from(rsvpResponses)
-      .where(
-        and(
-          eq(rsvpResponses.eventId, eventId),
-          eq(rsvpResponses.attendanceStatus, 'attending'),
-        ),
-      ),
-    db
-      .select({ count: count() })
-      .from(rsvpResponses)
-      .where(
-        and(
-          eq(rsvpResponses.eventId, eventId),
-          eq(rsvpResponses.attendanceStatus, 'not_attending'),
-        ),
-      ),
-  ]);
-
-  const total = totalResult[0]?.count ?? 0;
-  const attending = attendingResult[0]?.count ?? 0;
-  const notAttending = notAttendingResult[0]?.count ?? 0;
-  const noResponse = total - attending - notAttending;
-
-  return { attending, notAttending, noResponse, total };
+  return summary;
 }

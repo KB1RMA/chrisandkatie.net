@@ -2,7 +2,8 @@ import { Marcellus } from 'next/font/google';
 import type { Metadata } from 'next';
 import { sql, eq, asc } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { events, guestEvents, rsvpResponses, attendees } from '@/lib/db/schema';
+import { events, rsvpResponses, attendees } from '@/lib/db/schema';
+import { getEventRsvpReconstruction } from '@/lib/db/repositories/rsvpResponses';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import {
   RsvpDashboard,
@@ -47,24 +48,11 @@ export default async function AdminRsvpPage() {
     .from(events)
     .orderBy(asc(events.sortOrder));
 
-  // Fetch RSVP response counts per event and status
-  const rsvpCounts = await db
-    .select({
-      eventId: rsvpResponses.eventId,
-      status: rsvpResponses.attendanceStatus,
-      count: sql<number>`count(*)`,
-    })
-    .from(rsvpResponses)
-    .groupBy(rsvpResponses.eventId, rsvpResponses.attendanceStatus);
-
-  // Fetch total invited per event from guestEvents
-  const invitedCounts = await db
-    .select({
-      eventId: guestEvents.eventId,
-      count: sql<number>`count(*)`,
-    })
-    .from(guestEvents)
-    .groupBy(guestEvents.eventId);
+  // Reconstruct per-person RSVP counts for each event from stored data
+  // (attendees are recorded by name under each party's response).
+  const eventReconstructions = await Promise.all(
+    allEvents.map((event) => getEventRsvpReconstruction(event.id)),
+  );
 
   // Fetch meal preference breakdown for attending guests
   const mealCounts = await db
@@ -77,25 +65,20 @@ export default async function AdminRsvpPage() {
     .where(eq(rsvpResponses.attendanceStatus, 'attending'))
     .groupBy(attendees.mealOption);
 
-  // Build per-event summary cards by combining the query results
-  const eventSummaries: EventSummaryCardProps[] = allEvents.map((event) => {
-    const forEvent = rsvpCounts.filter((r) => r.eventId === event.id);
-    const attending =
-      forEvent.find((r) => r.status === 'attending')?.count ?? 0;
-    const notAttending =
-      forEvent.find((r) => r.status === 'not_attending')?.count ?? 0;
-    const totalInvited =
-      invitedCounts.find((i) => i.eventId === event.id)?.count ?? 0;
-    const noResponse = Math.max(0, totalInvited - attending - notAttending);
+  // Build per-event summary cards from the reconstructed counts
+  const eventSummaries: EventSummaryCardProps[] = allEvents.map(
+    (event, index) => {
+      const { summary } = eventReconstructions[index];
 
-    return {
-      eventId: event.id,
-      eventName: event.name,
-      attending: Number(attending),
-      notAttending: Number(notAttending),
-      noResponse,
-    };
-  });
+      return {
+        eventId: event.id,
+        eventName: event.name,
+        attending: summary.attending,
+        notAttending: summary.notAttending,
+        noResponse: summary.noResponse,
+      };
+    },
+  );
 
   const mealBreakdown: MealBreakdownItem[] = mealCounts.map((item) => ({
     mealOption: item.mealOption as 'option_a' | 'option_b',
