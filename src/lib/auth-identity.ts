@@ -7,8 +7,7 @@ import type { Session } from 'next-auth';
  * - `guest` — authenticated wedding guest (from invitation-code provider)
  */
 export type AuthIdentity =
-  | { type: 'admin'; username: string }
-  | { type: 'guest'; invitationId: string };
+  { type: 'admin'; username: string } | { type: 'guest'; invitationId: string };
 
 /**
  * Resolves the caller's identity from a session.

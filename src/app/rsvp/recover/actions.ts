@@ -17,8 +17,7 @@ type RecoverInvitationCodeFailure = {
 };
 
 export type RecoverInvitationCodeResult =
-  | RecoverInvitationCodeSuccess
-  | RecoverInvitationCodeFailure;
+  RecoverInvitationCodeSuccess | RecoverInvitationCodeFailure;
 
 const GENERIC_ERROR = "We couldn't find an invitation matching those details.";
 

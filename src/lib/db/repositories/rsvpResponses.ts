@@ -21,11 +21,7 @@ export type InsertRsvpValues = typeof rsvpResponses.$inferInsert;
 
 /** Columns that are immutable after insert and MUST NOT appear in an upsert conflict set. */
 type ImmutableRsvpColumns =
-  | 'id'
-  | 'guestId'
-  | 'eventId'
-  | 'submittedAt'
-  | 'createdAt';
+  'id' | 'guestId' | 'eventId' | 'submittedAt' | 'createdAt';
 
 export type UpsertRsvpConflictSet = Partial<
   Omit<typeof rsvpResponses.$inferInsert, ImmutableRsvpColumns>

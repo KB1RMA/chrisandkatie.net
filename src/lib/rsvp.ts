@@ -104,9 +104,7 @@ export function validateAttendeeAgainstInvitation(
 
 /** Per-guest attendance status derived from stored RSVP data. */
 export type EventReconstructionStatus =
-  | 'attending'
-  | 'not_attending'
-  | 'no_response';
+  'attending' | 'not_attending' | 'no_response';
 
 /** A guest invited to an event, tagged with their party (invitation). */
 export type InvitedGuestInput = {
