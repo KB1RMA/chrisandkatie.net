@@ -411,3 +411,71 @@ export const guestPhotosRelations = relations(guestPhotos, ({ one }) => ({
 
 export type GuestPhoto = typeof guestPhotos.$inferSelect;
 export type NewGuestPhoto = typeof guestPhotos.$inferInsert;
+
+// Seating chart tables for the reception seating builder
+export const seatingTables = sqliteTable(
+  'SeatingTable',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    capacity: integer('capacity').notNull().default(8),
+    isHeadTable: integer('isHeadTable', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    sortOrder: integer('sortOrder').notNull().default(0),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+    updatedAt: text('updatedAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    sortOrderIndex: index('SeatingTable_sortOrder_idx').on(table.sortOrder),
+  }),
+);
+
+// Assigns a guest to a seating table; each guest may hold at most one seat
+export const seatingAssignments = sqliteTable(
+  'SeatingAssignment',
+  {
+    id: text('id').primaryKey(),
+    tableId: text('tableId')
+      .notNull()
+      .references(() => seatingTables.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    guestId: text('guestId')
+      .notNull()
+      .references(() => guests.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    seatOrder: integer('seatOrder').notNull().default(0),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    guestIdIndex: uniqueIndex('SeatingAssignment_guestId_key').on(
+      table.guestId,
+    ),
+    tableIdIndex: index('SeatingAssignment_tableId_idx').on(table.tableId),
+  }),
+);
+
+export const seatingTablesRelations = relations(seatingTables, ({ many }) => ({
+  assignments: many(seatingAssignments),
+}));
+
+export const seatingAssignmentsRelations = relations(
+  seatingAssignments,
+  ({ one }) => ({
+    table: one(seatingTables, {
+      fields: [seatingAssignments.tableId],
+      references: [seatingTables.id],
+    }),
+    guest: one(guests, {
+      fields: [seatingAssignments.guestId],
+      references: [guests.id],
+    }),
+  }),
+);
+
+export type SeatingTable = typeof seatingTables.$inferSelect;
+export type SeatingAssignment = typeof seatingAssignments.$inferSelect;
