@@ -24,10 +24,13 @@ const tableNameSchema = z
   .min(1, 'Table name is required')
   .max(60, 'Table name must be 60 characters or fewer');
 
+const eventIdSchema = z.string().min(1, 'Event id is required');
+
 /**
  * Validation schema for generating the initial set of seating tables.
  */
 export const generateTablesSchema = z.object({
+  eventId: eventIdSchema,
   tableCount: z
     .number()
     .int('Table count must be a whole number')
@@ -44,6 +47,7 @@ export type GenerateTablesData = z.infer<typeof generateTablesSchema>;
  * Validation schema for adding a single seating table.
  */
 export const addTableSchema = z.object({
+  eventId: eventIdSchema,
   name: tableNameSchema,
   capacity: tableCapacitySchema,
 });
@@ -85,6 +89,7 @@ export type AssignGuestData = z.infer<typeof assignGuestSchema>;
  */
 export const unassignGuestSchema = z.object({
   guestId: z.string().min(1, 'Guest id is required'),
+  eventId: eventIdSchema,
 });
 
 export type UnassignGuestData = z.infer<typeof unassignGuestSchema>;

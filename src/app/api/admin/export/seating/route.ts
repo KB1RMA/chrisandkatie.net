@@ -1,5 +1,5 @@
 import { auth, getAuthIdentity } from '@/lib/auth';
-import { findMainEvent } from '@/lib/db/repositories/events';
+import { findEventById, findMainEvent } from '@/lib/db/repositories/events';
 import { getEventRsvpReconstruction } from '@/lib/db/repositories/rsvpResponses';
 import { findSeatingAssignmentsForExport } from '@/lib/db/repositories/seating';
 import { csvDownloadResponse, serializeToCsv } from '@/lib/csv';
@@ -33,18 +33,19 @@ function formatMealChoice(mealChoice: string | null): string {
 }
 
 /**
- * GET /api/admin/export/seating?format=coordinator
+ * GET /api/admin/export/seating?format=coordinator&eventId=...
  *
- * Generates a CSV download of the main event's seating chart — one row per
+ * Generates a CSV download of an event's seating chart — one row per
  * assigned guest with table name, seat number, party, and meal details —
- * for the wedding coordinator. Meal and dietary values prefer the per-event
- * attendee data (RsvpResponse/Attendee rows), falling back to the
- * guest-level columns written by the main RSVP wizard. Requires an active
- * admin session.
+ * for the wedding coordinator. The event defaults to the main event when
+ * no `eventId` param is given. Meal and dietary values prefer the
+ * per-event attendee data (RsvpResponse/Attendee rows); for the main event
+ * only they fall back to the guest-level columns written by the main RSVP
+ * wizard. Requires an active admin session.
  *
  * @param request - The incoming HTTP request.
- * @returns 200 CSV download, 400 for unknown format or missing main event,
- *   or 401 for non-admin.
+ * @returns 200 CSV download, 400 for unknown format or event, or 401 for
+ *   non-admin.
  */
 export async function GET(request: Request): Promise<Response> {
   const session = await auth();
@@ -61,16 +62,23 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: 'Unknown export format' }, { status: 400 });
   }
 
-  const mainEvent = await findMainEvent();
+  const eventIdParam = searchParams.get('eventId');
+  const event = eventIdParam
+    ? await findEventById(eventIdParam)
+    : await findMainEvent();
 
-  if (!mainEvent) {
-    return Response.json({ error: 'No main event found' }, { status: 400 });
+  if (!event) {
+    return Response.json({ error: 'Event not found' }, { status: 400 });
   }
 
   const [rows, reconstruction] = await Promise.all([
-    findSeatingAssignmentsForExport(mainEvent.id),
-    getEventRsvpReconstruction(mainEvent.id),
+    findSeatingAssignmentsForExport(event.id),
+    getEventRsvpReconstruction(event.id),
   ]);
+
+  // Guest-level meal columns are written by the main RSVP wizard, so they
+  // only apply as a fallback on the main event's chart.
+  const useLegacyFallback = event.type === 'main';
 
   const reconstructedByGuestId = new Map(
     reconstruction.rows.map((row) => [row.guestId, row]),
@@ -91,9 +99,11 @@ export async function GET(request: Request): Promise<Response> {
 
     const guestName = `${row.firstName} ${row.lastName}`;
     const reconstructed = reconstructedByGuestId.get(row.guestId);
-    const mealChoice = reconstructed?.mealOption ?? row.mealChoice;
+    const mealChoice =
+      reconstructed?.mealOption ?? (useLegacyFallback ? row.mealChoice : null);
     const dietaryRestrictions =
-      reconstructed?.dietaryRestrictions ?? row.dietaryRestrictions;
+      reconstructed?.dietaryRestrictions ??
+      (useLegacyFallback ? row.dietaryRestrictions : null);
 
     return [
       row.tableName,

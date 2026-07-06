@@ -12,6 +12,7 @@ import {
 
 describe('generateTablesSchema', () => {
   const validInput = {
+    eventId: 'event-main',
     tableCount: 10,
     seatsPerTable: 8,
     includeHeadTable: true,
@@ -22,6 +23,15 @@ describe('generateTablesSchema', () => {
     const result = generateTablesSchema.safeParse(validInput);
 
     expect(result.success).toBe(true);
+  });
+
+  test('should reject an empty event id', () => {
+    const result = generateTablesSchema.safeParse({
+      ...validInput,
+      eventId: '',
+    });
+
+    expect(result.success).toBe(false);
   });
 
   test('should reject a zero table count', () => {
@@ -71,6 +81,7 @@ describe('generateTablesSchema', () => {
 describe('addTableSchema', () => {
   test('should accept a valid table and trim the name', () => {
     const result = addTableSchema.parse({
+      eventId: 'event-main',
       name: '  Kids Table ',
       capacity: 6,
     });
@@ -79,13 +90,27 @@ describe('addTableSchema', () => {
   });
 
   test('should reject a blank name', () => {
-    const result = addTableSchema.safeParse({ name: '   ', capacity: 6 });
+    const result = addTableSchema.safeParse({
+      eventId: 'event-main',
+      name: '   ',
+      capacity: 6,
+    });
 
     expect(result.success).toBe(false);
   });
 
   test('should reject a zero capacity', () => {
-    const result = addTableSchema.safeParse({ name: 'Table', capacity: 0 });
+    const result = addTableSchema.safeParse({
+      eventId: 'event-main',
+      name: 'Table',
+      capacity: 0,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  test('should reject a missing event id', () => {
+    const result = addTableSchema.safeParse({ name: 'Table', capacity: 6 });
 
     expect(result.success).toBe(false);
   });
@@ -145,8 +170,15 @@ describe('assignGuestSchema', () => {
 });
 
 describe('unassignGuestSchema', () => {
-  test('should require a guest id', () => {
-    expect(unassignGuestSchema.safeParse({ guestId: '' }).success).toBe(false);
-    expect(unassignGuestSchema.safeParse({ guestId: 'g1' }).success).toBe(true);
+  test('should require guest and event ids', () => {
+    expect(
+      unassignGuestSchema.safeParse({ guestId: '', eventId: 'e1' }).success,
+    ).toBe(false);
+    expect(
+      unassignGuestSchema.safeParse({ guestId: 'g1', eventId: '' }).success,
+    ).toBe(false);
+    expect(
+      unassignGuestSchema.safeParse({ guestId: 'g1', eventId: 'e1' }).success,
+    ).toBe(true);
   });
 });

@@ -13,6 +13,7 @@ vi.mock('@/lib/db/repositories/seating', () => ({
 
 vi.mock('@/lib/db/repositories/events', () => ({
   findMainEvent: vi.fn(),
+  findEventById: vi.fn(),
 }));
 
 vi.mock('@/lib/db/repositories/rsvpResponses', () => ({
@@ -36,6 +37,7 @@ const mockFindSeatingAssignmentsForExport = vi.mocked(
   SeatingRepository.findSeatingAssignmentsForExport,
 );
 const mockFindMainEvent = vi.mocked(EventRepository.findMainEvent);
+const mockFindEventById = vi.mocked(EventRepository.findEventById);
 const mockGetEventRsvpReconstruction = vi.mocked(
   RsvpRepository.getEventRsvpReconstruction,
 );
@@ -130,12 +132,20 @@ beforeEach(() => {
 });
 
 /** Helper to build a GET Request for the seating export route. */
-function buildRequest(format?: string): Request {
-  const url = format
-    ? `http://localhost/api/admin/export/seating?format=${format}`
-    : `http://localhost/api/admin/export/seating`;
+function buildRequest(format?: string, eventId?: string): Request {
+  const params = new URLSearchParams();
 
-  return new Request(url);
+  if (format) {
+    params.set('format', format);
+  }
+
+  if (eventId) {
+    params.set('eventId', eventId);
+  }
+
+  return new Request(
+    `http://localhost/api/admin/export/seating?${params.toString()}`,
+  );
 }
 
 /** Helper to authenticate the mocked session as an admin. */
@@ -198,7 +208,7 @@ describe('GET /api/admin/export/seating', () => {
     expect(mockFindSeatingAssignmentsForExport).not.toHaveBeenCalled();
   });
 
-  test('should scope the export to the main event', async () => {
+  test('should default the export to the main event', async () => {
     mockAdminSession();
     mockFindSeatingAssignmentsForExport.mockResolvedValue(SAMPLE_ROWS);
 
@@ -208,6 +218,51 @@ describe('GET /api/admin/export/seating', () => {
       'event-main',
     );
     expect(mockGetEventRsvpReconstruction).toHaveBeenCalledWith('event-main');
+  });
+
+  test('should export the event given by the eventId param', async () => {
+    mockAdminSession();
+    mockFindEventById.mockResolvedValue({
+      ...makeMainEvent(),
+      id: 'event-rehearsal',
+      type: 'rehearsal',
+    });
+    mockFindSeatingAssignmentsForExport.mockResolvedValue([]);
+
+    await GET(buildRequest('coordinator', 'event-rehearsal'));
+
+    expect(mockFindEventById).toHaveBeenCalledWith('event-rehearsal');
+    expect(mockFindSeatingAssignmentsForExport).toHaveBeenCalledWith(
+      'event-rehearsal',
+    );
+    expect(mockFindMainEvent).not.toHaveBeenCalled();
+  });
+
+  test('should return 400 for an unknown eventId param', async () => {
+    mockAdminSession();
+    mockFindEventById.mockResolvedValue(undefined);
+
+    const response = await GET(buildRequest('coordinator', 'missing'));
+
+    expect(response.status).toBe(400);
+    expect(mockFindSeatingAssignmentsForExport).not.toHaveBeenCalled();
+  });
+
+  test('should not use guest-level meal columns for a non-main event', async () => {
+    mockAdminSession();
+    mockFindEventById.mockResolvedValue({
+      ...makeMainEvent(),
+      id: 'event-rehearsal',
+      type: 'rehearsal',
+    });
+    mockFindSeatingAssignmentsForExport.mockResolvedValue([
+      { ...SAMPLE_ROWS[0], mealChoice: 'short-rib' },
+    ]);
+
+    const response = await GET(buildRequest('coordinator', 'event-rehearsal'));
+    const text = await response.text();
+
+    expect(text).not.toContain('"Short Rib"');
   });
 
   test('should prefer per-event attendee meal data over guest columns', async () => {

@@ -39,19 +39,20 @@ function firstIssue(error: { issues: { message: string }[] }): string {
   return error.issues[0]?.message ?? 'Invalid input';
 }
 
-/** Error returned when no main event exists to attach the chart to. */
-const NO_MAIN_EVENT_ERROR =
-  'No main event found. Create the main event before building a seating chart.';
+/** Error returned when the submitted event id does not exist. */
+const EVENT_NOT_FOUND_ERROR = 'Event not found.';
 
 /**
- * Generate the initial set of seating tables: an optional head table
- * followed by numbered round tables. Only allowed when no tables exist yet.
+ * Generate the initial set of seating tables for an event: an optional
+ * head table followed by numbered round tables. Only allowed when the
+ * event has no tables yet.
  *
- * @param input - Total table count, seats per table, and head table options.
+ * @param input - Event id, table count, seats per table, and head table options.
  * @returns { success: true } on success, or { success: false; error } if invalid.
  * @throws {Error} 'Unauthorized' when session lacks admin role.
  */
 export async function generateSeatingTables(input: {
+  eventId: string;
   tableCount: number;
   seatsPerTable: number;
   includeHeadTable: boolean;
@@ -65,14 +66,14 @@ export async function generateSeatingTables(input: {
     return { success: false, error: firstIssue(parsed.error) };
   }
 
-  const mainEvent = await EventRepository.findMainEvent();
+  const event = await EventRepository.findEventById(parsed.data.eventId);
 
-  if (!mainEvent) {
-    return { success: false, error: NO_MAIN_EVENT_ERROR };
+  if (!event) {
+    return { success: false, error: EVENT_NOT_FOUND_ERROR };
   }
 
   const data = parsed.data;
-  const existing = await SeatingRepository.findAllSeatingTables(mainEvent.id);
+  const existing = await SeatingRepository.findAllSeatingTables(event.id);
 
   if (existing.length > 0) {
     return {
@@ -89,7 +90,7 @@ export async function generateSeatingTables(input: {
     ? [
         {
           id: crypto.randomUUID(),
-          eventId: mainEvent.id,
+          eventId: event.id,
           name: 'Head Table',
           capacity: data.headTableSeats,
           isHeadTable: true,
@@ -100,7 +101,7 @@ export async function generateSeatingTables(input: {
 
   const guestTableRows = Array.from({ length: guestTableCount }, (_, i) => ({
     id: crypto.randomUUID(),
-    eventId: mainEvent.id,
+    eventId: event.id,
     name: `Table ${i + 1}`,
     capacity: data.seatsPerTable,
     isHeadTable: false,
@@ -118,13 +119,14 @@ export async function generateSeatingTables(input: {
 }
 
 /**
- * Add a single seating table after the current last table.
+ * Add a single seating table after the event's current last table.
  *
- * @param input - Table name and seat capacity.
+ * @param input - Event id, table name, and seat capacity.
  * @returns { success: true } on success, or { success: false; error } if invalid.
  * @throws {Error} 'Unauthorized' when session lacks admin role.
  */
 export async function addSeatingTable(input: {
+  eventId: string;
   name: string;
   capacity: number;
 }): Promise<ActionResult> {
@@ -136,13 +138,13 @@ export async function addSeatingTable(input: {
     return { success: false, error: firstIssue(parsed.error) };
   }
 
-  const mainEvent = await EventRepository.findMainEvent();
+  const event = await EventRepository.findEventById(parsed.data.eventId);
 
-  if (!mainEvent) {
-    return { success: false, error: NO_MAIN_EVENT_ERROR };
+  if (!event) {
+    return { success: false, error: EVENT_NOT_FOUND_ERROR };
   }
 
-  const existing = await SeatingRepository.findAllSeatingTables(mainEvent.id);
+  const existing = await SeatingRepository.findAllSeatingTables(event.id);
   const nextSortOrder =
     existing.length > 0
       ? Math.max(...existing.map((table) => table.sortOrder)) + 1
@@ -151,7 +153,7 @@ export async function addSeatingTable(input: {
   await SeatingRepository.insertSeatingTables([
     {
       id: crypto.randomUUID(),
-      eventId: mainEvent.id,
+      eventId: event.id,
       name: parsed.data.name,
       capacity: parsed.data.capacity,
       isHeadTable: false,
@@ -306,15 +308,16 @@ export async function assignGuestToTable(input: {
 }
 
 /**
- * Remove a guest's seat on the main event's chart, returning them to the
+ * Remove a guest's seat on an event's chart, returning them to the
  * unassigned list.
  *
- * @param input - The guest id to unassign.
+ * @param input - The guest id to unassign and the event whose chart to clear.
  * @returns { success: true } on success (idempotent), or a validation error.
  * @throws {Error} 'Unauthorized' when session lacks admin role.
  */
 export async function unassignGuest(input: {
   guestId: string;
+  eventId: string;
 }): Promise<ActionResult> {
   await requireAdmin();
 
@@ -324,15 +327,9 @@ export async function unassignGuest(input: {
     return { success: false, error: firstIssue(parsed.error) };
   }
 
-  const mainEvent = await EventRepository.findMainEvent();
-
-  if (!mainEvent) {
-    return { success: false, error: NO_MAIN_EVENT_ERROR };
-  }
-
   await SeatingRepository.deleteAssignmentForGuest(
     parsed.data.guestId,
-    mainEvent.id,
+    parsed.data.eventId,
   );
 
   revalidatePath('/admin/seating');

@@ -24,7 +24,7 @@ vi.mock('@/lib/db/repositories/guests', () => ({
 }));
 
 vi.mock('@/lib/db/repositories/events', () => ({
-  findMainEvent: vi.fn(),
+  findEventById: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({
@@ -73,7 +73,7 @@ const mockDeleteAssignmentForGuest = vi.mocked(
   SeatingRepository.deleteAssignmentForGuest,
 );
 const mockFindGuestById = vi.mocked(GuestRepository.findGuestById);
-const mockFindMainEvent = vi.mocked(EventRepository.findMainEvent);
+const mockFindEventById = vi.mocked(EventRepository.findEventById);
 
 /** Marks the mocked session as an authenticated admin. */
 function mockAdminSession(): void {
@@ -128,6 +128,7 @@ function makeTable(
 }
 
 const VALID_GENERATE_INPUT = {
+  eventId: 'event-main',
   tableCount: 10,
   seatsPerTable: 8,
   includeHeadTable: true,
@@ -136,7 +137,7 @@ const VALID_GENERATE_INPUT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockFindMainEvent.mockResolvedValue(makeMainEvent());
+  mockFindEventById.mockResolvedValue(makeMainEvent());
 });
 
 describe('generateSeatingTables', () => {
@@ -164,13 +165,13 @@ describe('generateSeatingTables', () => {
     expect(mockInsertSeatingTables).not.toHaveBeenCalled();
   });
 
-  test('should return an error when no main event exists', async () => {
+  test('should return an error when the event does not exist', async () => {
     mockAdminSession();
-    mockFindMainEvent.mockResolvedValue(undefined);
+    mockFindEventById.mockResolvedValue(undefined);
 
     const result = await generateSeatingTables(VALID_GENERATE_INPUT);
 
-    expect(result.success).toBe(false);
+    expect(result).toEqual({ success: false, error: 'Event not found.' });
     expect(mockInsertSeatingTables).not.toHaveBeenCalled();
   });
 
@@ -233,7 +234,11 @@ describe('addSeatingTable', () => {
   test('should return a validation error for a blank name', async () => {
     mockAdminSession();
 
-    const result = await addSeatingTable({ name: '  ', capacity: 8 });
+    const result = await addSeatingTable({
+      eventId: 'event-main',
+      name: '  ',
+      capacity: 8,
+    });
 
     expect(result).toEqual({
       success: false,
@@ -247,7 +252,11 @@ describe('addSeatingTable', () => {
       { ...makeTable({ sortOrder: 4 }), assignments: [] },
     ]);
 
-    const result = await addSeatingTable({ name: 'Kids Table', capacity: 6 });
+    const result = await addSeatingTable({
+      eventId: 'event-main',
+      name: 'Kids Table',
+      capacity: 6,
+    });
 
     expect(result).toEqual({ success: true });
     expect(mockInsertSeatingTables).toHaveBeenCalledWith([
@@ -260,13 +269,17 @@ describe('addSeatingTable', () => {
     ]);
   });
 
-  test('should return an error when no main event exists', async () => {
+  test('should return an error when the event does not exist', async () => {
     mockAdminSession();
-    mockFindMainEvent.mockResolvedValue(undefined);
+    mockFindEventById.mockResolvedValue(undefined);
 
-    const result = await addSeatingTable({ name: 'Kids Table', capacity: 6 });
+    const result = await addSeatingTable({
+      eventId: 'missing',
+      name: 'Kids Table',
+      capacity: 6,
+    });
 
-    expect(result.success).toBe(false);
+    expect(result).toEqual({ success: false, error: 'Event not found.' });
     expect(mockInsertSeatingTables).not.toHaveBeenCalled();
   });
 });
@@ -421,24 +434,27 @@ describe('unassignGuest', () => {
       invitationId: 'inv-1',
     });
 
-    await expect(unassignGuest({ guestId: 'guest-1' })).rejects.toThrow(
-      'Unauthorized',
-    );
+    await expect(
+      unassignGuest({ guestId: 'guest-1', eventId: 'event-main' }),
+    ).rejects.toThrow('Unauthorized');
   });
 
   test('should return a validation error for an empty guest id', async () => {
     mockAdminSession();
 
-    const result = await unassignGuest({ guestId: '' });
+    const result = await unassignGuest({ guestId: '', eventId: 'event-main' });
 
     expect(result).toEqual({ success: false, error: 'Guest id is required' });
     expect(mockDeleteAssignmentForGuest).not.toHaveBeenCalled();
   });
 
-  test('should delete the assignment for the guest on the main event', async () => {
+  test('should delete the assignment for the guest on the event', async () => {
     mockAdminSession();
 
-    const result = await unassignGuest({ guestId: 'guest-1' });
+    const result = await unassignGuest({
+      guestId: 'guest-1',
+      eventId: 'event-main',
+    });
 
     expect(result).toEqual({ success: true });
     expect(mockDeleteAssignmentForGuest).toHaveBeenCalledWith(
@@ -447,13 +463,12 @@ describe('unassignGuest', () => {
     );
   });
 
-  test('should return an error when no main event exists', async () => {
+  test('should return a validation error for an empty event id', async () => {
     mockAdminSession();
-    mockFindMainEvent.mockResolvedValue(undefined);
 
-    const result = await unassignGuest({ guestId: 'guest-1' });
+    const result = await unassignGuest({ guestId: 'guest-1', eventId: '' });
 
-    expect(result.success).toBe(false);
+    expect(result).toEqual({ success: false, error: 'Event id is required' });
     expect(mockDeleteAssignmentForGuest).not.toHaveBeenCalled();
   });
 });

@@ -28,6 +28,7 @@ export type SeatingTableData = {
 };
 
 type SeatingChartBuilderProps = {
+  eventId: string;
   guests: SeatingGuest[];
   tables: SeatingTableData[];
 };
@@ -63,11 +64,13 @@ function seatLabel(fullName: string): string {
  * guest then clicking a table. All changes persist immediately via server
  * actions with optimistic local state.
  *
+ * @param props.eventId - The event whose chart is being edited.
  * @param props.guests - All seatable guests (attending or awaiting response).
  * @param props.tables - Current seating tables with assigned guest ids.
  * @returns The seating chart builder UI.
  */
 export function SeatingChartBuilder({
+  eventId,
   guests,
   tables: initialTables,
 }: SeatingChartBuilderProps) {
@@ -238,7 +241,7 @@ export function SeatingChartBuilder({
     void runAction(
       (current) => withGuestRemoved(current, guestId),
       (current) => withGuestRestored(current, guestId, previousSeat),
-      () => unassignGuest({ guestId }),
+      () => unassignGuest({ guestId, eventId }),
     );
   }
 
@@ -260,7 +263,7 @@ export function SeatingChartBuilder({
   }
 
   if (tables.length === 0) {
-    return <SetupForm onError={setError} error={error} />;
+    return <SetupForm eventId={eventId} onError={setError} error={error} />;
   }
 
   return (
@@ -268,7 +271,7 @@ export function SeatingChartBuilder({
       {/* Controls */}
       <div className="mb-4 flex flex-wrap items-center gap-3 print:hidden">
         <a
-          href="/api/admin/export/seating?format=coordinator"
+          href={`/api/admin/export/seating?format=coordinator&eventId=${eventId}`}
           className={SECONDARY_BUTTON_CLASS}
         >
           Export CSV
@@ -280,7 +283,7 @@ export function SeatingChartBuilder({
         >
           Print Layout
         </button>
-        <AddTableButton onError={setError} />
+        <AddTableButton eventId={eventId} onError={setError} />
         <span className="ml-auto text-sm text-[#6a5555]">
           {seatedCount} of {totalCapacity} seats filled
           {pending ? ' · saving…' : ''}
@@ -729,6 +732,7 @@ function SeatChip({ guest, seatNumber, onRemove, compact }: SeatChipProps) {
 }
 
 type SetupFormProps = {
+  eventId: string;
   error: string | null;
   onError: (message: string | null) => void;
 };
@@ -738,11 +742,12 @@ type SetupFormProps = {
  * total table count, seats per table, and head table options, then
  * generates the tables via a server action and reloads.
  *
+ * @param props.eventId - The event to generate tables for.
  * @param props.error - Current error message to display, if any.
  * @param props.onError - Setter for the shared error message.
  * @returns The setup form.
  */
-function SetupForm({ error, onError }: SetupFormProps) {
+function SetupForm({ eventId, error, onError }: SetupFormProps) {
   const [tableCount, setTableCount] = useState(10);
   const [seatsPerTable, setSeatsPerTable] = useState(8);
   const [includeHeadTable, setIncludeHeadTable] = useState(true);
@@ -756,6 +761,7 @@ function SetupForm({ error, onError }: SetupFormProps) {
 
     try {
       const result = await generateSeatingTables({
+        eventId,
         tableCount,
         seatsPerTable,
         includeHeadTable,
@@ -852,6 +858,7 @@ function SetupForm({ error, onError }: SetupFormProps) {
 }
 
 type AddTableButtonProps = {
+  eventId: string;
   onError: (message: string | null) => void;
 };
 
@@ -859,10 +866,11 @@ type AddTableButtonProps = {
  * Button plus inline mini-form for adding one more table to the chart.
  * Reloads the page after a successful add to pick up the server-assigned id.
  *
+ * @param props.eventId - The event to add the table to.
  * @param props.onError - Setter for the shared error message.
  * @returns The add-table control.
  */
-function AddTableButton({ onError }: AddTableButtonProps) {
+function AddTableButton({ eventId, onError }: AddTableButtonProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [capacity, setCapacity] = useState(8);
@@ -874,7 +882,7 @@ function AddTableButton({ onError }: AddTableButtonProps) {
     onError(null);
 
     try {
-      const result = await addSeatingTable({ name, capacity });
+      const result = await addSeatingTable({ eventId, name, capacity });
 
       if (!result.success) {
         onError(result.error);

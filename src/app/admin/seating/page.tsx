@@ -1,10 +1,11 @@
 import { Marcellus } from 'next/font/google';
 import type { Metadata } from 'next';
 import { getDb } from '@/lib/db';
-import { findMainEvent } from '@/lib/db/repositories/events';
+import { findAllEvents } from '@/lib/db/repositories/events';
 import { getEventRsvpReconstruction } from '@/lib/db/repositories/rsvpResponses';
 import { findAllSeatingTables } from '@/lib/db/repositories/seating';
 import { AdminTabs } from '@/components/admin/AdminTabs';
+import { SeatingEventSelector } from '@/components/admin/SeatingEventSelector';
 import {
   SeatingChartBuilder,
   type SeatingGuest,
@@ -20,41 +21,56 @@ const marcellus = Marcellus({
 
 export const metadata: Metadata = {
   title: 'Seating Chart',
-  description: 'Admin seating chart builder for the reception.',
+  description: 'Admin seating chart builder for wedding events.',
+};
+
+type Props = {
+  searchParams: Promise<{ eventId?: string }>;
 };
 
 /**
- * Admin page for building the main event's seating chart.
+ * Admin page for building an event's seating chart.
  *
- * Guests are scoped to those invited to the main event. Attendance is
- * derived from the per-event RSVP reconstruction (RsvpResponse/Attendee
- * rows), falling back to the guest-level `attending` column written by the
- * main RSVP wizard for parties that responded there. Guests who declined
- * are excluded.
+ * The event is chosen via the `eventId` search param, defaulting to the
+ * main event. Guests are scoped to those invited to the selected event.
+ * Attendance is derived from the per-event RSVP reconstruction
+ * (RsvpResponse/Attendee rows); for the main event only, the guest-level
+ * `attending` column written by the main RSVP wizard fills in for parties
+ * without per-event responses. Guests who declined are excluded.
  *
+ * @param searchParams - URL search params; supports `eventId` selection.
  * @returns The seating chart admin page.
  */
-export default async function AdminSeatingPage() {
+export default async function AdminSeatingPage({ searchParams }: Props) {
   const db = getDb();
-  const mainEvent = await findMainEvent();
+  const params = await searchParams;
+  const events = await findAllEvents();
 
-  if (!mainEvent) {
+  const selectedEvent =
+    events.find((event) => event.id === params.eventId) ??
+    events.find((event) => event.type === 'main') ??
+    events[0];
+
+  if (!selectedEvent) {
     return (
       <SeatingPageShell>
         <p className="text-center text-lg text-[#6a5555]">
-          No main event found. Create the main event before building a seating
-          chart.
+          No events found. Create an event before building a seating chart.
         </p>
       </SeatingPageShell>
     );
   }
 
+  const isMainEvent = selectedEvent.type === 'main';
+
   const [reconstruction, legacyGuests, tables] = await Promise.all([
-    getEventRsvpReconstruction(mainEvent.id),
-    db.query.guests.findMany({
-      columns: { id: true, attending: true },
-    }),
-    findAllSeatingTables(mainEvent.id),
+    getEventRsvpReconstruction(selectedEvent.id),
+    isMainEvent
+      ? db.query.guests.findMany({
+          columns: { id: true, attending: true },
+        })
+      : Promise.resolve([]),
+    findAllSeatingTables(selectedEvent.id),
   ]);
 
   const legacyAttendingById = new Map(
@@ -66,8 +82,8 @@ export default async function AdminSeatingPage() {
       id: row.guestId,
       fullName: `${row.firstName} ${row.lastName}`.trim(),
       partyName: row.partyName,
-      // Per-event status wins; wizard-written guest.attending fills in for
-      // parties whose RSVP predates per-event responses.
+      // Per-event status wins; for the main event, wizard-written
+      // guest.attending fills in for parties without per-event responses.
       attending:
         row.status === 'attending'
           ? true
@@ -92,8 +108,19 @@ export default async function AdminSeatingPage() {
   }));
 
   return (
-    <SeatingPageShell>
-      <SeatingChartBuilder guests={guests} tables={tableData} />
+    <SeatingPageShell
+      selector={
+        <SeatingEventSelector
+          events={events.map((event) => ({ id: event.id, name: event.name }))}
+          selectedEventId={selectedEvent.id}
+        />
+      }
+    >
+      <SeatingChartBuilder
+        eventId={selectedEvent.id}
+        guests={guests}
+        tables={tableData}
+      />
     </SeatingPageShell>
   );
 }
@@ -102,9 +129,16 @@ export default async function AdminSeatingPage() {
  * Shared page chrome for the seating admin page: heading, tabs, and intro.
  *
  * @param children - The page body (builder or empty-state message).
+ * @param selector - Optional event selector rendered above the body.
  * @returns The page layout wrapper.
  */
-function SeatingPageShell({ children }: { children: React.ReactNode }) {
+function SeatingPageShell({
+  children,
+  selector,
+}: {
+  children: React.ReactNode;
+  selector?: React.ReactNode;
+}) {
   return (
     <div className="font-roboto flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-[#fff7f4] to-[#f3dedb] p-4 sm:p-8 print:bg-none print:p-0">
       <div className="w-full max-w-7xl">
@@ -116,8 +150,9 @@ function SeatingPageShell({ children }: { children: React.ReactNode }) {
         <div className="print:hidden">
           <AdminTabs />
           <p className="mt-6 mb-4 text-center text-lg text-[#6a5555]">
-            Arrange tables and seat your guests for the reception.
+            Arrange tables and seat your guests.
           </p>
+          {selector && <div className="mb-4">{selector}</div>}
         </div>
         {children}
       </div>
