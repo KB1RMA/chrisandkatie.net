@@ -411,3 +411,94 @@ export const guestPhotosRelations = relations(guestPhotos, ({ one }) => ({
 
 export type GuestPhoto = typeof guestPhotos.$inferSelect;
 export type NewGuestPhoto = typeof guestPhotos.$inferInsert;
+
+// Seating chart tables for the reception seating builder. Each chart is
+// scoped to an event so future events can carry their own layout.
+export const seatingTables = sqliteTable(
+  'SeatingTable',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('eventId')
+      .notNull()
+      .references(() => events.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    name: text('name').notNull(),
+    capacity: integer('capacity').notNull().default(8),
+    isHeadTable: integer('isHeadTable', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    sortOrder: integer('sortOrder').notNull().default(0),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+    updatedAt: text('updatedAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    eventIdIndex: index('SeatingTable_eventId_idx').on(table.eventId),
+    sortOrderIndex: index('SeatingTable_sortOrder_idx').on(table.sortOrder),
+  }),
+);
+
+// Assigns a guest to a seating table. eventId mirrors the table's event so
+// the database can enforce at most one seat per guest per event.
+export const seatingAssignments = sqliteTable(
+  'SeatingAssignment',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('eventId')
+      .notNull()
+      .references(() => events.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    tableId: text('tableId')
+      .notNull()
+      .references(() => seatingTables.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    guestId: text('guestId')
+      .notNull()
+      .references(() => guests.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    seatOrder: integer('seatOrder').notNull().default(0),
+    createdAt: text('createdAt').notNull().default(timestampDefault),
+  },
+  (table) => ({
+    guestEventIndex: uniqueIndex('SeatingAssignment_guestId_eventId_key').on(
+      table.guestId,
+      table.eventId,
+    ),
+    tableIdIndex: index('SeatingAssignment_tableId_idx').on(table.tableId),
+  }),
+);
+
+export const seatingTablesRelations = relations(
+  seatingTables,
+  ({ one, many }) => ({
+    event: one(events, {
+      fields: [seatingTables.eventId],
+      references: [events.id],
+    }),
+    assignments: many(seatingAssignments),
+  }),
+);
+
+export const seatingAssignmentsRelations = relations(
+  seatingAssignments,
+  ({ one }) => ({
+    table: one(seatingTables, {
+      fields: [seatingAssignments.tableId],
+      references: [seatingTables.id],
+    }),
+    guest: one(guests, {
+      fields: [seatingAssignments.guestId],
+      references: [guests.id],
+    }),
+  }),
+);
+
+export type SeatingTable = typeof seatingTables.$inferSelect;
+export type SeatingAssignment = typeof seatingAssignments.$inferSelect;
