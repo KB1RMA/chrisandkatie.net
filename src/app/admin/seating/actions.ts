@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { auth, getAuthIdentity } from '@/lib/auth';
+import * as EventRepository from '@/lib/db/repositories/events';
 import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as SeatingRepository from '@/lib/db/repositories/seating';
 import {
@@ -38,6 +39,10 @@ function firstIssue(error: { issues: { message: string }[] }): string {
   return error.issues[0]?.message ?? 'Invalid input';
 }
 
+/** Error returned when no main event exists to attach the chart to. */
+const NO_MAIN_EVENT_ERROR =
+  'No main event found. Create the main event before building a seating chart.';
+
 /**
  * Generate the initial set of seating tables: an optional head table
  * followed by numbered round tables. Only allowed when no tables exist yet.
@@ -60,8 +65,14 @@ export async function generateSeatingTables(input: {
     return { success: false, error: firstIssue(parsed.error) };
   }
 
+  const mainEvent = await EventRepository.findMainEvent();
+
+  if (!mainEvent) {
+    return { success: false, error: NO_MAIN_EVENT_ERROR };
+  }
+
   const data = parsed.data;
-  const existing = await SeatingRepository.findAllSeatingTables();
+  const existing = await SeatingRepository.findAllSeatingTables(mainEvent.id);
 
   if (existing.length > 0) {
     return {
@@ -78,6 +89,7 @@ export async function generateSeatingTables(input: {
     ? [
         {
           id: crypto.randomUUID(),
+          eventId: mainEvent.id,
           name: 'Head Table',
           capacity: data.headTableSeats,
           isHeadTable: true,
@@ -88,6 +100,7 @@ export async function generateSeatingTables(input: {
 
   const guestTableRows = Array.from({ length: guestTableCount }, (_, i) => ({
     id: crypto.randomUUID(),
+    eventId: mainEvent.id,
     name: `Table ${i + 1}`,
     capacity: data.seatsPerTable,
     isHeadTable: false,
@@ -123,7 +136,13 @@ export async function addSeatingTable(input: {
     return { success: false, error: firstIssue(parsed.error) };
   }
 
-  const existing = await SeatingRepository.findAllSeatingTables();
+  const mainEvent = await EventRepository.findMainEvent();
+
+  if (!mainEvent) {
+    return { success: false, error: NO_MAIN_EVENT_ERROR };
+  }
+
+  const existing = await SeatingRepository.findAllSeatingTables(mainEvent.id);
   const nextSortOrder =
     existing.length > 0
       ? Math.max(...existing.map((table) => table.sortOrder)) + 1
@@ -132,6 +151,7 @@ export async function addSeatingTable(input: {
   await SeatingRepository.insertSeatingTables([
     {
       id: crypto.randomUUID(),
+      eventId: mainEvent.id,
       name: parsed.data.name,
       capacity: parsed.data.capacity,
       isHeadTable: false,

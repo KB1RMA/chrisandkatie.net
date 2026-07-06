@@ -412,11 +412,18 @@ export const guestPhotosRelations = relations(guestPhotos, ({ one }) => ({
 export type GuestPhoto = typeof guestPhotos.$inferSelect;
 export type NewGuestPhoto = typeof guestPhotos.$inferInsert;
 
-// Seating chart tables for the reception seating builder
+// Seating chart tables for the reception seating builder. Each chart is
+// scoped to an event so future events can carry their own layout.
 export const seatingTables = sqliteTable(
   'SeatingTable',
   {
     id: text('id').primaryKey(),
+    eventId: text('eventId')
+      .notNull()
+      .references(() => events.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
     name: text('name').notNull(),
     capacity: integer('capacity').notNull().default(8),
     isHeadTable: integer('isHeadTable', { mode: 'boolean' })
@@ -427,6 +434,7 @@ export const seatingTables = sqliteTable(
     updatedAt: text('updatedAt').notNull().default(timestampDefault),
   },
   (table) => ({
+    eventIdIndex: index('SeatingTable_eventId_idx').on(table.eventId),
     sortOrderIndex: index('SeatingTable_sortOrder_idx').on(table.sortOrder),
   }),
 );
@@ -459,9 +467,16 @@ export const seatingAssignments = sqliteTable(
   }),
 );
 
-export const seatingTablesRelations = relations(seatingTables, ({ many }) => ({
-  assignments: many(seatingAssignments),
-}));
+export const seatingTablesRelations = relations(
+  seatingTables,
+  ({ one, many }) => ({
+    event: one(events, {
+      fields: [seatingTables.eventId],
+      references: [events.id],
+    }),
+    assignments: many(seatingAssignments),
+  }),
+);
 
 export const seatingAssignmentsRelations = relations(
   seatingAssignments,

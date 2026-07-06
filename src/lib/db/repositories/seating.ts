@@ -22,13 +22,15 @@ export type UpdateSeatingTableValues = Partial<
 >;
 
 /**
- * Fetch all seating tables ordered by sortOrder, with their assignments
- * (ordered by seatOrder) eagerly loaded.
+ * Fetch an event's seating tables ordered by sortOrder, with their
+ * assignments (ordered by seatOrder) eagerly loaded.
  *
+ * @param eventId - The event whose seating chart to load.
  * @returns SeatingTable rows with nested assignment arrays.
  */
-export async function findAllSeatingTables() {
+export async function findAllSeatingTables(eventId: string) {
   return getDb().query.seatingTables.findMany({
+    where: eq(seatingTables.eventId, eventId),
     orderBy: asc(seatingTables.sortOrder),
     with: {
       assignments: {
@@ -175,6 +177,7 @@ export type SeatingExportRow = {
   tableId: string;
   tableName: string;
   tableSortOrder: number;
+  guestId: string;
   seatOrder: number;
   firstName: string;
   lastName: string;
@@ -184,19 +187,25 @@ export type SeatingExportRow = {
 };
 
 /**
- * Return all seating assignments joined with guest and table details,
+ * Return an event's seating assignments joined with guest and table details,
  * ordered by table then seat, suitable for the coordinator CSV export.
  *
+ * Meal and dietary values come from the guest-level columns written by the
+ * main RSVP wizard; callers should prefer per-event attendee data when
+ * available and fall back to these.
+ *
+ * @param eventId - The event whose seating chart to export.
  * @returns One `SeatingExportRow` per assigned guest.
  */
-export async function findSeatingAssignmentsForExport(): Promise<
-  SeatingExportRow[]
-> {
+export async function findSeatingAssignmentsForExport(
+  eventId: string,
+): Promise<SeatingExportRow[]> {
   return getDb()
     .select({
       tableId: seatingTables.id,
       tableName: seatingTables.name,
       tableSortOrder: seatingTables.sortOrder,
+      guestId: guests.id,
       seatOrder: seatingAssignments.seatOrder,
       firstName: guests.firstName,
       lastName: guests.lastName,
@@ -208,5 +217,6 @@ export async function findSeatingAssignmentsForExport(): Promise<
     .innerJoin(seatingTables, eq(seatingAssignments.tableId, seatingTables.id))
     .innerJoin(guests, eq(seatingAssignments.guestId, guests.id))
     .leftJoin(invitations, eq(guests.invitationId, invitations.id))
+    .where(eq(seatingTables.eventId, eventId))
     .orderBy(asc(seatingTables.sortOrder), asc(seatingAssignments.seatOrder));
 }

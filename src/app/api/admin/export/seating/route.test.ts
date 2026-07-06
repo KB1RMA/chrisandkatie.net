@@ -11,11 +11,23 @@ vi.mock('@/lib/db/repositories/seating', () => ({
   findSeatingAssignmentsForExport: vi.fn(),
 }));
 
+vi.mock('@/lib/db/repositories/events', () => ({
+  findMainEvent: vi.fn(),
+}));
+
+vi.mock('@/lib/db/repositories/rsvpResponses', () => ({
+  getEventRsvpReconstruction: vi.fn(),
+}));
+
 import { describe, expect, test, beforeEach, vi } from 'vitest';
 import { auth, getAuthIdentity } from '@/lib/auth';
+import * as EventRepository from '@/lib/db/repositories/events';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 import * as SeatingRepository from '@/lib/db/repositories/seating';
 import { GET } from './route';
 import type { SeatingExportRow } from '@/lib/db/repositories/seating';
+import type { EventRsvpGuestRow } from '@/lib/db/repositories/rsvpResponses';
+import type { WeddingEvent } from '@/lib/db/schema';
 import { makeSession } from '@/tests/helpers';
 
 const mockAuth = vi.mocked(auth);
@@ -23,12 +35,17 @@ const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
 const mockFindSeatingAssignmentsForExport = vi.mocked(
   SeatingRepository.findSeatingAssignmentsForExport,
 );
+const mockFindMainEvent = vi.mocked(EventRepository.findMainEvent);
+const mockGetEventRsvpReconstruction = vi.mocked(
+  RsvpRepository.getEventRsvpReconstruction,
+);
 
 const SAMPLE_ROWS: SeatingExportRow[] = [
   {
     tableId: 'table-head',
     tableName: 'Head Table',
     tableSortOrder: 0,
+    guestId: 'guest-chris',
     seatOrder: 0,
     firstName: 'Chris',
     lastName: 'Snyder',
@@ -40,6 +57,7 @@ const SAMPLE_ROWS: SeatingExportRow[] = [
     tableId: 'table-head',
     tableName: 'Head Table',
     tableSortOrder: 0,
+    guestId: 'guest-katie',
     seatOrder: 1,
     firstName: 'Katie',
     lastName: 'Snyder',
@@ -51,6 +69,7 @@ const SAMPLE_ROWS: SeatingExportRow[] = [
     tableId: 'table-1',
     tableName: 'Table 1',
     tableSortOrder: 1,
+    guestId: 'guest-jane',
     seatOrder: 3,
     firstName: 'Jane',
     lastName: 'Doe',
@@ -60,8 +79,54 @@ const SAMPLE_ROWS: SeatingExportRow[] = [
   },
 ];
 
+/** Builds a reconstructed per-event RSVP row for a guest. */
+function makeReconstructedRow(
+  overrides: Partial<EventRsvpGuestRow> = {},
+): EventRsvpGuestRow {
+  return {
+    guestId: 'guest-jane',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    invitationId: 'inv-1',
+    partyName: 'Jane Doe',
+    notes: null,
+    status: 'attending',
+    mealOption: null,
+    dietaryRestrictions: null,
+    specialRequests: null,
+    ...overrides,
+  };
+}
+
+/** Builds the main event row fixture. */
+function makeMainEvent(): WeddingEvent {
+  return {
+    id: 'event-main',
+    name: 'Wedding Reception',
+    description: null,
+    location: null,
+    eventDate: '2026-09-12',
+    startTime: '17:00',
+    endTime: '23:00',
+    type: 'main',
+    dressCode: null,
+    parkingInfo: null,
+    locationLat: null,
+    locationLng: null,
+    sortOrder: 0,
+    rsvpRequired: false,
+    createdAt: '2026-07-06T00:00:00.000Z',
+    updatedAt: '2026-07-06T00:00:00.000Z',
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockFindMainEvent.mockResolvedValue(makeMainEvent());
+  mockGetEventRsvpReconstruction.mockResolvedValue({
+    rows: [],
+    summary: { attending: 0, notAttending: 0, noResponse: 0, total: 0 },
+  });
 });
 
 /** Helper to build a GET Request for the seating export route. */
@@ -121,6 +186,62 @@ describe('GET /api/admin/export/seating', () => {
     const response = await GET(buildRequest());
 
     expect(response.status).toBe(400);
+  });
+
+  test('should return 400 when no main event exists', async () => {
+    mockAdminSession();
+    mockFindMainEvent.mockResolvedValue(undefined);
+
+    const response = await GET(buildRequest('coordinator'));
+
+    expect(response.status).toBe(400);
+    expect(mockFindSeatingAssignmentsForExport).not.toHaveBeenCalled();
+  });
+
+  test('should scope the export to the main event', async () => {
+    mockAdminSession();
+    mockFindSeatingAssignmentsForExport.mockResolvedValue(SAMPLE_ROWS);
+
+    await GET(buildRequest('coordinator'));
+
+    expect(mockFindSeatingAssignmentsForExport).toHaveBeenCalledWith(
+      'event-main',
+    );
+    expect(mockGetEventRsvpReconstruction).toHaveBeenCalledWith('event-main');
+  });
+
+  test('should prefer per-event attendee meal data over guest columns', async () => {
+    mockAdminSession();
+    mockFindSeatingAssignmentsForExport.mockResolvedValue([
+      { ...SAMPLE_ROWS[0], mealChoice: 'short-rib', dietaryRestrictions: null },
+    ]);
+    mockGetEventRsvpReconstruction.mockResolvedValue({
+      rows: [
+        makeReconstructedRow({
+          guestId: 'guest-chris',
+          mealOption: 'roasted-chicken',
+          dietaryRestrictions: 'No nuts',
+        }),
+      ],
+      summary: { attending: 1, notAttending: 0, noResponse: 0, total: 1 },
+    });
+
+    const response = await GET(buildRequest('coordinator'));
+    const text = await response.text();
+
+    expect(text).toContain('"Roasted Chicken"');
+    expect(text).toContain('"No nuts"');
+    expect(text).not.toContain('"Short Rib"');
+  });
+
+  test('should fall back to guest columns when the event has no attendee data', async () => {
+    mockAdminSession();
+    mockFindSeatingAssignmentsForExport.mockResolvedValue([SAMPLE_ROWS[0]]);
+
+    const response = await GET(buildRequest('coordinator'));
+    const text = await response.text();
+
+    expect(text).toContain('"Short Rib"');
   });
 
   test('should return 200 with correct CSV headers for format=coordinator', async () => {

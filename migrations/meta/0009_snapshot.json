@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5a652a3d-35b2-478d-9a7b-0df5b7dd34ff",
+  "id": "a6fb3fca-9167-4c45-abbe-0806dfcbb2a5",
   "prevId": "234270c5-8b24-4bc6-a9f3-6e034799299a",
   "tables": {
     "Account": {
@@ -1184,6 +1184,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "eventId": {
+          "name": "eventId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -1233,6 +1240,13 @@
         }
       },
       "indexes": {
+        "SeatingTable_eventId_idx": {
+          "name": "SeatingTable_eventId_idx",
+          "columns": [
+            "eventId"
+          ],
+          "isUnique": false
+        },
         "SeatingTable_sortOrder_idx": {
           "name": "SeatingTable_sortOrder_idx",
           "columns": [
@@ -1241,7 +1255,21 @@
           "isUnique": false
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "SeatingTable_eventId_Event_id_fk": {
+          "name": "SeatingTable_eventId_Event_id_fk",
+          "tableFrom": "SeatingTable",
+          "tableTo": "Event",
+          "columnsFrom": [
+            "eventId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}

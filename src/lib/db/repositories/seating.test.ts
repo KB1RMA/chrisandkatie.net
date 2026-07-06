@@ -102,8 +102,8 @@ describe('insertSeatingTables', () => {
     mockGetDb.mockReturnValue(db);
 
     const rows = [
-      { id: 't1', name: 'Head Table', capacity: 8 },
-      { id: 't2', name: 'Table 1', capacity: 8 },
+      { id: 't1', eventId: 'event-main', name: 'Head Table', capacity: 8 },
+      { id: 't2', eventId: 'event-main', name: 'Table 1', capacity: 8 },
     ];
 
     await insertSeatingTables(rows);

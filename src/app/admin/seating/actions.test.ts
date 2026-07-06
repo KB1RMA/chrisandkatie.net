@@ -23,14 +23,20 @@ vi.mock('@/lib/db/repositories/guests', () => ({
   findGuestById: vi.fn(),
 }));
 
+vi.mock('@/lib/db/repositories/events', () => ({
+  findMainEvent: vi.fn(),
+}));
+
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
 import { expect, test, describe, beforeEach, vi } from 'vitest';
 import { auth, getAuthIdentity } from '@/lib/auth';
+import * as EventRepository from '@/lib/db/repositories/events';
 import * as SeatingRepository from '@/lib/db/repositories/seating';
 import * as GuestRepository from '@/lib/db/repositories/guests';
+import type { WeddingEvent } from '@/lib/db/schema';
 import { makeSession } from '@/tests/helpers';
 import {
   addSeatingTable,
@@ -67,6 +73,7 @@ const mockDeleteAssignmentForGuest = vi.mocked(
   SeatingRepository.deleteAssignmentForGuest,
 );
 const mockFindGuestById = vi.mocked(GuestRepository.findGuestById);
+const mockFindMainEvent = vi.mocked(EventRepository.findMainEvent);
 
 /** Marks the mocked session as an authenticated admin. */
 function mockAdminSession(): void {
@@ -74,10 +81,33 @@ function mockAdminSession(): void {
   mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
 }
 
+/** Builds the main event row fixture the seating chart is scoped to. */
+function makeMainEvent(): WeddingEvent {
+  return {
+    id: 'event-main',
+    name: 'Wedding Reception',
+    description: null,
+    location: null,
+    eventDate: '2026-09-12',
+    startTime: '17:00',
+    endTime: '23:00',
+    type: 'main',
+    dressCode: null,
+    parkingInfo: null,
+    locationLat: null,
+    locationLng: null,
+    sortOrder: 0,
+    rsvpRequired: false,
+    createdAt: '2026-07-06T00:00:00.000Z',
+    updatedAt: '2026-07-06T00:00:00.000Z',
+  };
+}
+
 /** Builds a SeatingTable row fixture. */
 function makeTable(
   overrides: Partial<{
     id: string;
+    eventId: string;
     name: string;
     capacity: number;
     isHeadTable: boolean;
@@ -86,6 +116,7 @@ function makeTable(
 ) {
   return {
     id: 'table-1',
+    eventId: 'event-main',
     name: 'Table 1',
     capacity: 8,
     isHeadTable: false,
@@ -105,6 +136,7 @@ const VALID_GENERATE_INPUT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockFindMainEvent.mockResolvedValue(makeMainEvent());
 });
 
 describe('generateSeatingTables', () => {
@@ -132,6 +164,16 @@ describe('generateSeatingTables', () => {
     expect(mockInsertSeatingTables).not.toHaveBeenCalled();
   });
 
+  test('should return an error when no main event exists', async () => {
+    mockAdminSession();
+    mockFindMainEvent.mockResolvedValue(undefined);
+
+    const result = await generateSeatingTables(VALID_GENERATE_INPUT);
+
+    expect(result.success).toBe(false);
+    expect(mockInsertSeatingTables).not.toHaveBeenCalled();
+  });
+
   test('should refuse to generate when tables already exist', async () => {
     mockAdminSession();
     mockFindAllSeatingTables.mockResolvedValue([
@@ -156,6 +198,7 @@ describe('generateSeatingTables', () => {
 
     expect(rows).toHaveLength(10);
     expect(rows[0]).toMatchObject({
+      eventId: 'event-main',
       name: 'Head Table',
       isHeadTable: true,
       capacity: 8,
@@ -209,11 +252,22 @@ describe('addSeatingTable', () => {
     expect(result).toEqual({ success: true });
     expect(mockInsertSeatingTables).toHaveBeenCalledWith([
       expect.objectContaining({
+        eventId: 'event-main',
         name: 'Kids Table',
         capacity: 6,
         sortOrder: 5,
       }),
     ]);
+  });
+
+  test('should return an error when no main event exists', async () => {
+    mockAdminSession();
+    mockFindMainEvent.mockResolvedValue(undefined);
+
+    const result = await addSeatingTable({ name: 'Kids Table', capacity: 6 });
+
+    expect(result.success).toBe(false);
+    expect(mockInsertSeatingTables).not.toHaveBeenCalled();
   });
 });
 
