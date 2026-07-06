@@ -26,6 +26,7 @@ const mockFindSeatingAssignmentsForExport = vi.mocked(
 
 const SAMPLE_ROWS: SeatingExportRow[] = [
   {
+    tableId: 'table-head',
     tableName: 'Head Table',
     tableSortOrder: 0,
     seatOrder: 0,
@@ -36,6 +37,7 @@ const SAMPLE_ROWS: SeatingExportRow[] = [
     dietaryRestrictions: null,
   },
   {
+    tableId: 'table-head',
     tableName: 'Head Table',
     tableSortOrder: 0,
     seatOrder: 1,
@@ -46,6 +48,7 @@ const SAMPLE_ROWS: SeatingExportRow[] = [
     dietaryRestrictions: 'No shellfish',
   },
   {
+    tableId: 'table-1',
     tableName: 'Table 1',
     tableSortOrder: 1,
     seatOrder: 3,
@@ -156,6 +159,32 @@ describe('GET /api/admin/export/seating', () => {
     expect(text).toContain('"Head Table","1","Chris Snyder"');
     expect(text).toContain('"Head Table","2","Katie Snyder"');
     expect(text).toContain('"Table 1","1","Jane Doe"');
+  });
+
+  test('should restart seat numbering between adjacent tables that share a name', async () => {
+    mockAdminSession();
+    mockFindSeatingAssignmentsForExport.mockResolvedValue([
+      { ...SAMPLE_ROWS[2], tableId: 'table-a', tableName: 'Family' },
+      { ...SAMPLE_ROWS[2], tableId: 'table-b', tableName: 'Family' },
+    ]);
+
+    const response = await GET(buildRequest('coordinator'));
+    const text = await response.text();
+
+    expect(text).not.toContain('"Family","2"');
+    expect(text.match(/"Family","1"/g)).toHaveLength(2);
+  });
+
+  test('should fall back to guest name when the party name is blank', async () => {
+    mockAdminSession();
+    mockFindSeatingAssignmentsForExport.mockResolvedValue([
+      { ...SAMPLE_ROWS[2], partyName: '  ' },
+    ]);
+
+    const response = await GET(buildRequest('coordinator'));
+    const text = await response.text();
+
+    expect(text).toContain('"Jane Doe","Jane Doe"');
   });
 
   test('should map meal choices to labels and fall back to guest name for Party', async () => {

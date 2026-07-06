@@ -76,7 +76,8 @@ export function SeatingChartBuilder({
   const [search, setSearch] = useState('');
   const [showPending, setShowPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const pending = pendingCount > 0;
   const [editingTableId, setEditingTableId] = useState<string | null>(null);
 
   const guestById = useMemo(
@@ -109,32 +110,91 @@ export function SeatingChartBuilder({
   /**
    * Run a server action with optimistic state, reverting on failure.
    *
-   * @param optimistic - The next local tables state to show immediately.
+   * Apply and revert are functional updates so concurrent actions compose:
+   * a failed action undoes only its own delta rather than restoring a
+   * snapshot that could wipe out a later successful change.
+   *
+   * @param apply - Updater producing the optimistic tables state.
+   * @param revert - Updater undoing only this action's change.
    * @param action - The server action to persist the change.
    */
   async function runAction(
-    optimistic: SeatingTableData[],
+    apply: (current: SeatingTableData[]) => SeatingTableData[],
+    revert: (current: SeatingTableData[]) => SeatingTableData[],
     action: () => Promise<{ success: boolean; error?: string }>,
   ) {
-    const previous = tables;
-
     setError(null);
-    setTables(optimistic);
-    setPending(true);
+    setTables(apply);
+    setPendingCount((count) => count + 1);
 
     try {
       const result = await action();
 
       if (!result.success) {
-        setTables(previous);
+        setTables(revert);
         setError(result.error ?? 'Something went wrong.');
       }
     } catch {
-      setTables(previous);
+      setTables(revert);
       setError('Something went wrong. Please try again.');
     } finally {
-      setPending(false);
+      setPendingCount((count) => count - 1);
     }
+  }
+
+  /** Remove a guest from every table's guest list. */
+  function withGuestRemoved(
+    current: SeatingTableData[],
+    guestId: string,
+  ): SeatingTableData[] {
+    return current.map((table) => ({
+      ...table,
+      guestIds: table.guestIds.filter((id) => id !== guestId),
+    }));
+  }
+
+  /** Restore a guest to their previous seat, or leave them unassigned. */
+  function withGuestRestored(
+    current: SeatingTableData[],
+    guestId: string,
+    previousSeat: { tableId: string; index: number } | null,
+  ): SeatingTableData[] {
+    const removed = withGuestRemoved(current, guestId);
+
+    if (!previousSeat) {
+      return removed;
+    }
+
+    return removed.map((table) => {
+      if (table.id !== previousSeat.tableId) {
+        return table;
+      }
+
+      const guestIds = [...table.guestIds];
+
+      guestIds.splice(
+        Math.min(previousSeat.index, guestIds.length),
+        0,
+        guestId,
+      );
+
+      return { ...table, guestIds };
+    });
+  }
+
+  /** Locate a guest's current table and seat index, if seated. */
+  function findSeat(
+    guestId: string,
+  ): { tableId: string; index: number } | null {
+    for (const table of tables) {
+      const index = table.guestIds.indexOf(guestId);
+
+      if (index !== -1) {
+        return { tableId: table.id, index };
+      }
+    }
+
+    return null;
   }
 
   /** Seat a guest at a table (optimistically), enforcing capacity locally. */
@@ -155,30 +215,31 @@ export function SeatingChartBuilder({
 
     setSelectedGuestId(null);
 
-    const optimistic = tables.map((table) => {
-      if (table.id === tableId) {
-        return { ...table, guestIds: [...table.guestIds, guestId] };
-      }
+    const previousSeat = findSeat(guestId);
 
-      return {
-        ...table,
-        guestIds: table.guestIds.filter((id) => id !== guestId),
-      };
-    });
-
-    void runAction(optimistic, () => assignGuestToTable({ guestId, tableId }));
+    void runAction(
+      (current) =>
+        withGuestRemoved(current, guestId).map((table) =>
+          table.id === tableId
+            ? { ...table, guestIds: [...table.guestIds, guestId] }
+            : table,
+        ),
+      (current) => withGuestRestored(current, guestId, previousSeat),
+      () => assignGuestToTable({ guestId, tableId }),
+    );
   }
 
   /** Return a seated guest to the unassigned list. */
   function removeGuest(guestId: string) {
     setSelectedGuestId(null);
 
-    const optimistic = tables.map((table) => ({
-      ...table,
-      guestIds: table.guestIds.filter((id) => id !== guestId),
-    }));
+    const previousSeat = findSeat(guestId);
 
-    void runAction(optimistic, () => unassignGuest({ guestId }));
+    void runAction(
+      (current) => withGuestRemoved(current, guestId),
+      (current) => withGuestRestored(current, guestId, previousSeat),
+      () => unassignGuest({ guestId }),
+    );
   }
 
   /** Handle a drop event onto a table (or the unassigned sidebar). */

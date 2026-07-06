@@ -172,6 +172,7 @@ export async function deleteAssignmentForGuest(guestId: string): Promise<void> {
  * and meal details for the wedding coordinator.
  */
 export type SeatingExportRow = {
+  tableId: string;
   tableName: string;
   tableSortOrder: number;
   seatOrder: number;
@@ -193,6 +194,7 @@ export async function findSeatingAssignmentsForExport(): Promise<
 > {
   return getDb()
     .select({
+      tableId: seatingTables.id,
       tableName: seatingTables.name,
       tableSortOrder: seatingTables.sortOrder,
       seatOrder: seatingAssignments.seatOrder,

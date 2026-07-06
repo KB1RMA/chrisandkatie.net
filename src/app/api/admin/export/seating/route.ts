@@ -57,13 +57,14 @@ export async function GET(request: Request): Promise<Response> {
 
   const rows = await findSeatingAssignmentsForExport();
 
-  // Seat numbers restart at 1 within each table, in seatOrder sequence
-  let currentTable: string | null = null;
+  // Seat numbers restart at 1 within each table, in seatOrder sequence.
+  // Tables are tracked by id: names are editable and need not be unique.
+  let currentTableId: string | null = null;
   let seatNumber = 0;
 
   const dataRows = rows.map((row) => {
-    if (row.tableName !== currentTable) {
-      currentTable = row.tableName;
+    if (row.tableId !== currentTableId) {
+      currentTableId = row.tableId;
       seatNumber = 0;
     }
 
@@ -75,7 +76,7 @@ export async function GET(request: Request): Promise<Response> {
       row.tableName,
       String(seatNumber),
       guestName,
-      row.partyName ?? guestName,
+      row.partyName?.trim() || guestName,
       formatMealChoice(row.mealChoice),
       row.dietaryRestrictions ?? '',
     ];
