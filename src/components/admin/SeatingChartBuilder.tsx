@@ -37,7 +37,7 @@ const BUTTON_CLASS =
 const SECONDARY_BUTTON_CLASS =
   'rounded-md border border-[#9e3f3f] bg-white px-4 py-2 text-sm font-medium text-[#9e3f3f] transition-colors hover:bg-[#f3dedb]';
 const INPUT_CLASS =
-  'rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#9e3f3f] focus:outline-none focus:ring-1 focus:ring-[#9e3f3f]';
+  'rounded-md border border-gray-300 px-3 py-2 text-sm text-[#4a3a3a] placeholder:text-gray-400 focus:border-[#9e3f3f] focus:outline-none focus:ring-1 focus:ring-[#9e3f3f]';
 
 /**
  * Compact display label for a seat chip: first name plus last initial.
