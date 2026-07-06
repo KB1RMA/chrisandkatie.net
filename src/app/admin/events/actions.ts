@@ -18,8 +18,7 @@ import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 const logger = createLogger('admin-events');
 
 type ActionResult<T = void> =
-  | { success: true; data?: T }
-  | { success: false; error: string };
+  { success: true; data?: T } | { success: false; error: string };
 
 /**
  * Create a new wedding event.
