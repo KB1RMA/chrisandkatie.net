@@ -160,12 +160,13 @@ describe('upsertAssignment', () => {
 
     mockGetDb.mockReturnValue(db);
 
-    await upsertAssignment('guest-1', 'table-1');
+    await upsertAssignment('guest-1', 'table-1', 'event-main');
 
     expect(insertValues).toHaveBeenCalledWith(
       expect.objectContaining({
         guestId: 'guest-1',
         tableId: 'table-1',
+        eventId: 'event-main',
         seatOrder: 4,
       }),
     );
@@ -190,7 +191,7 @@ describe('upsertAssignment', () => {
 
     mockGetDb.mockReturnValue(db);
 
-    await upsertAssignment('guest-1', 'table-1');
+    await upsertAssignment('guest-1', 'table-1', 'event-main');
 
     expect(insertValues).toHaveBeenCalledWith(
       expect.objectContaining({ seatOrder: 0 }),
@@ -205,7 +206,7 @@ describe('deleteAssignmentForGuest', () => {
 
     mockGetDb.mockReturnValue(db);
 
-    await deleteAssignmentForGuest('guest-1');
+    await deleteAssignmentForGuest('guest-1', 'event-main');
 
     expect(db.delete).toHaveBeenCalled();
     expect(deleteWhere).toHaveBeenCalled();

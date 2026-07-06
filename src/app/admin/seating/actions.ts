@@ -279,6 +279,7 @@ export async function assignGuestToTable(input: {
 
   const existing = await SeatingRepository.findAssignmentByGuestId(
     parsed.data.guestId,
+    table.eventId,
   );
 
   if (existing?.tableId === parsed.data.tableId) {
@@ -296,6 +297,7 @@ export async function assignGuestToTable(input: {
   await SeatingRepository.upsertAssignment(
     parsed.data.guestId,
     parsed.data.tableId,
+    table.eventId,
   );
 
   revalidatePath('/admin/seating');
@@ -304,7 +306,8 @@ export async function assignGuestToTable(input: {
 }
 
 /**
- * Remove a guest's seat, returning them to the unassigned list.
+ * Remove a guest's seat on the main event's chart, returning them to the
+ * unassigned list.
  *
  * @param input - The guest id to unassign.
  * @returns { success: true } on success (idempotent), or a validation error.
@@ -321,7 +324,16 @@ export async function unassignGuest(input: {
     return { success: false, error: firstIssue(parsed.error) };
   }
 
-  await SeatingRepository.deleteAssignmentForGuest(parsed.data.guestId);
+  const mainEvent = await EventRepository.findMainEvent();
+
+  if (!mainEvent) {
+    return { success: false, error: NO_MAIN_EVENT_ERROR };
+  }
+
+  await SeatingRepository.deleteAssignmentForGuest(
+    parsed.data.guestId,
+    mainEvent.id,
+  );
 
   revalidatePath('/admin/seating');
 

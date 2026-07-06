@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a6fb3fca-9167-4c45-abbe-0806dfcbb2a5",
+  "id": "72e18fb9-8555-406c-b4c1-87691e170028",
   "prevId": "234270c5-8b24-4bc6-a9f3-6e034799299a",
   "tables": {
     "Account": {
@@ -1095,6 +1095,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "eventId": {
+          "name": "eventId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "tableId": {
           "name": "tableId",
           "type": "text",
@@ -1127,10 +1134,11 @@
         }
       },
       "indexes": {
-        "SeatingAssignment_guestId_key": {
-          "name": "SeatingAssignment_guestId_key",
+        "SeatingAssignment_guestId_eventId_key": {
+          "name": "SeatingAssignment_guestId_eventId_key",
           "columns": [
-            "guestId"
+            "guestId",
+            "eventId"
           ],
           "isUnique": true
         },
@@ -1143,6 +1151,19 @@
         }
       },
       "foreignKeys": {
+        "SeatingAssignment_eventId_Event_id_fk": {
+          "name": "SeatingAssignment_eventId_Event_id_fk",
+          "tableFrom": "SeatingAssignment",
+          "tableTo": "Event",
+          "columnsFrom": [
+            "eventId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
         "SeatingAssignment_tableId_SeatingTable_id_fk": {
           "name": "SeatingAssignment_tableId_SeatingTable_id_fk",
           "tableFrom": "SeatingAssignment",

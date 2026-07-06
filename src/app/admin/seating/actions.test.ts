@@ -378,6 +378,7 @@ describe('assignGuestToTable', () => {
       id: 'assignment-1',
       guestId: 'guest-1',
       tableId: 'table-1',
+      eventId: 'event-main',
       seatOrder: 0,
       createdAt: '2026-07-06T00:00:00.000Z',
     });
@@ -404,7 +405,11 @@ describe('assignGuestToTable', () => {
     });
 
     expect(result).toEqual({ success: true });
-    expect(mockUpsertAssignment).toHaveBeenCalledWith('guest-1', 'table-1');
+    expect(mockUpsertAssignment).toHaveBeenCalledWith(
+      'guest-1',
+      'table-1',
+      'event-main',
+    );
   });
 });
 
@@ -430,12 +435,25 @@ describe('unassignGuest', () => {
     expect(mockDeleteAssignmentForGuest).not.toHaveBeenCalled();
   });
 
-  test('should delete the assignment for the guest', async () => {
+  test('should delete the assignment for the guest on the main event', async () => {
     mockAdminSession();
 
     const result = await unassignGuest({ guestId: 'guest-1' });
 
     expect(result).toEqual({ success: true });
-    expect(mockDeleteAssignmentForGuest).toHaveBeenCalledWith('guest-1');
+    expect(mockDeleteAssignmentForGuest).toHaveBeenCalledWith(
+      'guest-1',
+      'event-main',
+    );
+  });
+
+  test('should return an error when no main event exists', async () => {
+    mockAdminSession();
+    mockFindMainEvent.mockResolvedValue(undefined);
+
+    const result = await unassignGuest({ guestId: 'guest-1' });
+
+    expect(result.success).toBe(false);
+    expect(mockDeleteAssignmentForGuest).not.toHaveBeenCalled();
   });
 });

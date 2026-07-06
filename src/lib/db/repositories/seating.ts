@@ -7,7 +7,7 @@
  * the Drizzle client directly.
  */
 
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import {
   guests,
@@ -111,27 +111,37 @@ export async function deleteSeatingTable(id: string): Promise<void> {
 }
 
 /**
- * Find the seating assignment for a guest, if one exists.
+ * Find a guest's seating assignment for an event, if one exists.
  *
  * @param guestId - The guest id to look up.
+ * @param eventId - The event whose seating chart to search.
  * @returns The SeatingAssignment row, or undefined when unassigned.
  */
-export async function findAssignmentByGuestId(guestId: string) {
+export async function findAssignmentByGuestId(
+  guestId: string,
+  eventId: string,
+) {
   return getDb().query.seatingAssignments.findFirst({
-    where: eq(seatingAssignments.guestId, guestId),
+    where: and(
+      eq(seatingAssignments.guestId, guestId),
+      eq(seatingAssignments.eventId, eventId),
+    ),
   });
 }
 
 /**
- * Assign a guest to a seating table, moving them if already seated
- * elsewhere. The guest takes the next seatOrder slot at the target table.
+ * Assign a guest to a seating table, moving them if already seated at
+ * another table for the same event. The guest takes the next seatOrder
+ * slot at the target table.
  *
  * @param guestId - The guest to seat.
  * @param tableId - The seating table to place the guest at.
+ * @param eventId - The event the table belongs to; one seat per guest per event.
  */
 export async function upsertAssignment(
   guestId: string,
   tableId: string,
+  eventId: string,
 ): Promise<void> {
   const db = getDb();
   const rows = await db
@@ -148,23 +158,33 @@ export async function upsertAssignment(
       id: crypto.randomUUID(),
       guestId,
       tableId,
+      eventId,
       seatOrder: nextOrder,
     })
     .onConflictDoUpdate({
-      target: seatingAssignments.guestId,
+      target: [seatingAssignments.guestId, seatingAssignments.eventId],
       set: { tableId, seatOrder: nextOrder },
     });
 }
 
 /**
- * Remove a guest's seating assignment.
+ * Remove a guest's seating assignment for an event.
  *
  * @param guestId - The guest whose seat should be cleared.
+ * @param eventId - The event whose seating chart to clear the guest from.
  */
-export async function deleteAssignmentForGuest(guestId: string): Promise<void> {
+export async function deleteAssignmentForGuest(
+  guestId: string,
+  eventId: string,
+): Promise<void> {
   await getDb()
     .delete(seatingAssignments)
-    .where(eq(seatingAssignments.guestId, guestId));
+    .where(
+      and(
+        eq(seatingAssignments.guestId, guestId),
+        eq(seatingAssignments.eventId, eventId),
+      ),
+    );
 }
 
 /**

@@ -439,11 +439,18 @@ export const seatingTables = sqliteTable(
   }),
 );
 
-// Assigns a guest to a seating table; each guest may hold at most one seat
+// Assigns a guest to a seating table. eventId mirrors the table's event so
+// the database can enforce at most one seat per guest per event.
 export const seatingAssignments = sqliteTable(
   'SeatingAssignment',
   {
     id: text('id').primaryKey(),
+    eventId: text('eventId')
+      .notNull()
+      .references(() => events.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
     tableId: text('tableId')
       .notNull()
       .references(() => seatingTables.id, {
@@ -460,8 +467,9 @@ export const seatingAssignments = sqliteTable(
     createdAt: text('createdAt').notNull().default(timestampDefault),
   },
   (table) => ({
-    guestIdIndex: uniqueIndex('SeatingAssignment_guestId_key').on(
+    guestEventIndex: uniqueIndex('SeatingAssignment_guestId_eventId_key').on(
       table.guestId,
+      table.eventId,
     ),
     tableIdIndex: index('SeatingAssignment_tableId_idx').on(table.tableId),
   }),
