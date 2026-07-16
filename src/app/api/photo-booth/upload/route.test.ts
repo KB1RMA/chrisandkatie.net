@@ -289,4 +289,23 @@ describe('POST /api/photo-booth/upload', () => {
       MOCK_EVENT_ID,
     );
   });
+
+  test('should return 500 with SERVER_MISCONFIGURATION when no R2 URL env vars are set', async () => {
+    delete process.env.R2_PUBLIC_BASE_URL;
+    delete process.env.R2_PUBLIC_DOMAIN;
+
+    mockAuth.mockResolvedValue(guestSession as never);
+    mockGetAuthIdentity.mockReturnValue(guestIdentity);
+
+    const request = makeUploadRequest(makeImageFile(), {
+      eventId: MOCK_EVENT_ID,
+    });
+    const response = await POST(request);
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe(
+      'R2_PUBLIC_BASE_URL or R2_PUBLIC_DOMAIN must be configured',
+    );
+  });
 });

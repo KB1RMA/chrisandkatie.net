@@ -43,10 +43,13 @@ jobs:
         # Provides the env vars that wrangler dev passes to the Worker.
         # AUTH_SECRET is required by Auth.js to sign JWTs.
         # ADMIN_USERNAME/ADMIN_PASSWORD are required for admin login tests.
+        # R2_PUBLIC_BASE_URL points to the local file proxy so uploaded photos
+        # resolve to valid URLs during the E2E upload test.
         run: |
           echo "AUTH_SECRET=${{ secrets.E2E_AUTH_SECRET || 'e2e-test-secret-not-for-production' }}" >> .dev.vars
           echo "ADMIN_USERNAME=${{ secrets.E2E_ADMIN_USERNAME || 'admin' }}" >> .dev.vars
           echo "ADMIN_PASSWORD=${{ secrets.E2E_ADMIN_PASSWORD || 'testpassword' }}" >> .dev.vars
+          echo "R2_PUBLIC_BASE_URL=http://localhost:8787/api/photo-booth/files" >> .dev.vars
 
       - name: Debug — wrangler version and D1 state
         if: always()

@@ -142,6 +142,24 @@ export function AlbumGrid({
   usePartySocket({
     host: process.env.NEXT_PUBLIC_PARTYKIT_HOST,
     room: partyKitRoom,
+    // Fetch a short-lived signed token from the Next.js server before each
+    // connection attempt so the PartyKit host can verify the caller is
+    // authenticated without receiving the full session JWT in the URL.
+    query: async () => {
+      try {
+        const response = await fetch('/api/photo-booth/ws-token');
+
+        if (!response.ok) {
+          return {};
+        }
+
+        const data: { token: string } = await response.json();
+
+        return { token: data.token };
+      } catch {
+        return {};
+      }
+    },
     onMessage(event) {
       try {
         const message = JSON.parse(event.data as string);

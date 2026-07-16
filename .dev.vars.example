@@ -12,3 +12,8 @@ ADMIN_PASSWORD=your_admin_password
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # The email address that receives RSVP notification emails
 OWNER_EMAIL=owner@example.com
+
+# R2 public URL used to construct photo URLs after upload.
+# In local dev, this proxies through the Next.js file route so photos are
+# accessible without a public CDN domain.
+R2_PUBLIC_BASE_URL=http://localhost:8787/api/photo-booth/files
