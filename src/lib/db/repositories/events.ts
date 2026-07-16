@@ -8,7 +8,32 @@
 import { asc, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '@/lib/db';
+import type { DbClient } from '@/lib/db';
 import { events, guestEvents, guests } from '@/lib/db/schema';
+
+/**
+ * Check whether an event exists by its primary key.
+ *
+ * Accepts an explicit client so worker-level callers (which run outside the
+ * OpenNext request context, where `getDb()` is unavailable) can pass their
+ * own Drizzle client.
+ *
+ * @param id - The event id to look up.
+ * @param db - Drizzle client to query with. Defaults to the request-scoped client.
+ * @returns True when an event with the given id exists.
+ */
+export async function eventExistsById(
+  id: string,
+  db: DbClient = getDb(),
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(eq(events.id, id))
+    .limit(1);
+
+  return rows.length > 0;
+}
 
 /**
  * Find all events an invitation's guests have access to, via the GuestEvent

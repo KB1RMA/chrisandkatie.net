@@ -85,7 +85,6 @@
 		"eslint-plugin-react-hooks": "^7.1.1",
 		"eslint-plugin-testing-library": "^7.16.2",
 		"jsdom": "^29.1.1",
-		"partykit": "^0.0.115",
 		"prettier": "^3.9.5",
 		"prettier-plugin-tailwindcss": "^0.8.0",
 		"tailwindcss": "^4",

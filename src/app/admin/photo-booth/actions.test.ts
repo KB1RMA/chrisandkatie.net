@@ -13,8 +13,8 @@ vi.mock('@/lib/db/repositories/guestPhotos', () => ({
   findGuestPhotoById: vi.fn(),
 }));
 
-vi.mock('@/lib/partykit', () => ({
-  notifyPartyKit: vi.fn(),
+vi.mock('@/lib/photo-album-broadcast', () => ({
+  broadcastPhotoAlbumMessage: vi.fn(),
 }));
 
 import { expect, test, describe, beforeEach, vi } from 'vitest';
@@ -24,7 +24,7 @@ import {
   restorePhoto as repoRestore,
   findGuestPhotoById,
 } from '@/lib/db/repositories/guestPhotos';
-import { notifyPartyKit } from '@/lib/partykit';
+import { broadcastPhotoAlbumMessage } from '@/lib/photo-album-broadcast';
 import { makeSession } from '@/tests/helpers';
 import { softDeletePhoto, restorePhoto } from './actions';
 
@@ -33,7 +33,7 @@ const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
 const mockRepoSoftDelete = vi.mocked(repoSoftDelete);
 const mockRepoRestore = vi.mocked(repoRestore);
 const mockFindGuestPhotoById = vi.mocked(findGuestPhotoById);
-const mockNotifyPartyKit = vi.mocked(notifyPartyKit);
+const mockBroadcast = vi.mocked(broadcastPhotoAlbumMessage);
 
 const VALID_PHOTO_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
@@ -42,7 +42,7 @@ const guestSession = makeSession({ name: 'guest-user' });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockNotifyPartyKit.mockResolvedValue(undefined);
+  mockBroadcast.mockReturnValue(undefined);
 });
 
 describe('softDeletePhoto', () => {
@@ -104,7 +104,7 @@ describe('softDeletePhoto', () => {
     );
   });
 
-  test('should call notifyPartyKit with { type: photo-removed, photoId } after soft delete', async () => {
+  test('should call broadcastPhotoAlbumMessage with { type: photo-removed, photoId } after soft delete', async () => {
     mockAuth.mockResolvedValue(adminSession);
     mockGetAuthIdentity.mockReturnValue({
       type: 'admin',
@@ -128,7 +128,7 @@ describe('softDeletePhoto', () => {
 
     await softDeletePhoto({ photoId: VALID_PHOTO_ID });
 
-    expect(mockNotifyPartyKit).toHaveBeenCalledWith(
+    expect(mockBroadcast).toHaveBeenCalledWith(
       {
         type: 'photo-removed',
         photoId: VALID_PHOTO_ID,
@@ -209,7 +209,7 @@ describe('restorePhoto', () => {
     expect(mockRepoRestore).toHaveBeenCalledWith(VALID_PHOTO_ID);
   });
 
-  test('should call notifyPartyKit with { type: photo-added, photo: ... } after restore', async () => {
+  test('should call broadcastPhotoAlbumMessage with { type: photo-added, photo: ... } after restore', async () => {
     const photoUrl = 'https://example.com/photo.jpg';
     const uploadedAt = '2024-01-01T00:00:00.000Z';
 
@@ -251,7 +251,7 @@ describe('restorePhoto', () => {
 
     await restorePhoto({ photoId: VALID_PHOTO_ID });
 
-    expect(mockNotifyPartyKit).toHaveBeenCalledWith(
+    expect(mockBroadcast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'photo-added' }),
       'wedding-album',
     );

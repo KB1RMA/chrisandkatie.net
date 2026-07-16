@@ -15,7 +15,6 @@ declare namespace Cloudflare {
 		ANALYTICS_ENABLED: "true";
 		AUTH_URL: "https://chrisandkatie.net";
 		NEXTAUTH_URL: "https://chrisandkatie.net";
-		NEXT_PUBLIC_PARTYKIT_HOST: "chrisandkatie.net";
 		NEXTJS_ENV: string;
 		ADMIN_USERNAME: string;
 		ADMIN_PASSWORD: string;
@@ -30,7 +29,6 @@ declare namespace Cloudflare {
 		ANALYTICS_ENABLED: "false";
 		AUTH_URL: "https://staging.chrisandkatie.net";
 		NEXTAUTH_URL: "https://staging.chrisandkatie.net";
-		NEXT_PUBLIC_PARTYKIT_HOST: "staging.chrisandkatie.net";
 		NEXTJS_ENV: string;
 		ADMIN_USERNAME: string;
 		ADMIN_PASSWORD: string;
@@ -45,7 +43,6 @@ declare namespace Cloudflare {
 		ANALYTICS_ENABLED?: "true" | "false";
 		AUTH_URL: "https://chrisandkatie.net" | "https://staging.chrisandkatie.net" | "http://localhost:8787";
 		NEXTAUTH_URL: "https://chrisandkatie.net" | "https://staging.chrisandkatie.net" | "http://localhost:8787";
-		NEXT_PUBLIC_PARTYKIT_HOST: "chrisandkatie.net" | "staging.chrisandkatie.net" | "localhost:8787";
 		NEXTJS_ENV: string;
 		ADMIN_USERNAME?: string;
 		ADMIN_PASSWORD?: string;
@@ -60,20 +57,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "ANALYTICS_ENABLED" | "AUTH_URL" | "NEXTAUTH_URL" | "NEXT_PUBLIC_PARTYKIT_HOST" | "NEXTJS_ENV" | "ADMIN_USERNAME" | "ADMIN_PASSWORD">> {}
-}
-
-// Ambient declaration for cloudflare:workers so DO implementations can
-// `import { DurableObject } from 'cloudflare:workers'` and extend it.
-// workerd requires the exported class to have DurableObject in its prototype
-// chain at runtime — implementing the TypeScript interface is not sufficient.
-declare module 'cloudflare:workers' {
-	abstract class DurableObject<Env = unknown> {
-		protected ctx: DurableObjectState;
-		protected env: Env;
-		constructor(ctx: DurableObjectState, env: Env);
-	}
-	export { DurableObject };
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "ANALYTICS_ENABLED" | "AUTH_URL" | "NEXTAUTH_URL" | "NEXTJS_ENV" | "ADMIN_USERNAME" | "ADMIN_PASSWORD">> {}
 }
 
 // Begin runtime types

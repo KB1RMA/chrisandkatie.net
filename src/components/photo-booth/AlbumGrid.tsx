@@ -5,7 +5,10 @@ import { usePartySocket } from 'partysocket/react';
 import { MasonryPhotoAlbum } from 'react-photo-album';
 import 'react-photo-album/masonry.css';
 import { PolaroidCard } from '@/components/photo-booth/PolaroidCard';
-import { photoAlbumMessageSchema } from '@/lib/schemas/photo-booth';
+import {
+  photoAlbumMessageSchema,
+  WEDDING_ALBUM_ROOM,
+} from '@/lib/schemas/photo-booth';
 
 type AlbumPhoto = {
   id: string;
@@ -46,13 +49,13 @@ function toReactPhotoAlbumPhoto(photo: AlbumPhoto) {
 /**
  * Real-time masonry grid of guest photos.
  *
- * Subscribes to the PartyKit room for live photo-added and photo-removed
- * events. Falls back to 5-second polling when the WebSocket is unavailable.
- * Loads additional pages via IntersectionObserver.
+ * Subscribes to the photo-album realtime room for live photo-added and
+ * photo-removed events. Falls back to 5-second polling when the WebSocket is
+ * unavailable. Loads additional pages via IntersectionObserver.
  *
  * When `eventId` is provided the grid is scoped to that event's album and
- * subscribes to the event-specific PartyKit room; otherwise it shows the
- * main wedding album.
+ * subscribes to the event-specific room; otherwise it shows the main
+ * wedding album.
  *
  * @param initialPhotos - First page of photos fetched on the server.
  * @param eventId - Optional event ID to scope the album to a specific event.
@@ -138,14 +141,13 @@ export function AlbumGrid({
     setIsPolling(false);
   }, []);
 
-  const partyKitRoom = eventId ?? 'wedding-album';
-  const partyKitHost = process.env.NEXT_PUBLIC_PARTYKIT_HOST;
+  const albumRoom = eventId ?? WEDDING_ALBUM_ROOM;
 
+  // No host option: partysocket defaults to window.location.host, and the
+  // same worker that serves this page also serves the WebSocket route.
   usePartySocket({
-    host: partyKitHost ?? 'localhost:8787',
     party: 'photo-album',
-    room: partyKitRoom,
-    startClosed: !partyKitHost,
+    room: albumRoom,
     onMessage(event) {
       let parsed: ReturnType<typeof photoAlbumMessageSchema.safeParse>;
 
@@ -192,12 +194,6 @@ export function AlbumGrid({
       stopPolling();
     },
   });
-
-  useEffect(() => {
-    if (!partyKitHost) {
-      startPolling();
-    }
-  }, [partyKitHost, startPolling]);
 
   // Load the next page of photos when the sentinel scrolls into view
   const loadMore = useCallback(async () => {

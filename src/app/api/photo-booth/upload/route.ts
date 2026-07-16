@@ -5,7 +5,7 @@ import { uploadPhotoSchema } from '@/lib/schemas/photo-booth';
 import { insertGuestPhoto } from '@/lib/db/repositories/guestPhotos';
 import { findInvitationWithGuests } from '@/lib/db/repositories/invitations';
 import { findEventsByInvitationId } from '@/lib/db/repositories/events';
-import { notifyPartyKit } from '@/lib/partykit';
+import { broadcastPhotoAlbumMessage } from '@/lib/photo-album-broadcast';
 import { createLogger } from '@/lib/logger';
 import { buildPublicUrl } from '@/lib/photo-url';
 
@@ -126,10 +126,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       takenAt: photoData.takenAt,
     });
 
-    // Fire-and-forget PartyKit broadcast
+    // Fire-and-forget realtime broadcast to the photo-album room
     const room = photoData.eventId;
 
-    void notifyPartyKit(
+    broadcastPhotoAlbumMessage(
       {
         type: 'photo-added',
         photo: {

@@ -17,9 +17,15 @@ export const restorePhotoSchema = z.object({
 });
 
 /**
+ * Room name for the main wedding album. Event-scoped albums use the event id
+ * as their room name.
+ */
+export const WEDDING_ALBUM_ROOM = 'wedding-album';
+
+/**
  * Realtime messages broadcast to photo-album rooms. Shared by the server-side
- * producers (`notifyPartyKit` callers) and the browser consumer (`AlbumGrid`)
- * so both ends agree on the wire format.
+ * producers (`broadcastPhotoAlbumMessage` callers) and the browser consumer
+ * (`AlbumGrid`) so both ends agree on the wire format.
  */
 export const photoAlbumMessageSchema = z.discriminatedUnion('type', [
   z.object({
