@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import type { GuestPhoto } from '@/lib/db/schema';
-import type { GuestPhotoWithUrl } from '@/lib/db/repositories/guestPhotos';
+import type { GuestPhotoAdminRow } from '@/lib/db/repositories/guestPhotos';
 import { softDeletePhoto, restorePhoto } from '@/app/admin/photo-booth/actions';
 
 type AdminPhotoGridProps = {
-  photos: GuestPhotoWithUrl[];
+  photos: GuestPhotoAdminRow[];
 };
 
 /**
@@ -84,6 +84,16 @@ export function AdminPhotoGrid({ photos: initialPhotos }: AdminPhotoGridProps) {
               {photo.status === 'removed' && (
                 <div className="absolute inset-0 bg-black/50" />
               )}
+            </div>
+
+            {/* Uploader and event context */}
+            <div className="px-3 pt-2 text-xs text-gray-600">
+              <p className="truncate font-medium">
+                {photo.takenBy ?? 'Unknown guest'}
+              </p>
+              <p className="truncate text-gray-400">
+                {photo.eventName ?? 'No event'}
+              </p>
             </div>
 
             {/* Card footer with status badge and action button */}

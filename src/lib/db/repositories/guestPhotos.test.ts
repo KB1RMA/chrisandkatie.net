@@ -82,7 +82,9 @@ function createMockDb(
   overrides: Partial<{
     insertReturning: ReturnType<typeof vi.fn>;
     updateSetWhereReturning: ReturnType<typeof vi.fn>;
-    selectResult: GuestPhoto[];
+    selectResult: Array<
+      GuestPhoto & { takenBy?: string | null; eventName?: string | null }
+    >;
     findFirstResult: GuestPhoto | undefined;
   }> = {},
 ): DbClient {
@@ -103,7 +105,11 @@ function createMockDb(
   const updateFn = vi.fn().mockReturnValue({ set: updateSetFn });
 
   const selectResult = overrides.selectResult ?? [photo];
-  const queryChain = {
+  const queryChain: {
+    leftJoin?: ReturnType<typeof vi.fn>;
+    where: ReturnType<typeof vi.fn>;
+    orderBy: ReturnType<typeof vi.fn>;
+  } = {
     where: vi.fn().mockReturnValue({
       orderBy: vi.fn().mockReturnValue({
         limit: vi.fn().mockResolvedValue(selectResult),
@@ -113,10 +119,8 @@ function createMockDb(
       limit: vi.fn().mockResolvedValue(selectResult),
     }),
   };
-  const selectFromFn = vi.fn().mockReturnValue({
-    ...queryChain,
-    leftJoin: vi.fn().mockReturnValue(queryChain),
-  });
+  queryChain.leftJoin = vi.fn().mockReturnValue(queryChain);
+  const selectFromFn = vi.fn().mockReturnValue(queryChain);
   const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
 
   const findFirstResult =
@@ -261,6 +265,47 @@ describe('findAllPhotos', () => {
     await findAllPhotos({ limit: 20, cursor: '2024-01-01T00:00:00.000Z' });
 
     expect(mockGetDb).toHaveBeenCalledOnce();
+  });
+
+  test('should include takenBy and eventName from the joined tables', async () => {
+    const photos = [
+      { ...makeGuestPhoto(), takenBy: 'Alice', eventName: 'Reception' },
+      {
+        ...makeGuestPhoto({ id: 'photo-uuid-2' }),
+        takenBy: null,
+        eventName: null,
+      },
+    ];
+    const mockDb = createMockDb({ selectResult: photos });
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    const result = await findAllPhotos({ limit: 20 });
+
+    expect(result).toEqual(photos.map(withUrl));
+  });
+
+  test('should filter by eventId when provided', async () => {
+    const whereFn = vi.fn().mockReturnValue({
+      orderBy: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([]),
+      }),
+    });
+    const queryChain: Record<string, unknown> = { where: whereFn };
+    queryChain['leftJoin'] = vi.fn().mockReturnValue(queryChain);
+    const mockDb = {
+      ...createMockDb(),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue(queryChain),
+      }),
+    } as unknown as DbClient;
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    await findAllPhotos({ limit: 20, eventId: 'event-uuid-1' });
+
+    expect(whereFn).toHaveBeenCalledOnce();
+    expect(whereFn.mock.calls[0][0]).toBeDefined();
   });
 
   test('should call getDb once', async () => {
