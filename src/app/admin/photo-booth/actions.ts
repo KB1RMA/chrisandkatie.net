@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import {
   deletePhotoSchema,
@@ -37,6 +38,8 @@ export async function softDeletePhoto(input: unknown): Promise<void> {
     { type: 'photo-removed', photoId: data.photoId },
     room,
   );
+
+  revalidatePath('/admin/photo-booth');
 }
 
 /**
@@ -73,4 +76,6 @@ export async function restorePhoto(input: unknown): Promise<void> {
     },
     room,
   );
+
+  revalidatePath('/admin/photo-booth');
 }
