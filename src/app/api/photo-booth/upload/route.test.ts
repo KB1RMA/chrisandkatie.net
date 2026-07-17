@@ -19,8 +19,8 @@ vi.mock('@/lib/db/repositories/events', () => ({
   findEventsByInvitationId: vi.fn(),
 }));
 
-vi.mock('@/lib/partykit', () => ({
-  notifyPartyKit: vi.fn(),
+vi.mock('@/lib/photo-album-broadcast', () => ({
+  broadcastPhotoAlbumMessage: vi.fn(),
 }));
 
 vi.mock('@opennextjs/cloudflare', () => ({
@@ -33,7 +33,7 @@ import { auth, getAuthIdentity } from '@/lib/auth';
 import { insertGuestPhoto } from '@/lib/db/repositories/guestPhotos';
 import { findInvitationWithGuests } from '@/lib/db/repositories/invitations';
 import { findEventsByInvitationId } from '@/lib/db/repositories/events';
-import { notifyPartyKit } from '@/lib/partykit';
+import { broadcastPhotoAlbumMessage } from '@/lib/photo-album-broadcast';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { POST } from './route';
 
@@ -42,7 +42,7 @@ const mockGetAuthIdentity = vi.mocked(getAuthIdentity);
 const mockInsertGuestPhoto = vi.mocked(insertGuestPhoto);
 const mockFindInvitationWithGuests = vi.mocked(findInvitationWithGuests);
 const mockFindEventsByInvitationId = vi.mocked(findEventsByInvitationId);
-const mockNotifyPartyKit = vi.mocked(notifyPartyKit);
+const mockBroadcast = vi.mocked(broadcastPhotoAlbumMessage);
 const mockGetCloudflareContext = vi.mocked(getCloudflareContext);
 
 // ---------------------------------------------------------------------------
@@ -272,7 +272,7 @@ describe('POST /api/photo-booth/upload', () => {
     );
   });
 
-  test('should call notifyPartyKit with photo-added message after insert', async () => {
+  test('should call broadcastPhotoAlbumMessage with photo-added message after insert', async () => {
     mockAuth.mockResolvedValue(guestSession as never);
     mockGetAuthIdentity.mockReturnValue(guestIdentity);
 
@@ -284,7 +284,7 @@ describe('POST /api/photo-booth/upload', () => {
     // Allow fire-and-forget to execute
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(mockNotifyPartyKit).toHaveBeenCalledWith(
+    expect(mockBroadcast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'photo-added' }),
       MOCK_EVENT_ID,
     );

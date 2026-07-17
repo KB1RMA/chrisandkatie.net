@@ -8,6 +8,7 @@ declare namespace Cloudflare {
 	interface ProductionEnv {
 		DB: D1Database;
 		ANALYTICS: AnalyticsEngineDataset;
+		PHOTO_ALBUM_ROOM: DurableObjectNamespace;
 		RSVP_NOTIFICATION_QUEUE: Queue<import('./src/lib/email/notification').RsvpNotificationPayload>;
 		IMAGES: ImagesBinding;
 		ASSETS: Fetcher;
@@ -21,6 +22,7 @@ declare namespace Cloudflare {
 	interface StagingEnv {
 		DB: D1Database;
 		ANALYTICS: AnalyticsEngineDataset;
+		PHOTO_ALBUM_ROOM: DurableObjectNamespace;
 		RSVP_NOTIFICATION_QUEUE: Queue<import('./src/lib/email/notification').RsvpNotificationPayload>;
 		IMAGES: ImagesBinding;
 		ASSETS: Fetcher;
@@ -34,6 +36,7 @@ declare namespace Cloudflare {
 	interface Env {
 		DB: D1Database;
 		ANALYTICS?: AnalyticsEngineDataset;
+		PHOTO_ALBUM_ROOM: DurableObjectNamespace;
 		RSVP_NOTIFICATION_QUEUE: Queue<import('./src/lib/email/notification').RsvpNotificationPayload>;
 		IMAGES: ImagesBinding;
 		ASSETS: Fetcher;

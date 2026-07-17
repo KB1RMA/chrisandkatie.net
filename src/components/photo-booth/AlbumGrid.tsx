@@ -5,6 +5,10 @@ import { usePartySocket } from 'partysocket/react';
 import { MasonryPhotoAlbum } from 'react-photo-album';
 import 'react-photo-album/masonry.css';
 import { PolaroidCard } from '@/components/photo-booth/PolaroidCard';
+import {
+  photoAlbumMessageSchema,
+  WEDDING_ALBUM_ROOM,
+} from '@/lib/schemas/photo-booth';
 
 type AlbumPhoto = {
   id: string;
@@ -45,13 +49,13 @@ function toReactPhotoAlbumPhoto(photo: AlbumPhoto) {
 /**
  * Real-time masonry grid of guest photos.
  *
- * Subscribes to the PartyKit room for live photo-added and photo-removed
- * events. Falls back to 5-second polling when the WebSocket is unavailable.
- * Loads additional pages via IntersectionObserver.
+ * Subscribes to the photo-album realtime room for live photo-added and
+ * photo-removed events. Falls back to 5-second polling when the WebSocket is
+ * unavailable. Loads additional pages via IntersectionObserver.
  *
  * When `eventId` is provided the grid is scoped to that event's album and
- * subscribes to the event-specific PartyKit room; otherwise it shows the
- * main wedding album.
+ * subscribes to the event-specific room; otherwise it shows the main
+ * wedding album.
  *
  * @param initialPhotos - First page of photos fetched on the server.
  * @param eventId - Optional event ID to scope the album to a specific event.
@@ -137,33 +141,47 @@ export function AlbumGrid({
     setIsPolling(false);
   }, []);
 
-  const partyKitRoom = eventId ?? 'wedding-album';
+  const albumRoom = eventId ?? WEDDING_ALBUM_ROOM;
 
+  // No host option: partysocket defaults to window.location.host, and the
+  // same worker that serves this page also serves the WebSocket route.
   usePartySocket({
-    host: process.env.NEXT_PUBLIC_PARTYKIT_HOST,
-    room: partyKitRoom,
+    party: 'photo-album',
+    room: albumRoom,
     onMessage(event) {
+      let parsed: ReturnType<typeof photoAlbumMessageSchema.safeParse>;
+
       try {
-        const message = JSON.parse(event.data as string);
-
-        if (message.type === 'photo-added') {
-          const incoming = {
-            ...(message.photo as Omit<AlbumPhoto, 'takenBy'>),
-            takenBy: null,
-          } satisfies AlbumPhoto;
-
-          setPhotos((prev) => {
-            const alreadyExists = prev.some((p) => p.id === incoming.id);
-
-            return alreadyExists ? prev : [incoming, ...prev];
-          });
-        } else if (message.type === 'photo-removed') {
-          const { photoId } = message as { photoId: string };
-
-          setPhotos((prev) => prev.filter((p) => p.id !== photoId));
-        }
+        parsed = photoAlbumMessageSchema.safeParse(
+          JSON.parse(event.data as string),
+        );
       } catch {
-        // Ignore malformed messages
+        // Ignore messages that are not valid JSON
+        return;
+      }
+
+      if (!parsed.success) {
+        // Ignore messages that do not match the shared contract
+        return;
+      }
+
+      const message = parsed.data;
+
+      if (message.type === 'photo-added') {
+        const incoming: AlbumPhoto = {
+          ...message.photo,
+          width: message.photo.width ?? null,
+          height: message.photo.height ?? null,
+          takenBy: null,
+        };
+
+        setPhotos((prev) => {
+          const alreadyExists = prev.some((p) => p.id === incoming.id);
+
+          return alreadyExists ? prev : [incoming, ...prev];
+        });
+      } else {
+        setPhotos((prev) => prev.filter((p) => p.id !== message.photoId));
       }
     },
     onClose() {

@@ -9,11 +9,12 @@ import {
   softDeletePhoto as repoSoftDelete,
   restorePhoto as repoRestore,
 } from '@/lib/db/repositories/guestPhotos';
-import { notifyPartyKit } from '@/lib/partykit';
+import { broadcastPhotoAlbumMessage } from '@/lib/photo-album-broadcast';
+import { WEDDING_ALBUM_ROOM } from '@/lib/schemas/photo-booth';
 
 /**
  * Soft-deletes a guest photo, marking it as removed in the database and
- * broadcasting a removal event to connected PartyKit clients.
+ * broadcasting a removal event to connected photo-album clients.
  *
  * @param input - Object containing the photoId (UUID) to soft-delete.
  * @returns Promise that resolves when the operation is complete.
@@ -30,14 +31,17 @@ export async function softDeletePhoto(input: unknown): Promise<void> {
   }
 
   const photo = await repoSoftDelete(data.photoId, identity.username);
-  const room = photo.eventId ?? 'wedding-album';
+  const room = photo.eventId ?? WEDDING_ALBUM_ROOM;
 
-  void notifyPartyKit({ type: 'photo-removed', photoId: data.photoId }, room);
+  broadcastPhotoAlbumMessage(
+    { type: 'photo-removed', photoId: data.photoId },
+    room,
+  );
 }
 
 /**
  * Restores a previously soft-deleted guest photo, setting its status back to
- * visible and broadcasting an addition event to connected PartyKit clients.
+ * visible and broadcasting an addition event to connected photo-album clients.
  *
  * @param input - Object containing the photoId (UUID) to restore.
  * @returns Promise that resolves when the operation is complete.
@@ -54,14 +58,16 @@ export async function restorePhoto(input: unknown): Promise<void> {
   }
 
   const photo = await repoRestore(data.photoId);
-  const room = photo.eventId ?? 'wedding-album';
+  const room = photo.eventId ?? WEDDING_ALBUM_ROOM;
 
-  void notifyPartyKit(
+  broadcastPhotoAlbumMessage(
     {
       type: 'photo-added',
       photo: {
         id: photo.id,
         publicUrl: photo.publicUrl,
+        width: photo.width,
+        height: photo.height,
         uploadedAt: photo.uploadedAt,
       },
     },
