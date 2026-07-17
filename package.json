@@ -97,5 +97,16 @@
 	"optionalDependencies": {
 		"@emnapi/core": "^1.11.2",
 		"@emnapi/runtime": "^1.11.2"
+	},
+	"overrides": {
+		"next": {
+			"postcss": "^8.5.10"
+		},
+		"@actions/http-client": {
+			"undici": "^6.27.0"
+		},
+		"@esbuild-kit/core-utils": {
+			"esbuild": "^0.25.0"
+		}
 	}
 }
