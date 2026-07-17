@@ -8,7 +8,7 @@
 
 import { and, desc, eq, getTableColumns, lt } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { guestPhotos, guests } from '@/lib/db/schema';
+import { events, guestPhotos, guests } from '@/lib/db/schema';
 import type { GuestPhoto } from '@/lib/db/schema';
 import { buildPublicUrl } from '@/lib/photo-url';
 
@@ -106,35 +106,58 @@ export async function findVisiblePhotos({
 }
 
 /**
+ * A GuestPhoto row extended with the computed public URL, uploader's first
+ * name, and the name of the event it was taken at — for admin views.
+ */
+export type GuestPhotoAdminRow = GuestPhotoWithUrl & {
+  takenBy: string | null;
+  eventName: string | null;
+};
+
+/**
  * Find all photos regardless of status — for admin use.
  *
- * Supports cursor-based pagination using the `uploadedAt` timestamp of the
- * last item on the previous page.
+ * Joins the uploader's first name and the event name, and optionally filters
+ * to a single event. Supports cursor-based pagination using the `uploadedAt`
+ * timestamp of the last item on the previous page.
  *
  * @param options - Pagination options.
  * @param options.limit - Maximum number of rows to return.
  * @param options.cursor - ISO timestamp; returns photos uploaded before this value.
- * @returns An array of GuestPhoto rows.
+ * @param options.eventId - When set, only returns photos taken at this event.
+ * @returns An array of GuestPhoto rows with uploader and event names.
  */
 export async function findAllPhotos({
   limit,
   cursor,
+  eventId,
 }: {
   limit: number;
   cursor?: string;
-}): Promise<GuestPhotoWithUrl[]> {
-  const rows = cursor
-    ? await getDb()
-        .select()
-        .from(guestPhotos)
-        .where(lt(guestPhotos.uploadedAt, cursor))
-        .orderBy(desc(guestPhotos.uploadedAt))
-        .limit(limit)
-    : await getDb()
-        .select()
-        .from(guestPhotos)
-        .orderBy(desc(guestPhotos.uploadedAt))
-        .limit(limit);
+  eventId?: string;
+}): Promise<GuestPhotoAdminRow[]> {
+  const conditions = [];
+
+  if (cursor) {
+    conditions.push(lt(guestPhotos.uploadedAt, cursor));
+  }
+
+  if (eventId) {
+    conditions.push(eq(guestPhotos.eventId, eventId));
+  }
+
+  const rows = await getDb()
+    .select({
+      ...getTableColumns(guestPhotos),
+      takenBy: guests.firstName,
+      eventName: events.name,
+    })
+    .from(guestPhotos)
+    .leftJoin(guests, eq(guestPhotos.guestId, guests.id))
+    .leftJoin(events, eq(guestPhotos.eventId, events.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(guestPhotos.uploadedAt))
+    .limit(limit);
 
   return rows.map((row) => ({ ...row, publicUrl: buildPublicUrl(row.r2Key) }));
 }

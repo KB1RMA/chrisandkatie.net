@@ -15,6 +15,7 @@ const adminTabs: AdminTab[] = [
   { href: '/admin/invitations', label: 'Invitations' },
   { href: '/admin/guests', label: 'Guests' },
   { href: '/admin/seating', label: 'Seating' },
+  { href: '/admin/photo-booth', label: 'Photo Booth' },
 ];
 
 const baseTabClassName =

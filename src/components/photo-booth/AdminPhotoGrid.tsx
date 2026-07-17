@@ -1,52 +1,55 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useOptimistic, useState, useTransition } from 'react';
 import type { GuestPhoto } from '@/lib/db/schema';
-import type { GuestPhotoWithUrl } from '@/lib/db/repositories/guestPhotos';
+import type { GuestPhotoAdminRow } from '@/lib/db/repositories/guestPhotos';
 import { softDeletePhoto, restorePhoto } from '@/app/admin/photo-booth/actions';
 
 type AdminPhotoGridProps = {
-  photos: GuestPhotoWithUrl[];
+  photos: GuestPhotoAdminRow[];
 };
 
 /**
  * Admin photo grid component for moderating guest photo booth uploads.
  *
  * Displays all photos (visible and removed) with controls to soft-delete or
- * restore each photo. Updates local state optimistically on action, reverting
- * on error.
+ * restore each photo. The server-provided `photos` prop is the source of
+ * truth; status changes are applied optimistically via useOptimistic and
+ * settle into the revalidated server data (or revert to it on error).
  *
  * @param photos - All guest photos to display, regardless of status.
  * @returns A responsive grid of photo cards with moderation controls.
  */
-export function AdminPhotoGrid({ photos: initialPhotos }: AdminPhotoGridProps) {
-  const [photos, setPhotos] = useState(initialPhotos);
+export function AdminPhotoGrid({ photos: serverPhotos }: AdminPhotoGridProps) {
+  const [photos, applyOptimisticStatus] = useOptimistic(
+    serverPhotos,
+    (current, update: { photoId: string; status: GuestPhoto['status'] }) =>
+      current.map((photo) =>
+        photo.id === update.photoId
+          ? { ...photo, status: update.status }
+          : photo,
+      ),
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   /**
-   * Optimistically updates a photo's status, calls the server action, and
-   * reverts on failure.
+   * Optimistically updates a photo's status and calls the server action; the
+   * optimistic state reverts to the server data automatically on failure.
    */
   function handleAction(
     photoId: string,
     optimisticStatus: GuestPhoto['status'],
     action: (input: unknown) => Promise<void>,
   ) {
-    const previous = photos;
-
-    setPhotos((current) =>
-      current.map((photo) =>
-        photo.id === photoId ? { ...photo, status: optimisticStatus } : photo,
-      ),
-    );
     setErrorMessage(null);
 
     startTransition(async () => {
+      applyOptimisticStatus({ photoId, status: optimisticStatus });
+
       try {
         await action({ photoId });
       } catch {
-        setPhotos(previous);
         setErrorMessage('Action failed. Please try again.');
       }
     });
@@ -84,6 +87,16 @@ export function AdminPhotoGrid({ photos: initialPhotos }: AdminPhotoGridProps) {
               {photo.status === 'removed' && (
                 <div className="absolute inset-0 bg-black/50" />
               )}
+            </div>
+
+            {/* Uploader and event context */}
+            <div className="px-3 pt-2 text-xs text-gray-600">
+              <p className="truncate font-medium">
+                {photo.takenBy ?? 'Unknown guest'}
+              </p>
+              <p className="truncate text-gray-400">
+                {photo.eventName ?? 'No event'}
+              </p>
             </div>
 
             {/* Card footer with status badge and action button */}

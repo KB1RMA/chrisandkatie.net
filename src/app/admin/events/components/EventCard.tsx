@@ -125,12 +125,21 @@ export function EventCard({ event, rsvpSummary }: EventCardProps) {
               <RsvpSummary summary={rsvpSummary} />
             </div>
 
-            <Link
-              href={`/admin/events/${event.id}/rsvps`}
-              className="mt-4 inline-block text-sm font-medium text-[#9e3f3f] hover:underline"
-            >
-              View RSVPs →
-            </Link>
+            <div className="mt-4 flex gap-4">
+              <Link
+                href={`/admin/events/${event.id}/rsvps`}
+                className="inline-block text-sm font-medium text-[#9e3f3f] hover:underline"
+              >
+                View RSVPs →
+              </Link>
+
+              <Link
+                href={`/admin/photo-booth?eventId=${event.id}`}
+                className="inline-block text-sm font-medium text-[#9e3f3f] hover:underline"
+              >
+                View Photos →
+              </Link>
+            </div>
           </div>
 
           <div className="flex flex-shrink-0 gap-2">

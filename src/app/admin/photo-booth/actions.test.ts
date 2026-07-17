@@ -17,6 +17,10 @@ vi.mock('@/lib/photo-album-broadcast', () => ({
   broadcastPhotoAlbumMessage: vi.fn(),
 }));
 
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}));
+
 import { expect, test, describe, beforeEach, vi } from 'vitest';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import {
@@ -25,6 +29,7 @@ import {
   findGuestPhotoById,
 } from '@/lib/db/repositories/guestPhotos';
 import { broadcastPhotoAlbumMessage } from '@/lib/photo-album-broadcast';
+import { revalidatePath } from 'next/cache';
 import { makeSession } from '@/tests/helpers';
 import { softDeletePhoto, restorePhoto } from './actions';
 
@@ -34,6 +39,7 @@ const mockRepoSoftDelete = vi.mocked(repoSoftDelete);
 const mockRepoRestore = vi.mocked(repoRestore);
 const mockFindGuestPhotoById = vi.mocked(findGuestPhotoById);
 const mockBroadcast = vi.mocked(broadcastPhotoAlbumMessage);
+const mockRevalidatePath = vi.mocked(revalidatePath);
 
 const VALID_PHOTO_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
@@ -135,6 +141,33 @@ describe('softDeletePhoto', () => {
       },
       'wedding-album',
     );
+  });
+
+  test('should call revalidatePath for /admin/photo-booth on success', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'admin',
+      username: 'admin-user',
+    });
+    mockRepoSoftDelete.mockResolvedValue({
+      id: VALID_PHOTO_ID,
+      status: 'removed',
+      r2Key: 'key',
+      publicUrl: 'https://example.com/photo.jpg',
+      guestId: 'guest-1',
+      eventId: null,
+      width: null,
+      height: null,
+      takenAt: null,
+      uploadedAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      removedAt: '2024-01-02T00:00:00.000Z',
+      removedBy: 'admin-user',
+    });
+
+    await softDeletePhoto({ photoId: VALID_PHOTO_ID });
+
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/photo-booth');
   });
 });
 
@@ -255,5 +288,32 @@ describe('restorePhoto', () => {
       expect.objectContaining({ type: 'photo-added' }),
       'wedding-album',
     );
+  });
+
+  test('should call revalidatePath for /admin/photo-booth on success', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockGetAuthIdentity.mockReturnValue({
+      type: 'admin',
+      username: 'admin-user',
+    });
+    mockRepoRestore.mockResolvedValue({
+      id: VALID_PHOTO_ID,
+      status: 'visible',
+      r2Key: 'key',
+      publicUrl: 'https://example.com/photo.jpg',
+      guestId: 'guest-1',
+      eventId: null,
+      width: null,
+      height: null,
+      takenAt: null,
+      uploadedAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-02T00:00:00.000Z',
+      removedAt: null,
+      removedBy: null,
+    });
+
+    await restorePhoto({ photoId: VALID_PHOTO_ID });
+
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/admin/photo-booth');
   });
 });
