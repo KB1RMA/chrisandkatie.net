@@ -80,6 +80,14 @@ describe('Header — navigation', () => {
       'href',
       '/admin/events',
     );
+    expect(screen.getByRole('link', { name: 'Seating' })).toHaveAttribute(
+      'href',
+      '/admin/seating',
+    );
+    expect(screen.getByRole('link', { name: 'Photo Booth' })).toHaveAttribute(
+      'href',
+      '/admin/photo-booth',
+    );
   });
 
   test('should not render admin links when user is a guest', () => {
