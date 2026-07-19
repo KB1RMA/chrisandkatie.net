@@ -1,22 +1,9 @@
 'use client';
 
-import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ADMIN_NAV_LINKS } from '@/lib/admin-nav';
 import { cn } from '@/lib/cn';
-
-export type AdminTab = {
-  href: Route;
-  label: string;
-};
-
-const adminTabs: AdminTab[] = [
-  { href: '/admin/events', label: 'Events' },
-  { href: '/admin/invitations', label: 'Invitations' },
-  { href: '/admin/guests', label: 'Guests' },
-  { href: '/admin/seating', label: 'Seating' },
-  { href: '/admin/photo-booth', label: 'Photo Booth' },
-];
 
 const baseTabClassName =
   'inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors';
@@ -32,7 +19,7 @@ export function AdminTabs() {
 
   return (
     <nav className="flex flex-wrap justify-center gap-2 border-b border-gray-200 pb-4">
-      {adminTabs.map((tab) => {
+      {ADMIN_NAV_LINKS.map((tab) => {
         const isActive =
           pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 

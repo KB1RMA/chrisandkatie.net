@@ -12,6 +12,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Great_Vibes } from 'next/font/google';
+import { ADMIN_NAV_LINKS } from '@/lib/admin-nav';
 import { getAuthIdentity } from '@/lib/auth-identity';
 import { cn } from '@/lib/cn';
 
@@ -63,9 +64,7 @@ export function Header() {
 
   const adminLinks: { href: Route; label: string }[] = [
     { href: '/admin', label: 'Dashboard' },
-    { href: '/admin/invitations', label: 'Invitations' },
-    { href: '/admin/events', label: 'Events' },
-    { href: '/admin/guests', label: 'Guests' },
+    ...ADMIN_NAV_LINKS,
   ];
 
   return (
