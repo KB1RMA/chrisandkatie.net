@@ -110,6 +110,12 @@ export function SeatingChartBuilder({
   const seatedCount = assignedGuestIds.size;
   const totalCapacity = tables.reduce((sum, table) => sum + table.capacity, 0);
 
+  const selectedGuest = selectedGuestId
+    ? (guestById.get(selectedGuestId) ?? null)
+    : null;
+  const selectedGuestSeated =
+    selectedGuestId !== null && assignedGuestIds.has(selectedGuestId);
+
   /**
    * Run a server action with optimistic state, reverting on failure.
    *
@@ -267,7 +273,7 @@ export function SeatingChartBuilder({
   }
 
   return (
-    <div>
+    <div className={cn(selectedGuest && 'pb-20 print:pb-0')}>
       {/* Controls */}
       <div className="mb-4 flex flex-wrap items-center gap-3 print:hidden">
         <a
@@ -307,8 +313,8 @@ export function SeatingChartBuilder({
             Unassigned ({unassignedGuests.length})
           </h2>
           <p className="mb-3 text-xs text-[#7a6666]">
-            Drag a guest onto a table, or click a guest then a table. Drop a
-            seated guest here to unassign.
+            Tap a guest, then tap a table to seat them. Tap a seated guest to
+            move or unassign them. Drag-and-drop also works.
           </p>
           <input
             type="search"
@@ -387,6 +393,11 @@ export function SeatingChartBuilder({
                 }}
                 onDrop={(event) => handleDrop(event, table.id)}
                 onRemoveGuest={removeGuest}
+                onSelectGuest={(guestId) =>
+                  setSelectedGuestId(
+                    selectedGuestId === guestId ? null : guestId,
+                  )
+                }
                 onUpdated={(updated) =>
                   setTables((current) =>
                     current.map((existing) =>
@@ -428,6 +439,37 @@ export function SeatingChartBuilder({
           </div>
         </div>
       </div>
+
+      {/* Sticky bar showing the in-progress selection (key for touch, where
+          drag-and-drop is unavailable and the guest list scrolls offscreen) */}
+      {selectedGuest && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e7cfc9] bg-[#fffdfb]/95 px-4 py-3 shadow-[0_-2px_8px_rgba(0,0,0,0.1)] backdrop-blur print:hidden">
+          <div className="mx-auto flex max-w-7xl items-center justify-center gap-3">
+            <span className="min-w-0 truncate text-sm text-[#4a3a3a]">
+              <span className="font-semibold">{selectedGuest.fullName}</span>
+              {selectedGuestSeated
+                ? ' — tap a table to move'
+                : ' — tap a table to seat'}
+            </span>
+            {selectedGuestSeated && (
+              <button
+                type="button"
+                onClick={() => removeGuest(selectedGuest.id)}
+                className="shrink-0 rounded-md border border-[#9e3f3f] bg-white px-3 py-1.5 text-sm font-medium text-[#9e3f3f] transition-colors hover:bg-[#f3dedb]"
+              >
+                Unassign
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedGuestId(null)}
+              className="shrink-0 rounded-md px-3 py-1.5 text-sm text-[#7a6666] hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -442,6 +484,7 @@ type TableCardProps = {
   onClickTable: () => void;
   onDrop: (event: React.DragEvent) => void;
   onRemoveGuest: (guestId: string) => void;
+  onSelectGuest: (guestId: string) => void;
   onUpdated: (
     table: Pick<SeatingTableData, 'id' | 'name' | 'capacity'>,
   ) => void;
@@ -466,6 +509,7 @@ function TableCard({
   onClickTable,
   onDrop,
   onRemoveGuest,
+  onSelectGuest,
   onUpdated,
   onDeleted,
   onError,
@@ -613,7 +657,9 @@ function TableCard({
                 key={guestId ?? `empty-${index}`}
                 guest={guestId ? guestById.get(guestId) : undefined}
                 seatNumber={index + 1}
+                selected={guestId !== null && guestId === selectedGuestId}
                 onRemove={guestId ? () => onRemoveGuest(guestId) : undefined}
+                onSelect={guestId ? () => onSelectGuest(guestId) : undefined}
               />
             ))}
           </div>
@@ -622,7 +668,9 @@ function TableCard({
         <RoundTable
           seats={seats}
           guestById={guestById}
+          selectedGuestId={selectedGuestId}
           onRemoveGuest={onRemoveGuest}
+          onSelectGuest={onSelectGuest}
         />
       )}
     </div>
@@ -632,7 +680,9 @@ function TableCard({
 type RoundTableProps = {
   seats: (string | null)[];
   guestById: Map<string, SeatingGuest>;
+  selectedGuestId: string | null;
   onRemoveGuest: (guestId: string) => void;
+  onSelectGuest: (guestId: string) => void;
 };
 
 /**
@@ -640,10 +690,18 @@ type RoundTableProps = {
  *
  * @param props.seats - Guest id per seat position; null means empty.
  * @param props.guestById - Guest lookup for names.
+ * @param props.selectedGuestId - The currently selected guest, if any.
  * @param props.onRemoveGuest - Called when a seated guest's remove button is clicked.
+ * @param props.onSelectGuest - Called when a seated guest's chip is tapped.
  * @returns The round table visual.
  */
-function RoundTable({ seats, guestById, onRemoveGuest }: RoundTableProps) {
+function RoundTable({
+  seats,
+  guestById,
+  selectedGuestId,
+  onRemoveGuest,
+  onSelectGuest,
+}: RoundTableProps) {
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[260px]">
       {/* Table surface */}
@@ -662,7 +720,9 @@ function RoundTable({ seats, guestById, onRemoveGuest }: RoundTableProps) {
             <SeatChip
               guest={guestId ? guestById.get(guestId) : undefined}
               seatNumber={index + 1}
+              selected={guestId !== null && guestId === selectedGuestId}
               onRemove={guestId ? () => onRemoveGuest(guestId) : undefined}
+              onSelect={guestId ? () => onSelectGuest(guestId) : undefined}
               compact
             />
           </div>
@@ -675,21 +735,33 @@ function RoundTable({ seats, guestById, onRemoveGuest }: RoundTableProps) {
 type SeatChipProps = {
   guest: SeatingGuest | undefined;
   seatNumber: number;
+  selected?: boolean;
   onRemove?: () => void;
+  onSelect?: () => void;
   compact?: boolean;
 };
 
 /**
  * A single seat: a named, draggable chip when occupied, or a dashed empty
- * placeholder.
+ * placeholder. Tapping an occupied chip selects the guest so they can be
+ * moved or unassigned without drag-and-drop (which touch devices lack).
  *
  * @param props.guest - The seated guest, or undefined for an empty seat.
  * @param props.seatNumber - 1-based seat position, shown on empty seats.
+ * @param props.selected - Whether this guest is the current selection.
  * @param props.onRemove - Unassign handler shown on occupied seats.
+ * @param props.onSelect - Called when an occupied chip is tapped.
  * @param props.compact - Tighter styling for round-table perimeter chips.
  * @returns The seat chip element.
  */
-function SeatChip({ guest, seatNumber, onRemove, compact }: SeatChipProps) {
+function SeatChip({
+  guest,
+  seatNumber,
+  selected,
+  onRemove,
+  onSelect,
+  compact,
+}: SeatChipProps) {
   if (!guest) {
     return (
       <span
@@ -709,20 +781,27 @@ function SeatChip({ guest, seatNumber, onRemove, compact }: SeatChipProps) {
       onDragStart={(event) =>
         event.dataTransfer.setData('text/plain', guest.id)
       }
-      onClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect?.();
+      }}
       title={guest.fullName}
       className={cn(
         'group inline-flex max-w-[92px] cursor-grab items-center gap-1 rounded-full bg-[#9e3f3f] px-2 py-0.5 text-[11px] text-white',
         compact && 'max-w-[80px]',
+        selected && 'bg-[#6f2727] ring-2 ring-[#9e3f3f] ring-offset-1',
       )}
     >
       <span className="truncate">{seatLabel(guest.fullName)}</span>
       {onRemove && (
         <button
           type="button"
-          onClick={onRemove}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
           aria-label={`Unassign ${guest.fullName}`}
-          className="hidden shrink-0 rounded-full leading-none text-white/80 group-hover:inline hover:text-white print:hidden"
+          className="hidden shrink-0 rounded-full leading-none text-white/80 group-hover:inline hover:text-white print:hidden pointer-coarse:inline"
         >
           ×
         </button>
