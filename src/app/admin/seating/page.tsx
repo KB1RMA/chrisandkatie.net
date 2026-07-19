@@ -117,6 +117,7 @@ export default async function AdminSeatingPage({ searchParams }: Props) {
       }
     >
       <SeatingChartBuilder
+        key={selectedEvent.id}
         eventId={selectedEvent.id}
         guests={guests}
         tables={tableData}
