@@ -31,9 +31,9 @@
 		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
 	},
 	"dependencies": {
-		"@auth/drizzle-adapter": "^1.11.2",
-		"@hookform/resolvers": "^5.4.0",
-		"@opennextjs/cloudflare": "^1.20.1",
+		"@auth/drizzle-adapter": "^1.11.3",
+		"@hookform/resolvers": "^5.5.7",
+		"@opennextjs/cloudflare": "^1.20.2",
 		"@tanstack/react-table": "^8.21.3",
 		"@types/canvas-confetti": "^1.9.0",
 		"@types/leaflet": "^1.9.21",
@@ -44,19 +44,19 @@
 		"dotenv": "^17.4.2",
 		"drizzle-orm": "^0.45.2",
 		"leaflet": "^1.9.4",
-		"next": "16.2.10",
+		"next": "16.2.12",
 		"next-auth": "^5.0.0-beta.30",
 		"partysocket": "^1.3.0",
 		"pino": "^10.3.1",
 		"qrcode": "^1.5.4",
-		"react": "19.2.7",
-		"react-dom": "19.2.7",
-		"react-hook-form": "^7.81.0",
+		"react": "19.2.8",
+		"react-dom": "19.2.8",
+		"react-hook-form": "^7.83.0",
 		"react-leaflet": "^5.0.0",
-		"react-photo-album": "^3.6.0",
-		"resend": "^6.17.2",
+		"react-photo-album": "^3.6.1",
+		"resend": "^6.18.1",
 		"tailwind-merge": "^3.6.0",
-		"yet-another-react-lightbox": "^3.32.1",
+		"yet-another-react-lightbox": "^3.32.2",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
@@ -68,8 +68,8 @@
 		"@testing-library/user-event": "^14.5.2",
 		"@types/jsdom": "^28.0.3",
 		"@types/node": "^25.9.1",
-		"@types/react": "^19.2.17",
-		"@types/react-dom": "^19.1.5",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.4",
 		"@typescript-eslint/eslint-plugin": "^8.63.0",
 		"@typescript-eslint/parser": "^8.56.1",
 		"@vitejs/plugin-react": "^6.0.3",
@@ -95,7 +95,7 @@
 		"wrangler": "^4.110.0"
 	},
 	"optionalDependencies": {
-		"@emnapi/core": "^1.11.2",
-		"@emnapi/runtime": "^1.11.2"
+		"@emnapi/core": "^1.11.3",
+		"@emnapi/runtime": "^1.11.3"
 	}
 }
