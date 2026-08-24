@@ -1,5 +1,6 @@
 import { auth, getAuthIdentity } from '@/lib/auth';
 import { findGuestsForVenueExport } from '@/lib/db/repositories/guests';
+import { findEventById } from '@/lib/db/repositories/events';
 import { csvDownloadResponse, serializeToCsv } from '@/lib/csv';
 import { MEAL_CHOICE_LABELS } from '@/lib/constants';
 
@@ -13,6 +14,9 @@ const VENUE_HEADERS = [
   'Dietary Restrictions / Allergies',
   'Notes',
 ] as const;
+
+/** Extra column appended when a seating chart event is joined in. */
+const TABLE_HEADER = 'Table' as const;
 
 /**
  * Convert a guest's attending flag to a human-readable label.
@@ -46,14 +50,17 @@ function formatMealChoice(mealChoice: string | null): string {
 }
 
 /**
- * GET /api/admin/export/guests?format=venue
+ * GET /api/admin/export/guests?format=venue&eventId=...
  *
  * Generates a CSV download of all guests with their wedding attendance,
- * meal choice, and dietary restrictions for the venue. Requires an active
- * admin session.
+ * meal choice, and dietary restrictions for the venue. When an `eventId` is
+ * given, an extra `Table` column is appended with each guest's seating
+ * chart assignment for that event (blank when unseated). Requires an
+ * active admin session.
  *
  * @param request - The incoming HTTP request.
- * @returns 200 CSV download, 400 for unknown format, or 401 for non-admin.
+ * @returns 200 CSV download, 400 for unknown format or event, or 401 for
+ *   non-admin.
  */
 export async function GET(request: Request): Promise<Response> {
   const session = await auth();
@@ -70,12 +77,21 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: 'Unknown export format' }, { status: 400 });
   }
 
-  const rows = await findGuestsForVenueExport();
+  const eventIdParam = searchParams.get('eventId');
+
+  if (eventIdParam) {
+    const event = await findEventById(eventIdParam);
+
+    if (!event) {
+      return Response.json({ error: 'Event not found' }, { status: 400 });
+    }
+  }
+
+  const rows = await findGuestsForVenueExport(eventIdParam ?? undefined);
 
   const dataRows = rows.map((row) => {
     const guestName = `${row.firstName} ${row.lastName}`;
-
-    return [
+    const cells = [
       guestName,
       row.partyName ?? guestName,
       row.type === 'child' ? 'Child' : 'Adult',
@@ -84,9 +100,15 @@ export async function GET(request: Request): Promise<Response> {
       row.dietaryRestrictions ?? '',
       row.notes ?? '',
     ];
+
+    return eventIdParam ? [...cells, row.tableName ?? ''] : cells;
   });
 
-  const csv = serializeToCsv([...VENUE_HEADERS], dataRows);
+  const headers = eventIdParam
+    ? [...VENUE_HEADERS, TABLE_HEADER]
+    : [...VENUE_HEADERS];
+
+  const csv = serializeToCsv(headers, dataRows);
 
   return csvDownloadResponse(csv, 'venue-guest-list.csv');
 }

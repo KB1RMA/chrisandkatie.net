@@ -109,16 +109,18 @@ describe('createGuest', () => {
 });
 
 /**
- * Creates a mock Drizzle database whose select → from → leftJoin → orderBy
- * chain resolves to the given venue export rows.
+ * Creates a mock Drizzle database whose select → from → leftJoin → leftJoin
+ * → leftJoin → orderBy chain resolves to the given venue export rows.
  *
  * @param rows - The rows the query chain should resolve with.
  * @returns The mock DbClient plus the chain spies for assertions.
  */
 function createVenueExportDb(rows: VenueExportRow[]) {
   const orderByFn = vi.fn().mockResolvedValue(rows);
-  const leftJoinFn = vi.fn().mockReturnValue({ orderBy: orderByFn });
-  const fromFn = vi.fn().mockReturnValue({ leftJoin: leftJoinFn });
+  const leftJoinFn = vi.fn();
+  const chain = { leftJoin: leftJoinFn, orderBy: orderByFn };
+  leftJoinFn.mockReturnValue(chain);
+  const fromFn = vi.fn().mockReturnValue(chain);
   const selectFn = vi.fn().mockReturnValue({ from: fromFn });
 
   const db = { select: selectFn } as unknown as DbClient;
@@ -140,6 +142,7 @@ function makeVenueExportRow(
     dietaryRestrictions: null,
     notes: null,
     partyName: 'Doe Family',
+    tableName: null,
     ...overrides,
   };
 }
@@ -175,16 +178,36 @@ describe('findGuestsForVenueExport', () => {
     );
   });
 
-  test('should left-join invitations and order by party then guest name', async () => {
+  test('should left-join invitations, seating assignments, and seating tables, then order by party then guest name', async () => {
     const { db, leftJoinFn, orderByFn } = createVenueExportDb([]);
 
     mockGetDb.mockReturnValue(db);
 
     await findGuestsForVenueExport();
 
-    expect(leftJoinFn).toHaveBeenCalledOnce();
+    expect(leftJoinFn).toHaveBeenCalledTimes(3);
     expect(orderByFn).toHaveBeenCalledOnce();
     expect(orderByFn.mock.calls[0]).toHaveLength(3);
+  });
+
+  test('should resolve rows when called without an eventId', async () => {
+    const rows = [makeVenueExportRow()];
+    const { db } = createVenueExportDb(rows);
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findGuestsForVenueExport()).resolves.toEqual(rows);
+  });
+
+  test('should resolve rows when called with an eventId', async () => {
+    const rows = [makeVenueExportRow({ tableName: 'Table 3' })];
+    const { db } = createVenueExportDb(rows);
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findGuestsForVenueExport('event-uuid-1')).resolves.toEqual(
+      rows,
+    );
   });
 });
 
