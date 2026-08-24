@@ -15,10 +15,15 @@ vi.mock('@/lib/db/repositories/events', () => ({
   findEventById: vi.fn(),
 }));
 
+vi.mock('@/lib/db/repositories/rsvpResponses', () => ({
+  getEventRsvpReconstruction: vi.fn(),
+}));
+
 import { describe, expect, test, beforeEach, vi } from 'vitest';
 import { auth, getAuthIdentity } from '@/lib/auth';
 import * as GuestRepository from '@/lib/db/repositories/guests';
 import * as EventRepository from '@/lib/db/repositories/events';
+import * as RsvpRepository from '@/lib/db/repositories/rsvpResponses';
 import { GET } from './route';
 import type { VenueExportRow } from '@/lib/db/repositories/guests';
 import { makeSession } from '@/tests/helpers';
@@ -29,6 +34,9 @@ const mockFindGuestsForVenueExport = vi.mocked(
   GuestRepository.findGuestsForVenueExport,
 );
 const mockFindEventById = vi.mocked(EventRepository.findEventById);
+const mockGetEventRsvpReconstruction = vi.mocked(
+  RsvpRepository.getEventRsvpReconstruction,
+);
 
 const SAMPLE_ROWS: VenueExportRow[] = [
   {
@@ -59,7 +67,45 @@ const SAMPLE_ROWS: VenueExportRow[] = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetEventRsvpReconstruction.mockResolvedValue(makeReconstruction([]));
 });
+
+/** Signs the caller in as an admin for the request under test. */
+function signInAsAdmin(): void {
+  mockAuth.mockResolvedValue(makeSession());
+  mockGetAuthIdentity.mockReturnValue({ type: 'admin', username: 'admin' });
+}
+
+/** Builds an event row for `findEventById` to resolve with. */
+function makeEvent(
+  overrides: { id?: string; name?: string; type?: string } = {},
+) {
+  return {
+    id: 'event-1',
+    name: 'Reception',
+    type: 'main',
+    ...overrides,
+  } as Awaited<ReturnType<typeof EventRepository.findEventById>>;
+}
+
+/** Builds a reconstruction result with only the fields the route reads. */
+function makeReconstruction(
+  rows: Array<{
+    guestId: string;
+    status: 'attending' | 'not_attending' | 'no_response';
+    mealOption?: string | null;
+    dietaryRestrictions?: string | null;
+  }>,
+) {
+  return {
+    rows: rows.map((row) => ({
+      mealOption: null,
+      dietaryRestrictions: null,
+      ...row,
+    })),
+    summary: {},
+  } as Awaited<ReturnType<typeof RsvpRepository.getEventRsvpReconstruction>>;
+}
 
 /** Helper to build a GET Request for the export route. */
 function buildRequest(format?: string, eventId?: string): Request {
@@ -231,11 +277,7 @@ describe('GET /api/admin/export/guests', () => {
       type: 'admin',
       username: 'admin',
     });
-    mockFindEventById.mockResolvedValue({
-      id: 'event-1',
-      name: 'Reception',
-      type: 'main',
-    } as Awaited<ReturnType<typeof EventRepository.findEventById>>);
+    mockFindEventById.mockResolvedValue(makeEvent());
     mockFindGuestsForVenueExport.mockResolvedValue(SAMPLE_ROWS);
 
     await GET(buildRequest('venue', 'event-1'));
@@ -249,11 +291,7 @@ describe('GET /api/admin/export/guests', () => {
       type: 'admin',
       username: 'admin',
     });
-    mockFindEventById.mockResolvedValue({
-      id: 'event-1',
-      name: 'Reception',
-      type: 'main',
-    } as Awaited<ReturnType<typeof EventRepository.findEventById>>);
+    mockFindEventById.mockResolvedValue(makeEvent());
     mockFindGuestsForVenueExport.mockResolvedValue([
       { ...SAMPLE_ROWS[0], tableName: 'Table 3' },
       { ...SAMPLE_ROWS[1], tableName: null },
@@ -278,5 +316,121 @@ describe('GET /api/admin/export/guests', () => {
     const text = await response.text();
 
     expect(text).not.toContain('"Table"');
+  });
+
+  test('should not leak wedding meal or attendance data into a non-main event export', async () => {
+    signInAsAdmin();
+    mockFindEventById.mockResolvedValue(
+      makeEvent({ id: 'event-2', name: 'Welcome Party', type: 'other' }),
+    );
+    mockGetEventRsvpReconstruction.mockResolvedValue(
+      makeReconstruction([
+        {
+          guestId: 'guest-1',
+          status: 'not_attending',
+        },
+      ]),
+    );
+    mockFindGuestsForVenueExport.mockResolvedValue([
+      { ...SAMPLE_ROWS[0], tableName: 'Table 3' },
+    ]);
+
+    const response = await GET(buildRequest('venue', 'event-2'));
+    const text = await response.text();
+
+    // guest-1 declined the welcome party but is a 'short-rib' wedding guest
+    expect(text).toContain('"No","","","Best man","Table 3"');
+    expect(text).not.toContain('Short Rib');
+    expect(text).not.toContain('Peanut allergy');
+  });
+
+  test('should use the event RSVP meal and dietary details for a non-main event', async () => {
+    signInAsAdmin();
+    mockFindEventById.mockResolvedValue(
+      makeEvent({ id: 'event-2', name: 'Welcome Party', type: 'other' }),
+    );
+    mockGetEventRsvpReconstruction.mockResolvedValue(
+      makeReconstruction([
+        {
+          guestId: 'guest-1',
+          status: 'attending',
+          mealOption: 'option_b',
+          dietaryRestrictions: 'Shellfish',
+        },
+      ]),
+    );
+    mockFindGuestsForVenueExport.mockResolvedValue([
+      { ...SAMPLE_ROWS[0], tableName: 'Table 3' },
+    ]);
+
+    const response = await GET(buildRequest('venue', 'event-2'));
+    const text = await response.text();
+
+    expect(text).toContain('"Yes","Option B","Shellfish"');
+  });
+
+  test('should mark guests who were never invited to a non-main event', async () => {
+    signInAsAdmin();
+    mockFindEventById.mockResolvedValue(
+      makeEvent({ id: 'event-2', name: 'Welcome Party', type: 'other' }),
+    );
+    mockGetEventRsvpReconstruction.mockResolvedValue(makeReconstruction([]));
+    mockFindGuestsForVenueExport.mockResolvedValue([SAMPLE_ROWS[0]]);
+
+    const response = await GET(buildRequest('venue', 'event-2'));
+    const text = await response.text();
+
+    expect(text).toContain('"Not Invited"');
+  });
+
+  test('should fall back to guest-level RSVP data for the main event', async () => {
+    signInAsAdmin();
+    mockFindEventById.mockResolvedValue(makeEvent({ type: 'main' }));
+    mockGetEventRsvpReconstruction.mockResolvedValue(
+      makeReconstruction([{ guestId: 'guest-1', status: 'no_response' }]),
+    );
+    mockFindGuestsForVenueExport.mockResolvedValue([
+      { ...SAMPLE_ROWS[0], tableName: 'Table 3' },
+    ]);
+
+    const response = await GET(buildRequest('venue', 'event-1'));
+    const text = await response.text();
+
+    expect(text).toContain('"Yes","Short Rib","Peanut allergy"');
+  });
+
+  test('should not query event RSVPs when no eventId is given', async () => {
+    signInAsAdmin();
+    mockFindGuestsForVenueExport.mockResolvedValue(SAMPLE_ROWS);
+
+    await GET(buildRequest('venue'));
+
+    expect(mockGetEventRsvpReconstruction).not.toHaveBeenCalled();
+    expect(mockFindEventById).not.toHaveBeenCalled();
+  });
+
+  test('should qualify the download filename with the event name', async () => {
+    signInAsAdmin();
+    mockFindEventById.mockResolvedValue(
+      makeEvent({ id: 'event-2', name: 'Welcome Party', type: 'other' }),
+    );
+    mockFindGuestsForVenueExport.mockResolvedValue(SAMPLE_ROWS);
+
+    const response = await GET(buildRequest('venue', 'event-2'));
+
+    expect(response.headers.get('Content-Disposition')).toBe(
+      'attachment; filename="venue-guest-list-welcome-party.csv"',
+    );
+  });
+
+  test('should use the plain filename when no eventId is given', async () => {
+    signInAsAdmin();
+    mockFindGuestsForVenueExport.mockResolvedValue(SAMPLE_ROWS);
+
+    const response = await GET(buildRequest('venue'));
+
+    expect(response.headers.get('Content-Disposition')).toBe(
+      'attachment; filename="venue-guest-list.csv"',
+    );
   });
 });

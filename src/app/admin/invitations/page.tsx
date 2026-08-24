@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { asc } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { events } from '@/lib/db/schema';
+import { findEventIdsWithSeatingTables } from '@/lib/db/repositories/seating';
 import type { MealOption } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { ExportDropdown } from '@/components/admin/ExportDropdown';
@@ -51,6 +52,9 @@ export default async function AdminInvitationsPage() {
     .from(events)
     .orderBy(asc(events.sortOrder));
 
+  // Only events whose seating chart has been built can fill the Table column
+  const eventIdsWithSeating = new Set(await findEventIdsWithSeatingTables());
+
   const exportFormats = [
     {
       id: 'minted',
@@ -62,11 +66,13 @@ export default async function AdminInvitationsPage() {
       label: 'Venue Guest List (Meals & Allergies)',
       href: '/api/admin/export/guests?format=venue',
     },
-    ...availableEvents.map((event) => ({
-      id: `venue-tables-${event.id}`,
-      label: `Venue Guest List with Tables (${event.name})`,
-      href: `/api/admin/export/guests?format=venue&eventId=${event.id}`,
-    })),
+    ...availableEvents
+      .filter((event) => eventIdsWithSeating.has(event.id))
+      .map((event) => ({
+        id: `venue-tables-${event.id}`,
+        label: `Venue Guest List with Tables (${event.name})`,
+        href: `/api/admin/export/guests?format=venue&eventId=${encodeURIComponent(event.id)}`,
+      })),
   ];
 
   const invitations = await db.query.invitations.findMany({
