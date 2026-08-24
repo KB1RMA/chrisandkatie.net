@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAsAdmin } from './helpers/login';
 
 /**
  * E2E tests for US3: Photo Moderation by Event Organizer.
@@ -12,23 +13,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Admin Photo Booth — moderation page', () => {
   test.beforeEach(async ({ page }) => {
-    // Sign in as admin using the credential-based login flow.
-    await page.goto('/login');
-
-    // Reveal the admin credentials form (hidden by default behind a toggle).
-    await page.getByText('Admin sign in').click();
-
-    // Fill in username/password from environment variables (defaults match CI).
-    await page
-      .getByLabel('Username')
-      .fill(process.env.ADMIN_USERNAME ?? 'admin');
-    await page
-      .getByLabel('Password')
-      .fill(process.env.ADMIN_PASSWORD ?? 'testpassword');
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-
-    // Wait for the post-login redirect to complete so the session cookie is set.
-    await page.waitForURL(/\/admin\//);
+    await loginAsAdmin(page);
   });
 
   test('admin can navigate to /admin/photo-booth and page loads', async ({

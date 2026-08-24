@@ -5,9 +5,14 @@
  * should use these functions instead of calling the Drizzle client directly.
  */
 
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
-import { guests, invitations } from '@/lib/db/schema';
+import {
+  guests,
+  invitations,
+  seatingAssignments,
+  seatingTables,
+} from '@/lib/db/schema';
 
 export type UpdateGuestValues = Partial<typeof guests.$inferInsert>;
 
@@ -60,6 +65,9 @@ export async function findGuestWithInvitationAndPeers(id: string) {
  *
  * Meal and dietary fields come from the guest's main wedding RSVP; the party
  * name is the invitation's mailing address (envelope name), when present.
+ * `tableName` is the seating chart table the guest is assigned to for the
+ * requested event, or `null` when no event was requested or the guest is
+ * unseated.
  */
 export type VenueExportRow = {
   guestId: string;
@@ -71,15 +79,23 @@ export type VenueExportRow = {
   dietaryRestrictions: string | null;
   notes: string | null;
   partyName: string | null;
+  tableName: string | null;
 };
 
 /**
  * Return all guests with their wedding meal choice, dietary restrictions,
  * and party (invitation) name, suitable for the venue guest-list export.
  *
+ * When `eventId` is given, each row's seating chart assignment for that
+ * event is joined in as `tableName`; omitted or unseated guests resolve to
+ * `null`.
+ *
+ * @param eventId - The event whose seating chart to join in, if any.
  * @returns One `VenueExportRow` per guest, grouped by party then guest name.
  */
-export async function findGuestsForVenueExport(): Promise<VenueExportRow[]> {
+export async function findGuestsForVenueExport(
+  eventId?: string,
+): Promise<VenueExportRow[]> {
   return getDb()
     .select({
       guestId: guests.id,
@@ -91,9 +107,20 @@ export async function findGuestsForVenueExport(): Promise<VenueExportRow[]> {
       dietaryRestrictions: guests.dietaryRestrictions,
       notes: guests.notes,
       partyName: invitations.mailingAddress,
+      tableName: seatingTables.name,
     })
     .from(guests)
     .leftJoin(invitations, eq(guests.invitationId, invitations.id))
+    .leftJoin(
+      seatingAssignments,
+      and(
+        eq(seatingAssignments.guestId, guests.id),
+        // eventId ?? '' never matches a real SeatingAssignment row, so the
+        // join resolves to no match when no event was requested.
+        eq(seatingAssignments.eventId, eventId ?? ''),
+      ),
+    )
+    .leftJoin(seatingTables, eq(seatingAssignments.tableId, seatingTables.id))
     .orderBy(
       asc(invitations.mailingAddress),
       asc(guests.lastName),

@@ -240,3 +240,20 @@ export async function findSeatingAssignmentsForExport(
     .where(eq(seatingTables.eventId, eventId))
     .orderBy(asc(seatingTables.sortOrder), asc(seatingAssignments.seatOrder));
 }
+
+/**
+ * Return the ids of every event that has at least one seating table.
+ *
+ * Used to offer seating-aware exports only for events whose chart has
+ * actually been built; events with no tables would export a blank column.
+ *
+ * @returns Event ids with one or more SeatingTable rows, unordered.
+ */
+export async function findEventIdsWithSeatingTables(): Promise<string[]> {
+  const rows = await getDb()
+    .select({ eventId: seatingTables.eventId })
+    .from(seatingTables)
+    .groupBy(seatingTables.eventId);
+
+  return rows.map((row) => row.eventId);
+}

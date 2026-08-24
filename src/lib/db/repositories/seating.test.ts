@@ -13,6 +13,7 @@ import {
   countAssignmentsForTable,
   deleteAssignmentForGuest,
   deleteSeatingTable,
+  findEventIdsWithSeatingTables,
   insertSeatingTables,
   updateSeatingTable,
   upsertAssignment,
@@ -210,5 +211,56 @@ describe('deleteAssignmentForGuest', () => {
 
     expect(db.delete).toHaveBeenCalled();
     expect(deleteWhere).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Creates a mock Drizzle database whose select → from → groupBy chain
+ * resolves to the given rows.
+ *
+ * @param rows - The rows the grouped query should resolve with.
+ * @returns The mock DbClient plus the groupBy spy for assertions.
+ */
+function createGroupByDb(rows: Array<{ eventId: string }>) {
+  const groupByFn = vi.fn().mockResolvedValue(rows);
+  const fromFn = vi.fn().mockReturnValue({ groupBy: groupByFn });
+  const selectFn = vi.fn().mockReturnValue({ from: fromFn });
+
+  const db = { select: selectFn } as unknown as DbClient;
+
+  return { db, groupByFn };
+}
+
+describe('findEventIdsWithSeatingTables', () => {
+  test('should return one id per event that has seating tables', async () => {
+    const { db } = createGroupByDb([
+      { eventId: 'event-1' },
+      { eventId: 'event-2' },
+    ]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findEventIdsWithSeatingTables()).resolves.toEqual([
+      'event-1',
+      'event-2',
+    ]);
+  });
+
+  test('should group by eventId so each event appears once', async () => {
+    const { db, groupByFn } = createGroupByDb([]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await findEventIdsWithSeatingTables();
+
+    expect(groupByFn).toHaveBeenCalledOnce();
+  });
+
+  test('should return an empty list when no seating chart exists', async () => {
+    const { db } = createGroupByDb([]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findEventIdsWithSeatingTables()).resolves.toEqual([]);
   });
 });
