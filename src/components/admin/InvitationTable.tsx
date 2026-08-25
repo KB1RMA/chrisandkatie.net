@@ -50,6 +50,7 @@ export type InvitationTableRow = {
   searchText: string;
   /** Two-word invitation code, e.g. "swift-panda". Null for legacy invitations. */
   invitationCode: string | null;
+  contactEmail: string | null;
   mailingAddress: string | null;
   address: string | null;
   addressLine2: string | null;
