@@ -7,6 +7,7 @@ import { findEventIdsWithSeatingTables } from '@/lib/db/repositories/seating';
 import type { MealOption } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { ExportDropdown } from '@/components/admin/ExportDropdown';
+import { CopyEmailsButton } from '@/components/admin/CopyEmailsButton';
 import {
   InvitationTable,
   type AvailableEvent,
@@ -143,6 +144,7 @@ export default async function AdminInvitationsPage() {
       initialVisibleEventIds,
       searchText,
       invitationCode: invitation.invitationCode ?? null,
+      contactEmail: invitation.contactEmail ?? null,
       mailingAddress: invitation.mailingAddress ?? null,
       address: invitation.address ?? null,
       addressLine2: invitation.addressLine2 ?? null,
@@ -178,7 +180,8 @@ export default async function AdminInvitationsPage() {
         </p>
 
         {/* Export controls */}
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex justify-end gap-2">
+          <CopyEmailsButton emails={rows.map((row) => row.contactEmail)} />
           <ExportDropdown options={exportFormats} />
         </div>
 
