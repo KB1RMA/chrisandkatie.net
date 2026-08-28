@@ -38,6 +38,10 @@ jobs:
 
       - name: Build application
         run: npx opennextjs-cloudflare build
+        env:
+          # NEXT_PUBLIC_* vars must be present at build time — Next.js inlines
+          # them into the client bundle, they aren't read at runtime.
+          NEXT_PUBLIC_CARTO_API_KEY: ${{ secrets.NEXT_PUBLIC_CARTO_API_KEY }}
 
       - name: Apply database migrations
         run: npm run db:migrate:d1

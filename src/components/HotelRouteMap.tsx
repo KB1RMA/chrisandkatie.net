@@ -19,6 +19,9 @@ import {
   useMap,
 } from 'react-leaflet';
 import L from 'leaflet';
+import { getTileLayerConfig } from '@/lib/map-utils';
+
+const tileLayer = getTileLayerConfig();
 
 // Brand-red pin for the venue, matching the site palette
 const venueMarker = L.divIcon({
@@ -144,9 +147,10 @@ export function HotelRouteMap({
       >
         <MapBoundsUpdater lat1={lat1} lng1={lng1} lat2={lat2} lng2={lng2} />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          maxZoom={20}
+          attribution={tileLayer.attribution}
+          url={tileLayer.url}
+          subdomains={tileLayer.subdomains}
+          maxZoom={tileLayer.maxZoom}
         />
         <Marker position={hotelPos} icon={hotelMarker}>
           <Popup>{hotelName}</Popup>
