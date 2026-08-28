@@ -52,19 +52,39 @@ const formatRsvpStatus = (status: string) => {
  *
  * Owns the dialog open state so each row can be edited independently.
  *
- * @param props - The clicked row, the party it belongs to, and the event id.
- * @returns A button that opens the party RSVP edit dialog.
+ * @param props - The clicked row, the party it belongs to, the event id, and
+ *   whether the event is the main event.
+ * @returns A button that opens the party RSVP edit dialog, or a disabled
+ *   placeholder for the main event.
  */
 function EventRsvpEditButton({
   row,
   party,
   eventId,
+  isMainEvent,
 }: {
   row: EventRsvpRow;
   party: EventRsvpRow[];
   eventId: string;
+  isMainEvent: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // The main event's guest-facing RSVP wizard writes only the legacy
+  // Guest.attending column and never reads RsvpResponse, so an override saved
+  // here would be invisible to guests and could never be corrected by a later
+  // guest submission. The server action rejects it too; this just keeps the
+  // dead end out of the UI.
+  if (isMainEvent) {
+    return (
+      <span
+        title="Main event attendance is managed through the RSVP wizard and cannot be edited here."
+        className="text-xs text-gray-400"
+      >
+        Edit
+      </span>
+    );
+  }
 
   return (
     <>
@@ -100,18 +120,21 @@ function EventRsvpEditButton({
  *
  * Supports client-side name search and RSVP status filtering, plus an admin
  * edit action per row. RSVPs are stored per party, so the edit dialog is handed
- * every member of the clicked guest's party rather than the single row.
+ * every member of the clicked guest's party rather than the single row. The
+ * edit action is unavailable for the main event — see `EventRsvpEditButton`.
  *
- * @param props - Table data containing RSVP rows for the event, and the event id.
+ * @param props - Table data containing RSVP rows for the event, the event id, and whether it is the main event.
  * @returns Table listing each invited guest and their RSVP status.
  * @throws {Error} Does not throw.
  */
 export function EventRsvpTable({
   data,
   eventId,
+  isMainEvent,
 }: {
   data: EventRsvpRow[];
   eventId: string;
+  isMainEvent: boolean;
 }) {
   const partyByInvitationId = useMemo(() => {
     return data.reduce((acc, row) => {
@@ -161,11 +184,12 @@ export function EventRsvpTable({
             row={row}
             party={partyByInvitationId.get(row.invitationId) ?? [row]}
             eventId={eventId}
+            isMainEvent={isMainEvent}
           />
         ),
       },
     ];
-  }, [eventId, partyByInvitationId]);
+  }, [eventId, isMainEvent, partyByInvitationId]);
 
   return (
     <DataTable

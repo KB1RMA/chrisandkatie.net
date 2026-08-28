@@ -1,0 +1,91 @@
+import { expect, test, describe, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { EventRsvpTable, type EventRsvpRow } from './EventRsvpTable';
+
+vi.mock('../actions', () => ({
+  setPartyEventRsvp: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
+/**
+ * Builds a single RSVP row fixture, with sensible defaults.
+ *
+ * @param overrides - Fields to override.
+ */
+function makeRow(overrides: Partial<EventRsvpRow> = {}): EventRsvpRow {
+  return {
+    id: 'guest-1',
+    guestName: 'Jane Doe',
+    partyName: 'Doe Family',
+    invitationId: 'inv-1',
+    rsvpStatus: 'attending',
+    hasPartyResponse: true,
+    partyRsvpUpdatedAt: '2026-07-01T00:00:00.000Z',
+    defaultAttending: true,
+    numberOfAttending: 1,
+    specialRequests: null,
+    notes: null,
+    searchText: 'jane doe doe family',
+    ...overrides,
+  };
+}
+
+// jsdom does not implement the native dialog methods the edit modal calls.
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = vi.fn(function showModal(
+    this: HTMLDialogElement,
+  ) {
+    this.open = true;
+  });
+  HTMLDialogElement.prototype.close = vi.fn(function close(
+    this: HTMLDialogElement,
+  ) {
+    this.open = false;
+  });
+});
+
+describe('EventRsvpTable', () => {
+  test('should show a working Edit button for a non-main event', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <EventRsvpTable
+        data={[makeRow()]}
+        eventId="event-1"
+        isMainEvent={false}
+      />,
+    );
+
+    const editButton = screen.getByRole('button', { name: 'Edit' });
+
+    await user.click(editButton);
+
+    expect(screen.getByText('Edit RSVP')).toBeInTheDocument();
+  });
+
+  // The main event's guest-facing wizard writes only the legacy
+  // Guest.attending column and never reads RsvpResponse, so an override saved
+  // through this dialog would be invisible to guests. The server action
+  // rejects it too; this proves the dead end never reaches the UI.
+  test('should not offer an Edit control for the main event', () => {
+    render(
+      <EventRsvpTable
+        data={[makeRow()]}
+        eventId="event-1"
+        isMainEvent={true}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Edit' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Edit')).toHaveAttribute(
+      'title',
+      'Main event attendance is managed through the RSVP wizard and cannot be edited here.',
+    );
+  });
+});

@@ -167,7 +167,11 @@ export default async function EventRsvpsPage({
               <p className="text-gray-500">No guests have been invited yet.</p>
             </div>
           ) : (
-            <EventRsvpTable data={rows} eventId={eventId} />
+            <EventRsvpTable
+              data={rows}
+              eventId={eventId}
+              isMainEvent={isMainEvent}
+            />
           )}
         </div>
 
