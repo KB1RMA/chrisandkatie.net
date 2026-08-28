@@ -179,3 +179,31 @@ export type EventRsvpResponse = {
   submittedAt: string;
   updatedAt: string;
 };
+
+/**
+ * Schema for an admin setting attendance for a whole party at one event.
+ *
+ * RSVPs are stored per party, so an admin edit submits a status for every party
+ * member invited to the event rather than a single person's status. `guestId`
+ * identifies the party being edited; the action verifies that `statuses` covers
+ * exactly that party's members before writing.
+ */
+export const setPartyEventRsvpSchema = z.object({
+  eventId: z.string().min(1, 'Event ID is required'),
+  guestId: z.string().min(1, 'Guest ID is required'),
+  /**
+   * The party's latest response `updatedAt` as seen when the editor was opened,
+   * or null if the party had not responded. Used to detect a concurrent write.
+   */
+  expectedUpdatedAt: z.string().nullable(),
+  statuses: z
+    .array(
+      z.object({
+        guestId: z.string().min(1, 'Guest ID is required'),
+        attending: z.boolean(),
+      }),
+    )
+    .min(1, 'At least one party member is required'),
+});
+
+export type SetPartyEventRsvpInput = z.infer<typeof setPartyEventRsvpSchema>;

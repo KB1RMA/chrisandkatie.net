@@ -9,6 +9,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { attendees, guestEvents, rsvpResponses } from '@/lib/db/schema';
+import type { InsertAttendeeValues } from '@/lib/db/repositories/attendees';
 import {
   normalizeName,
   reconstructEventRsvpStatuses,
@@ -222,6 +223,20 @@ export type EventRsvpGuestRow = {
   mealOption: string | null;
   dietaryRestrictions: string | null;
   specialRequests: string | null;
+  /**
+   * The legacy per-guest `attending` flag written by the main RSVP wizard.
+   * Parties that responded through that wizard have no RsvpResponse row, so
+   * this is the only record of their intent for the main event.
+   */
+  legacyAttending: boolean | null;
+  /** Whether the guest's party has any response row for this event. */
+  hasPartyResponse: boolean;
+  /**
+   * The most recent `updatedAt` across the party's responses for this event,
+   * or null when the party has not responded. Callers editing a party's RSVP
+   * pass this back so a concurrent change can be detected before overwriting.
+   */
+  partyRsvpUpdatedAt: string | null;
 };
 
 export type EventRsvpReconstructionResult = {
@@ -311,6 +326,19 @@ export async function getEventRsvpReconstruction(
 
   const statusByGuestId = new Map(statuses.map((s) => [s.guestId, s.status]));
 
+  const respondedInvitationIds = new Set(
+    responseRows.map((response) => response.guest.invitationId),
+  );
+
+  // Latest write per party, used as the concurrency token for admin edits.
+  const updatedAtByInvitation = responseRows.reduce((acc, response) => {
+    const current = acc.get(response.guest.invitationId);
+
+    return !current || response.updatedAt > current
+      ? acc.set(response.guest.invitationId, response.updatedAt)
+      : acc;
+  }, new Map<string, string>());
+
   const rows: EventRsvpGuestRow[] = invitedGuestRows.map((row) => {
     const guest = row.guest;
     const status = statusByGuestId.get(guest.id) ?? 'no_response';
@@ -337,6 +365,9 @@ export async function getEventRsvpReconstruction(
         status === 'attending'
           ? (specialRequestsByInvitation.get(guest.invitationId) ?? null)
           : null,
+      legacyAttending: guest.attending ?? null,
+      hasPartyResponse: respondedInvitationIds.has(guest.invitationId),
+      partyRsvpUpdatedAt: updatedAtByInvitation.get(guest.invitationId) ?? null,
     };
   });
 
@@ -454,4 +485,91 @@ export async function findEventRsvpRowsForExport(
       mealOption: row.mealOption,
       dietaryRestrictions: row.dietaryRestrictions,
     }));
+}
+
+/**
+ * Fetch every response for an event that belongs to one of the given guests,
+ * with their attendee rows eagerly loaded.
+ *
+ * Used to load a single party's stored RSVP before an admin rewrites it.
+ *
+ * @param eventId - The event to fetch responses for.
+ * @param guestIds - The guest ids making up the party.
+ * @returns Matching RsvpResponse rows, each with its attendees.
+ */
+export async function findEventResponsesForGuestIds(
+  eventId: string,
+  guestIds: string[],
+) {
+  if (guestIds.length === 0) {
+    return [];
+  }
+
+  return getDb().query.rsvpResponses.findMany({
+    where: and(
+      eq(rsvpResponses.eventId, eventId),
+      inArray(rsvpResponses.guestId, guestIds),
+    ),
+    with: { attendees: true },
+  });
+}
+
+/** The statements needed to rewrite one party's RSVP for an event. */
+export type ReplacePartyEventRsvpInput = {
+  /** Full row values, used when the party has no response for this event yet. */
+  response: InsertRsvpValues;
+  /** Fields to write when a response already exists for this guest/event pair. */
+  responseUpdate: UpsertRsvpConflictSet;
+  /** The complete new attendee list for the response. */
+  attendeeRows: InsertAttendeeValues[];
+  /**
+   * Attendee rows to delete from *other* responses belonging to the same party,
+   * so an edited member cannot linger under a second response row.
+   */
+  staleAttendeeIds: string[];
+};
+
+/**
+ * Rewrite a party's RSVP for an event as a single atomic batch.
+ *
+ * Upserts the party's response row, clears its attendees, drops any stale
+ * attendee rows left under other responses from the same party, then inserts
+ * the new attendee list. D1 has no interactive transactions, so the statements
+ * are sent through the batch API; the response upsert is ordered first because
+ * the attendee rows reference it.
+ *
+ * @param input - The response values, new attendee rows, and stale attendee ids.
+ */
+export async function replacePartyEventRsvp(
+  input: ReplacePartyEventRsvpInput,
+): Promise<void> {
+  const db = getDb();
+
+  const upsert = db
+    .insert(rsvpResponses)
+    .values(input.response)
+    .onConflictDoUpdate({
+      target: [rsvpResponses.guestId, rsvpResponses.eventId],
+      set: input.responseUpdate,
+    });
+
+  const clearAttendees = db
+    .delete(attendees)
+    .where(eq(attendees.rsvpResponseId, input.response.id));
+
+  const clearStale =
+    input.staleAttendeeIds.length > 0
+      ? [
+          db
+            .delete(attendees)
+            .where(inArray(attendees.id, input.staleAttendeeIds)),
+        ]
+      : [];
+
+  const insertAttendees =
+    input.attendeeRows.length > 0
+      ? [db.insert(attendees).values(input.attendeeRows)]
+      : [];
+
+  await db.batch([upsert, clearAttendees, ...clearStale, ...insertAttendees]);
 }

@@ -88,6 +88,8 @@ export default async function EventRsvpsPage({
     findMealBreakdownForEvent(eventId),
   ]);
 
+  const isMainEvent = event.type === 'main';
+
   // Build EventRsvpRow array; each row is a single invited person
   const rows: EventRsvpRow[] = reconstructedRows.map((row) => {
     const guestName = `${row.firstName} ${row.lastName}`;
@@ -96,7 +98,17 @@ export default async function EventRsvpsPage({
       id: row.guestId,
       guestName,
       partyName: row.partyName,
+      invitationId: row.invitationId,
       rsvpStatus: row.status,
+      hasPartyResponse: row.hasPartyResponse,
+      partyRsvpUpdatedAt: row.partyRsvpUpdatedAt,
+      // What the edit dialog pre-selects. Parties that RSVP'd through the main
+      // wizard have no response row for the event, so their intent survives
+      // only in the legacy per-guest `attending` column — without this fallback
+      // opening the dialog would offer to decline people who already said yes.
+      defaultAttending: row.hasPartyResponse
+        ? row.status === 'attending'
+        : isMainEvent && row.legacyAttending === true,
       // Per-person model: each row is one invited guest, so the count is 0 or 1.
       // The legacy party-level `RsvpResponse.numberOfAttending` column (a single
       // headcount per submitting party) is intentionally NOT read here — attendance
@@ -155,7 +167,7 @@ export default async function EventRsvpsPage({
               <p className="text-gray-500">No guests have been invited yet.</p>
             </div>
           ) : (
-            <EventRsvpTable data={rows} />
+            <EventRsvpTable data={rows} eventId={eventId} />
           )}
         </div>
 
