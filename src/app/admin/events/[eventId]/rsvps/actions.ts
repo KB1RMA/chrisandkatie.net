@@ -181,10 +181,18 @@ export async function setPartyEventRsvp(
     };
   }
 
-  // Reuse the party's existing response row; a second, parallel row would
-  // survive a later guest submission (which only replaces attendees on the row
-  // it owns) and double-count the person in the meal breakdown.
+  // Reuse the party's existing response row — specifically the one owned by
+  // members[0], the same member the guest-facing page's own lookup
+  // (findGuestEventsForEvent, unordered) would pick when it later reads or
+  // writes this party's RSVP. A party can end up with two response rows (see
+  // staleAttendeeIds below); if the edited guestId owns the *other* row, the
+  // guest page would read stale attendees post-edit and duplicate them on its
+  // next submission. Falling back to guestId's own row, then any row, only
+  // matters for a two-row party — normally members[0] owns the sole row.
   const targetResponse =
+    partyResponses.find(
+      (response) => response.guestId === members[0].guestId,
+    ) ??
     partyResponses.find((response) => response.guestId === guestId) ??
     partyResponses[0];
 

@@ -1,5 +1,5 @@
 import { expect, test, describe, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EventRsvpTable, type EventRsvpRow } from './EventRsvpTable';
 
@@ -87,5 +87,64 @@ describe('EventRsvpTable', () => {
       'title',
       'Main event attendance is managed through the RSVP wizard and cannot be edited here.',
     );
+  });
+
+  test("should hand the edit dialog every member sharing the clicked row's invitationId, and no one else's", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <EventRsvpTable
+        data={[
+          makeRow({
+            id: 'guest-1',
+            guestName: 'Jane Doe',
+            invitationId: 'inv-1',
+            searchText: 'jane doe doe family',
+          }),
+          makeRow({
+            id: 'guest-2',
+            guestName: 'John Doe',
+            invitationId: 'inv-1',
+            defaultAttending: false,
+            searchText: 'john doe doe family',
+          }),
+          makeRow({
+            id: 'guest-3',
+            guestName: 'Amy Smith',
+            partyName: 'Smith Family',
+            invitationId: 'inv-2',
+            searchText: 'amy smith smith family',
+          }),
+        ]}
+        eventId="event-1"
+        isMainEvent={false}
+      />,
+    );
+
+    // Open the dialog from Jane's row specifically, not John's or Amy's.
+    const janeRow = screen
+      .getAllByRole('row')
+      .find((row) => within(row).queryByText('Jane Doe') !== null);
+
+    if (!janeRow) {
+      throw new Error('Expected to find a table row for Jane Doe');
+    }
+
+    await user.click(within(janeRow).getByRole('button', { name: 'Edit' }));
+
+    const dialog = screen.getByRole('dialog');
+
+    // Both members of the inv-1 party appear, each with their own status.
+    expect(within(dialog).getByText('Jane Doe')).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('radio', { name: 'Jane Doe attending' }),
+    ).toBeChecked();
+    expect(within(dialog).getByText('John Doe')).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('radio', { name: 'John Doe not attending' }),
+    ).toBeChecked();
+
+    // The inv-2 party is a different party and must not be offered here.
+    expect(within(dialog).queryByText('Amy Smith')).not.toBeInTheDocument();
   });
 });

@@ -31,6 +31,7 @@ import {
   vi,
 } from 'vitest';
 import { drizzle } from 'drizzle-orm/d1';
+import { eq } from 'drizzle-orm';
 import { getPlatformProxy } from 'wrangler';
 import * as schema from '@/lib/db/schema';
 import type { DbClient } from '@/lib/db';
@@ -61,7 +62,10 @@ import {
   findMealBreakdownForEvent,
   getEventRsvpReconstruction,
 } from '@/lib/db/repositories/rsvpResponses';
-import { submitEventRsvp } from '@/app/rsvp/(portal)/[eventId]/actions';
+import {
+  retrieveEventRsvp,
+  submitEventRsvp,
+} from '@/app/rsvp/(portal)/[eventId]/actions';
 import { setPartyEventRsvp } from './actions';
 
 const mockAuth = vi.mocked(auth);
@@ -266,6 +270,31 @@ async function storedResponses() {
     specialRequests: row.specialRequests,
     attendeeNames: row.attendees.map((attendee) => attendee.name).sort(),
   }));
+}
+
+/**
+ * Reads the RSVP for an event exactly as the guest-facing page would for the
+ * given invitation — via `retrieveEventRsvp`, not the admin reconstruction.
+ * `retrieveEventRsvp` picks the party member to act as from the invitation's
+ * guest-event rows itself (there is no guestId in a guest session), so the
+ * resolved guestId is returned rather than chosen by the caller.
+ *
+ * Used to confirm an admin override is visible to — and safe to resubmit
+ * from — the guest-facing flow, not just to the admin-side readers.
+ *
+ * @param invitationId - The invitation to authenticate as.
+ */
+async function guestPageView(invitationId: string) {
+  asGuest(invitationId);
+
+  const result = await retrieveEventRsvp(EVENT_ID);
+
+  return {
+    guestId: result.guestId,
+    status: result.rsvp?.attendanceStatus ?? null,
+    numberOfAttending: result.rsvp?.numberOfAttending ?? null,
+    attendeeNames: result.attendees.map((attendee) => attendee.name).sort(),
+  };
 }
 
 /**
@@ -551,6 +580,70 @@ describe('setPartyEventRsvp (integration)', () => {
     ]);
   });
 
+  test('should keep the guest-facing page in sync when the edited guest owns a second response row', async () => {
+    // Same two-row setup as above, but this time assert what the guest-facing
+    // page itself reads and can safely resubmit — not just what the admin
+    // reconstruction reports. retrieveEventRsvp always resolves to the party
+    // member findGuestEventsForEvent returns first (here, g-alice, seeded
+    // before g-alex), so a write that lands on g-alex's row instead of that
+    // member's row would be invisible here even though storedResponses()
+    // above sees it fine.
+    await db().insert(schema.rsvpResponses).values({
+      id: 'rsvp-a2',
+      guestId: 'g-alex',
+      eventId: EVENT_ID,
+      attendanceStatus: 'attending',
+      numberOfAttending: 1,
+      submittedAt: NOW,
+      updatedAt: NOW,
+    });
+    await db().insert(schema.attendees).values({
+      id: 'att-alice-dup',
+      rsvpResponseId: 'rsvp-a2',
+      name: 'Alice Alpha',
+      mealOption: 'option_a',
+      sortOrder: 0,
+    });
+
+    asAdmin();
+
+    // Edited from g-alex's row — the row the guest page does NOT read.
+    await setPartyEventRsvp({
+      eventId: EVENT_ID,
+      guestId: 'g-alex',
+      expectedUpdatedAt: await partyToken('g-alex'),
+      statuses: [
+        { guestId: 'g-alice', attending: true },
+        { guestId: 'g-alex', attending: false },
+      ],
+    });
+
+    const view = await guestPageView('inv-a');
+
+    expect(view.guestId).toBe('g-alice');
+    expect(view.status).toBe('attending');
+    expect(view.numberOfAttending).toBe(1);
+    expect(view.attendeeNames).toEqual(['Alice Alpha']);
+
+    // Resubmitting from the page the guest actually sees must not resurrect
+    // Alex as a duplicate under the other response row.
+    await submitEventRsvp({
+      guestId: view.guestId,
+      eventId: EVENT_ID,
+      attendanceStatus: 'attending',
+      attendees: [{ name: 'Alice Alpha' }, { name: 'Alex Alpha' }],
+    });
+
+    const namesAfterResubmit = (await storedResponses()).flatMap(
+      (response) => response.attendeeNames,
+    );
+
+    expect(namesAfterResubmit.sort()).toEqual(['Alex Alpha', 'Alice Alpha']);
+    expect(
+      namesAfterResubmit.filter((name) => name === 'Alice Alpha'),
+    ).toHaveLength(1);
+  });
+
   test('should not revert a guest submission made after the page was rendered', async () => {
     // The editor writes a status for every party member, so a save built from a
     // stale page would silently undo whatever changed in the meantime.
@@ -817,5 +910,63 @@ describe('admin override and guest submission together (integration)', () => {
       { mealOption: 'option_a', count: 1 },
       { mealOption: 'option_b', count: 1 },
     ]);
+  });
+
+  test('should reflect an admin override on the guest-facing page, prefilled to match', async () => {
+    // The general (single-row) case of the guest-page round trip: an admin
+    // decline must read back as a decline through retrieveEventRsvp, since
+    // that is what pre-fills the guest's own RSVP form.
+    asAdmin();
+
+    await setPartyEventRsvp({
+      eventId: EVENT_ID,
+      guestId: 'g-alice',
+      expectedUpdatedAt: await partyToken('g-alice'),
+      statuses: [
+        { guestId: 'g-alice', attending: false },
+        { guestId: 'g-alex', attending: false },
+      ],
+    });
+
+    expect(await guestPageView('inv-a')).toMatchObject({
+      guestId: 'g-alice',
+      status: 'not_attending',
+      numberOfAttending: 0,
+      attendeeNames: [],
+    });
+
+    // And the admin's own view (party-level special requests, reconstructed
+    // per-guest status) agrees with what the guest would see.
+    expect(await statuses()).toMatchObject({
+      'g-alice': 'not_attending',
+      'g-alex': 'not_attending',
+    });
+  });
+
+  test('should drop an attendee row for a party member not invited to this event', async () => {
+    // buildPartyEventRsvpWrite only writes rows for event-invited `members`,
+    // so an admin edit of the rest of the party silently deletes any stored
+    // attendee row for a person who is on the invitation but not on this
+    // event's guest list. Documents the current (surprising) behavior rather
+    // than asserting it is desired — see the PR review.
+    await db()
+      .delete(schema.guestEvents)
+      .where(eq(schema.guestEvents.id, 'ge-g-alex'));
+
+    asAdmin();
+
+    await setPartyEventRsvp({
+      eventId: EVENT_ID,
+      guestId: 'g-alice',
+      expectedUpdatedAt: await partyToken('g-alice'),
+      statuses: [{ guestId: 'g-alice', attending: true }],
+    });
+
+    const responses = await storedResponses();
+
+    expect(responses).toHaveLength(1);
+    // Alex was never named in `statuses` (he is not invited to this event)
+    // yet his previously-stored attendee row is gone along with the rewrite.
+    expect(responses[0].attendeeNames).toEqual(['Alice Alpha']);
   });
 });
