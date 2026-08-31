@@ -63,7 +63,7 @@
 		"@eslint/eslintrc": "^3",
 		"@playwright/test": "^1.62.1",
 		"@tailwindcss/postcss": "^4",
-		"@testing-library/jest-dom": "^6.6.3",
+		"@testing-library/jest-dom": "^7.0.1",
 		"@testing-library/react": "^16.1.0",
 		"@testing-library/user-event": "^14.6.5",
 		"@types/jsdom": "^28.0.3",
