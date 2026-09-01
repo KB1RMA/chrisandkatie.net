@@ -8,6 +8,7 @@ import {
 } from '@/lib/db/repositories/rsvpResponses';
 import { EVENT_MEAL_OPTION_LABELS } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
+import { CopyEmailsButton } from '@/components/admin/CopyEmailsButton';
 import Link from 'next/link';
 import { EventRsvpTable, type EventRsvpRow } from './components/EventRsvpTable';
 
@@ -88,6 +89,13 @@ export default async function EventRsvpsPage({
     findMealBreakdownForEvent(eventId),
   ]);
 
+  // Contact emails for guests who both were invited to this event and RSVP'd
+  // yes — the set the couple needs when they have to send a day-of update
+  // (e.g. a venue change) to only the people actually attending.
+  const attendingEmails = reconstructedRows
+    .filter((row) => row.status === 'attending')
+    .map((row) => row.contactEmail);
+
   // Build EventRsvpRow array; each row is a single invited person
   const rows: EventRsvpRow[] = reconstructedRows.map((row) => {
     const guestName = `${row.firstName} ${row.lastName}`;
@@ -142,12 +150,19 @@ export default async function EventRsvpsPage({
               All RSVPs ({rows.length})
             </h2>
 
-            <a
-              href={`/api/admin/export/events/${eventId}/rsvps`}
-              className="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-medium text-[#6a5555] shadow ring-1 ring-gray-200 ring-inset hover:bg-[#f3dedb] hover:text-[#9e3f3f]"
-            >
-              Export CSV
-            </a>
+            <div className="flex items-center gap-2">
+              <CopyEmailsButton
+                emails={attendingEmails}
+                label="Copy Attending Emails"
+              />
+
+              <a
+                href={`/api/admin/export/events/${eventId}/rsvps`}
+                className="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-medium text-[#6a5555] shadow ring-1 ring-gray-200 ring-inset hover:bg-[#f3dedb] hover:text-[#9e3f3f]"
+              >
+                Export CSV
+              </a>
+            </div>
           </div>
 
           {rows.length === 0 ? (

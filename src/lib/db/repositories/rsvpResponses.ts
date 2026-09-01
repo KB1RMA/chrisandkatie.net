@@ -222,6 +222,7 @@ export type EventRsvpGuestRow = {
   mealOption: string | null;
   dietaryRestrictions: string | null;
   specialRequests: string | null;
+  contactEmail: string | null;
 };
 
 export type EventRsvpReconstructionResult = {
@@ -337,6 +338,7 @@ export async function getEventRsvpReconstruction(
         status === 'attending'
           ? (specialRequestsByInvitation.get(guest.invitationId) ?? null)
           : null,
+      contactEmail: guest.invitation?.contactEmail ?? null,
     };
   });
 
