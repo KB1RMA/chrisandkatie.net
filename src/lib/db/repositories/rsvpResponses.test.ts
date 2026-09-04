@@ -10,8 +10,11 @@ import { expect, test, describe, beforeEach, vi } from 'vitest';
 import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
 import {
+  findEventResponsesForGuestIds,
   findEventRsvpRowsForExport,
   findMealBreakdownForEvent,
+  getEventRsvpReconstruction,
+  replacePartyEventRsvp,
 } from './rsvpResponses';
 
 const mockGetDb = vi.mocked(getDb);
@@ -86,6 +89,7 @@ function makeInvitedGuestRow(overrides: {
   invitationId: string;
   notes?: string | null;
   mailingAddress?: string | null;
+  attending?: boolean | null;
 }) {
   return {
     guest: {
@@ -94,6 +98,7 @@ function makeInvitedGuestRow(overrides: {
       lastName: overrides.lastName,
       invitationId: overrides.invitationId,
       notes: overrides.notes ?? null,
+      attending: overrides.attending ?? null,
       invitation: { mailingAddress: overrides.mailingAddress ?? null },
     },
   };
@@ -276,5 +281,258 @@ describe('findMealBreakdownForEvent', () => {
     expect(chain.innerJoin).toHaveBeenCalledOnce();
     expect(chain.where).toHaveBeenCalledOnce();
     expect(chain.groupBy).toHaveBeenCalledOnce();
+  });
+});
+
+describe('getEventRsvpReconstruction party fields', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('should report hasPartyResponse false and carry the legacy attending flag', async () => {
+    const { db } = createReconstructionDb(
+      [
+        makeInvitedGuestRow({
+          id: 'guest-1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          invitationId: 'inv-1',
+          attending: true,
+        }),
+      ],
+      [],
+    );
+
+    mockGetDb.mockReturnValue(db);
+
+    const { rows } = await getEventRsvpReconstruction('event-1');
+
+    expect(rows[0]).toMatchObject({
+      guestId: 'guest-1',
+      status: 'no_response',
+      legacyAttending: true,
+      hasPartyResponse: false,
+    });
+  });
+
+  test('should report hasPartyResponse true for every member of a party that responded', async () => {
+    const { db } = createReconstructionDb(
+      [
+        makeInvitedGuestRow({
+          id: 'guest-1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          invitationId: 'inv-1',
+        }),
+        makeInvitedGuestRow({
+          id: 'guest-2',
+          firstName: 'John',
+          lastName: 'Doe',
+          invitationId: 'inv-1',
+        }),
+        makeInvitedGuestRow({
+          id: 'guest-3',
+          firstName: 'Sam',
+          lastName: 'Roe',
+          invitationId: 'inv-2',
+        }),
+      ],
+      [
+        makeResponseRow({
+          invitationId: 'inv-1',
+          attendanceStatus: 'attending',
+          attendees: [{ name: 'Jane Doe' }],
+        }),
+      ],
+    );
+
+    mockGetDb.mockReturnValue(db);
+
+    const { rows } = await getEventRsvpReconstruction('event-1');
+    const hasResponseById = new Map(
+      rows.map((row) => [row.guestId, row.hasPartyResponse]),
+    );
+
+    expect(hasResponseById.get('guest-1')).toBe(true);
+    expect(hasResponseById.get('guest-2')).toBe(true);
+    expect(hasResponseById.get('guest-3')).toBe(false);
+  });
+});
+
+describe('findEventResponsesForGuestIds', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('should resolve with the responses returned by the query', async () => {
+    const responseRows = [{ id: 'rsvp-1', attendees: [] }];
+    const findMany = vi.fn().mockResolvedValue(responseRows);
+    const db = {
+      query: { rsvpResponses: { findMany } },
+    } as unknown as DbClient;
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(
+      findEventResponsesForGuestIds('event-1', ['guest-1', 'guest-2']),
+    ).resolves.toEqual(responseRows);
+    expect(findMany).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not query when there are no guest ids', async () => {
+    const findMany = vi.fn();
+    const db = {
+      query: { rsvpResponses: { findMany } },
+    } as unknown as DbClient;
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findEventResponsesForGuestIds('event-1', [])).resolves.toEqual(
+      [],
+    );
+    expect(findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('replacePartyEventRsvp', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  /**
+   * Creates a mock db that records the statements handed to `db.batch`,
+   * tagging each one by the builder that produced it.
+   *
+   * @returns The mock DbClient plus the batch spy.
+   */
+  function createBatchDb() {
+    const batch = vi.fn().mockResolvedValue([]);
+
+    const insertChain = {
+      values: vi.fn(),
+      onConflictDoUpdate: vi.fn(),
+    };
+
+    const deleteChain = { where: vi.fn() };
+
+    const db = {
+      batch,
+      insert: vi.fn(() => {
+        const chain = {
+          values: vi.fn(() => {
+            const withConflict = {
+              kind: 'insert',
+              onConflictDoUpdate: vi.fn(() => ({ kind: 'upsert' })),
+            };
+
+            return withConflict;
+          }),
+        };
+
+        return chain;
+      }),
+      delete: vi.fn(() => ({
+        where: vi.fn(() => ({ kind: 'delete' })),
+      })),
+    } as unknown as DbClient & { batch: ReturnType<typeof vi.fn> };
+
+    void insertChain;
+    void deleteChain;
+
+    return { db, batch };
+  }
+
+  const baseInput = {
+    response: {
+      id: 'rsvp-1',
+      guestId: 'guest-1',
+      eventId: 'event-1',
+      attendanceStatus: 'attending' as const,
+      numberOfAttending: 1,
+      submittedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+    responseUpdate: {
+      attendanceStatus: 'attending' as const,
+      numberOfAttending: 1,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+    attendeeRows: [
+      {
+        id: 'att-1',
+        rsvpResponseId: 'rsvp-1',
+        name: 'Jane Doe',
+        mealOption: 'option_a' as const,
+        dietaryRestrictions: null,
+        sortOrder: 0,
+      },
+    ],
+    staleAttendeeIds: [],
+  };
+
+  test('should write the upsert, the attendee clear, and the attendee insert in one batch', async () => {
+    const { db, batch } = createBatchDb();
+
+    mockGetDb.mockReturnValue(db);
+
+    await replacePartyEventRsvp(baseInput);
+
+    expect(batch).toHaveBeenCalledTimes(1);
+
+    const statements = batch.mock.calls[0][0] as Array<{ kind: string }>;
+
+    expect(statements.map((statement) => statement.kind)).toEqual([
+      'upsert',
+      'delete',
+      'insert',
+    ]);
+  });
+
+  test('should add a delete for stale attendee rows under other party responses', async () => {
+    const { db, batch } = createBatchDb();
+
+    mockGetDb.mockReturnValue(db);
+
+    await replacePartyEventRsvp({
+      ...baseInput,
+      staleAttendeeIds: ['att-old'],
+    });
+
+    const statements = batch.mock.calls[0][0] as Array<{ kind: string }>;
+
+    expect(statements.map((statement) => statement.kind)).toEqual([
+      'upsert',
+      'delete',
+      'delete',
+      'insert',
+    ]);
+  });
+
+  test('should omit the attendee insert when the party declines', async () => {
+    const { db, batch } = createBatchDb();
+
+    mockGetDb.mockReturnValue(db);
+
+    await replacePartyEventRsvp({
+      ...baseInput,
+      response: {
+        ...baseInput.response,
+        attendanceStatus: 'not_attending',
+        numberOfAttending: 0,
+      },
+      responseUpdate: {
+        attendanceStatus: 'not_attending',
+        numberOfAttending: 0,
+        updatedAt: baseInput.responseUpdate.updatedAt,
+      },
+      attendeeRows: [],
+    });
+
+    const statements = batch.mock.calls[0][0] as Array<{ kind: string }>;
+
+    expect(statements.map((statement) => statement.kind)).toEqual([
+      'upsert',
+      'delete',
+    ]);
   });
 });

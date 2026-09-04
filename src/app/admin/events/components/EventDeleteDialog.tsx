@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { deleteEvent } from '../actions';
+import { Modal, type ModalHandle } from '@/components/admin/Modal';
 
 type EventDeleteDialogProps = {
   event: { id: string; name: string };
@@ -24,14 +25,10 @@ export default function EventDeleteDialog({
   rsvpCount,
   onClose,
 }: EventDeleteDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const modalRef = useRef<ModalHandle>(null);
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
 
   async function handleConfirm() {
     setIsSubmitting(true);
@@ -40,7 +37,7 @@ export default function EventDeleteDialog({
     try {
       await deleteEvent({ id: event.id });
       router.refresh();
-      onClose();
+      modalRef.current?.close();
     } catch {
       setError('Failed to delete the event. Please try again.');
       setIsSubmitting(false);
@@ -48,13 +45,14 @@ export default function EventDeleteDialog({
   }
 
   function handleCancel() {
-    dialogRef.current?.close();
-    onClose();
+    modalRef.current?.close();
   }
 
   return (
-    <dialog
-      ref={dialogRef}
+    <Modal
+      ref={modalRef}
+      onClose={onClose}
+      preventClose={isSubmitting}
       className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50"
     >
       <h2 className="mb-2 text-lg font-semibold text-gray-900">Delete Event</h2>
@@ -83,6 +81,6 @@ export default function EventDeleteDialog({
           Cancel
         </button>
       </div>
-    </dialog>
+    </Modal>
   );
 }
