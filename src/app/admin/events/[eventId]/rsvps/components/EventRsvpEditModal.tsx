@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { setPartyEventRsvp } from '../actions';
+import { Modal, type ModalHandle } from '@/components/admin/Modal';
 
 /** One person on the party being edited, with their pre-selected status. */
 export type EventRsvpPartyMember = {
@@ -48,7 +49,7 @@ export function EventRsvpEditModal({
   expectedUpdatedAt,
   onClose,
 }: EventRsvpEditModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const modalRef = useRef<ModalHandle>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -60,16 +61,11 @@ export function EventRsvpEditModal({
       ),
   );
 
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
-
   /**
-   * Closes the dialog and notifies the parent.
+   * Closes the dialog; the resulting native close event notifies the parent.
    */
   function handleClose() {
-    dialogRef.current?.close();
-    onClose();
+    modalRef.current?.close();
   }
 
   /**
@@ -101,8 +97,10 @@ export function EventRsvpEditModal({
   }
 
   return (
-    <dialog
-      ref={dialogRef}
+    <Modal
+      ref={modalRef}
+      onClose={onClose}
+      preventClose={isPending}
       className="w-full max-w-md rounded-lg bg-[#fffdfb] p-6 shadow-xl backdrop:bg-black/50"
     >
       <h2 className="text-lg font-semibold text-[#9e3f3f]">Edit RSVP</h2>
@@ -177,6 +175,6 @@ export function EventRsvpEditModal({
           Cancel
         </button>
       </div>
-    </dialog>
+    </Modal>
   );
 }

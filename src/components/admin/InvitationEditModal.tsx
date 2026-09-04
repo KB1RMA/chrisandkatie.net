@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -9,6 +9,7 @@ import {
   type InvitationEditFormData,
 } from '@/lib/schemas/invitation';
 import { updateInvitationDetails } from '@/app/admin/invitations/actions';
+import { Modal, type ModalHandle } from '@/components/admin/Modal';
 
 type InvitationEditModalProps = {
   invitationId: string;
@@ -38,7 +39,7 @@ export default function InvitationEditModal({
   defaultValues,
   onClose,
 }: InvitationEditModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const modalRef = useRef<ModalHandle>(null);
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -53,12 +54,8 @@ export default function InvitationEditModal({
     defaultValues,
   });
 
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
-
   function handleClose() {
-    dialogRef.current?.close();
+    modalRef.current?.close();
   }
 
   /**
@@ -80,19 +77,19 @@ export default function InvitationEditModal({
       }
 
       router.refresh();
-      dialogRef.current?.close();
+      handleClose();
     } catch {
       setSubmitError('An unexpected error occurred. Please try again.');
     }
   }
 
   return (
-    <dialog
-      ref={dialogRef}
+    <Modal
+      ref={modalRef}
+      onClose={onClose}
       className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50"
       aria-labelledby="edit-invitation-title"
       aria-describedby="edit-invitation-description"
-      onClose={onClose}
     >
       <h2
         id="edit-invitation-title"
@@ -273,6 +270,6 @@ export default function InvitationEditModal({
           </button>
         </div>
       </form>
-    </dialog>
+    </Modal>
   );
 }
