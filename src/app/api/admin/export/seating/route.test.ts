@@ -96,6 +96,7 @@ function makeReconstructedRow(
     mealOption: null,
     dietaryRestrictions: null,
     specialRequests: null,
+    contactEmail: null,
     ...overrides,
   };
 }

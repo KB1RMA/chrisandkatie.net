@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react';
 export type CopyEmailsButtonProps = {
   /** Raw contact emails from all invitations; may contain duplicates, blanks, or nulls. */
   emails: (string | null)[];
+  /** Button label prefix before the live count, e.g. "Copy Emails" or "Copy Attending Emails". */
+  label?: string;
 };
 
 /**
@@ -15,9 +17,13 @@ export type CopyEmailsButtonProps = {
  * "Copied!" confirmation for two seconds after a successful copy.
  *
  * @param emails - Contact emails to copy (nulls/blanks are filtered out).
+ * @param label - Button label prefix before the live count. Defaults to "Copy Emails".
  * @returns Button that copies the deduplicated email list on click.
  */
-export function CopyEmailsButton({ emails }: CopyEmailsButtonProps) {
+export function CopyEmailsButton({
+  emails,
+  label = 'Copy Emails',
+}: CopyEmailsButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const uniqueEmails = useMemo(
@@ -49,7 +55,7 @@ export function CopyEmailsButton({ emails }: CopyEmailsButtonProps) {
       }
       className="inline-flex items-center gap-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-[#6a5555] shadow ring-1 ring-gray-200 ring-inset hover:bg-[#f3dedb] hover:text-[#9e3f3f] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-[#6a5555]"
     >
-      {copied ? 'Copied!' : `Copy Emails (${uniqueEmails.length})`}
+      {copied ? 'Copied!' : `${label} (${uniqueEmails.length})`}
     </button>
   );
 }
