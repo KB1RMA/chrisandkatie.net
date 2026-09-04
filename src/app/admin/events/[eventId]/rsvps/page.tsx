@@ -104,6 +104,7 @@ export default async function EventRsvpsPage({
       id: row.guestId,
       guestName,
       partyName: row.partyName,
+      contactEmail: row.contactEmail,
       rsvpStatus: row.status,
       // Per-person model: each row is one invited guest, so the count is 0 or 1.
       // The legacy party-level `RsvpResponse.numberOfAttending` column (a single
@@ -115,7 +116,8 @@ export default async function EventRsvpsPage({
       numberOfAttending: row.status === 'attending' ? 1 : 0,
       specialRequests: row.specialRequests,
       notes: row.notes,
-      searchText: `${guestName} ${row.partyName}`.toLowerCase(),
+      searchText:
+        `${guestName} ${row.partyName} ${row.contactEmail ?? ''}`.toLowerCase(),
     };
   });
 
