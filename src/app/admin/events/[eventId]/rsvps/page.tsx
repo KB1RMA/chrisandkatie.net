@@ -98,7 +98,6 @@ export default async function EventRsvpsPage({
     .filter((row) => row.status === 'attending')
     .map((row) => row.contactEmail);
 
-
   // Build EventRsvpRow array; each row is a single invited person
   const rows: EventRsvpRow[] = reconstructedRows.map((row) => {
     const guestName = `${row.firstName} ${row.lastName}`;
