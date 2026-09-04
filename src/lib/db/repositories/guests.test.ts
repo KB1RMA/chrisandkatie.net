@@ -7,6 +7,8 @@ vi.mock('@/lib/db', () => ({
 }));
 
 import { expect, test, describe, beforeEach, vi } from 'vitest';
+import type { SQL } from 'drizzle-orm';
+import { SQLiteSyncDialect } from 'drizzle-orm/sqlite-core';
 import { getDb } from '@/lib/db';
 import type { DbClient } from '@/lib/db';
 import { createGuest, deleteGuest, findGuestsForVenueExport } from './guests';
@@ -109,16 +111,29 @@ describe('createGuest', () => {
 });
 
 /**
- * Creates a mock Drizzle database whose select → from → leftJoin → orderBy
- * chain resolves to the given venue export rows.
+ * Compiles a Drizzle join condition to SQL text and bound parameters so tests
+ * can assert on the predicate itself, not just that a join happened.
+ *
+ * @param condition - The `SQL` condition passed to a query-builder method.
+ * @returns The rendered SQL string and its bound parameters.
+ */
+function compileCondition(condition: unknown) {
+  return new SQLiteSyncDialect().sqlToQuery(condition as SQL);
+}
+
+/**
+ * Creates a mock Drizzle database whose select → from → leftJoin → leftJoin
+ * → leftJoin → orderBy chain resolves to the given venue export rows.
  *
  * @param rows - The rows the query chain should resolve with.
  * @returns The mock DbClient plus the chain spies for assertions.
  */
 function createVenueExportDb(rows: VenueExportRow[]) {
   const orderByFn = vi.fn().mockResolvedValue(rows);
-  const leftJoinFn = vi.fn().mockReturnValue({ orderBy: orderByFn });
-  const fromFn = vi.fn().mockReturnValue({ leftJoin: leftJoinFn });
+  const leftJoinFn = vi.fn();
+  const chain = { leftJoin: leftJoinFn, orderBy: orderByFn };
+  leftJoinFn.mockReturnValue(chain);
+  const fromFn = vi.fn().mockReturnValue(chain);
   const selectFn = vi.fn().mockReturnValue({ from: fromFn });
 
   const db = { select: selectFn } as unknown as DbClient;
@@ -140,6 +155,7 @@ function makeVenueExportRow(
     dietaryRestrictions: null,
     notes: null,
     partyName: 'Doe Family',
+    tableName: null,
     ...overrides,
   };
 }
@@ -175,16 +191,76 @@ describe('findGuestsForVenueExport', () => {
     );
   });
 
-  test('should left-join invitations and order by party then guest name', async () => {
+  test('should left-join invitations, seating assignments, and seating tables, then order by party then guest name', async () => {
     const { db, leftJoinFn, orderByFn } = createVenueExportDb([]);
 
     mockGetDb.mockReturnValue(db);
 
     await findGuestsForVenueExport();
 
-    expect(leftJoinFn).toHaveBeenCalledOnce();
+    expect(leftJoinFn).toHaveBeenCalledTimes(3);
     expect(orderByFn).toHaveBeenCalledOnce();
     expect(orderByFn.mock.calls[0]).toHaveLength(3);
+  });
+
+  test('should bind the requested eventId into the seating assignment join', async () => {
+    const { db, leftJoinFn } = createVenueExportDb([]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await findGuestsForVenueExport('event-uuid-1');
+
+    const assignmentJoin = compileCondition(leftJoinFn.mock.calls[1][1]);
+
+    expect(assignmentJoin.sql).toContain('"SeatingAssignment"."guestId"');
+    expect(assignmentJoin.sql).toContain('"SeatingAssignment"."eventId"');
+    expect(assignmentJoin.params).toContain('event-uuid-1');
+  });
+
+  test('should join seating tables on the assignment tableId', async () => {
+    const { db, leftJoinFn } = createVenueExportDb([]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await findGuestsForVenueExport('event-uuid-1');
+
+    const tableJoin = compileCondition(leftJoinFn.mock.calls[2][1]);
+
+    expect(tableJoin.sql).toContain('"SeatingAssignment"."tableId"');
+    expect(tableJoin.sql).toContain('"SeatingTable"."id"');
+  });
+
+  test('should bind an eventId that matches no assignment when none is given', async () => {
+    const { db, leftJoinFn } = createVenueExportDb([]);
+
+    mockGetDb.mockReturnValue(db);
+
+    await findGuestsForVenueExport();
+
+    const assignmentJoin = compileCondition(leftJoinFn.mock.calls[1][1]);
+
+    expect(assignmentJoin.sql).toContain('"SeatingAssignment"."eventId"');
+    expect(assignmentJoin.params).toEqual(['']);
+  });
+
+  test('should resolve rows when called without an eventId', async () => {
+    const rows = [makeVenueExportRow()];
+    const { db } = createVenueExportDb(rows);
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findGuestsForVenueExport()).resolves.toEqual(rows);
+  });
+
+  test('should resolve rows when called with an eventId', async () => {
+    const rows = [makeVenueExportRow({ tableName: 'Table 3' })];
+    const { db } = createVenueExportDb(rows);
+
+    mockGetDb.mockReturnValue(db);
+
+    await expect(findGuestsForVenueExport('event-uuid-1')).resolves.toEqual(
+      rows,
+    );
   });
 });
 

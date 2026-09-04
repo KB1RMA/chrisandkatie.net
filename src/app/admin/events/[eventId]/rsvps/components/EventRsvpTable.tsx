@@ -10,6 +10,7 @@ export type EventRsvpRow = {
   guestName: string;
   partyName: string;
   invitationId: string;
+  contactEmail: string | null;
   rsvpStatus: 'attending' | 'not_attending' | 'no_response';
   /** Whether this guest's party has any stored response for the event. */
   hasPartyResponse: boolean;
@@ -157,6 +158,11 @@ export function EventRsvpTable({
         accessor: (row) => row.partyName,
       },
       {
+        id: 'contactEmail',
+        header: 'Email',
+        accessor: (row) => row.contactEmail ?? '-',
+      },
+      {
         id: 'rsvpStatus',
         header: 'RSVP Status',
         accessor: (row) => row.rsvpStatus,
@@ -197,6 +203,24 @@ export function EventRsvpTable({
       columnConfig={columnConfig}
       searchPlaceholder="Search guests..."
       getRowId={(row) => row.id}
+      renderSummary={(filteredRows) => {
+        const attendingCount = filteredRows.reduce(
+          (total, row) => total + row.numberOfAttending,
+          0,
+        );
+
+        return (
+          <p className="text-sm text-[#6a5555]">
+            <span className="font-semibold text-[#9e3f3f]">
+              {attendingCount}
+            </span>{' '}
+            attending
+            {filteredRows.length !== data.length && (
+              <> (of {filteredRows.length} shown)</>
+            )}
+          </p>
+        );
+      }}
     />
   );
 }

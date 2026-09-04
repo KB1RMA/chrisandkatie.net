@@ -31,6 +31,12 @@ export type DataTableProps<TData> = {
   getRowId?: (row: TData) => string;
   getRowCanExpand?: (row: TData) => boolean;
   renderSubComponent?: (row: Row<TData>) => ReactNode;
+  /**
+   * Renders a summary above the table, recomputed from the rows currently
+   * passing search and column filters (e.g. an "N attending" count that
+   * updates as the guest list is filtered).
+   */
+  renderSummary?: (filteredRows: TData[]) => ReactNode;
 };
 
 /**
@@ -47,6 +53,7 @@ export function DataTable<TData>({
   getRowId,
   getRowCanExpand,
   renderSubComponent,
+  renderSummary,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -167,8 +174,15 @@ export function DataTable<TData>({
     getExpandedRowModel: getExpandedRowModel(),
   });
 
+  const filteredRows = table.getFilteredRowModel().rows;
+
   return (
     <div>
+      {renderSummary && (
+        <div className="mb-4">
+          {renderSummary(filteredRows.map((row) => row.original))}
+        </div>
+      )}
       <TableToolbar
         table={table}
         searchPlaceholder={searchPlaceholder}

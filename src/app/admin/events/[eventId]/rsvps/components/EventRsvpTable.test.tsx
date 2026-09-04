@@ -22,6 +22,7 @@ function makeRow(overrides: Partial<EventRsvpRow> = {}): EventRsvpRow {
     guestName: 'Jane Doe',
     partyName: 'Doe Family',
     invitationId: 'inv-1',
+    contactEmail: null,
     rsvpStatus: 'attending',
     hasPartyResponse: true,
     partyRsvpUpdatedAt: '2026-07-01T00:00:00.000Z',

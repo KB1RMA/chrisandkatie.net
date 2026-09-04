@@ -2,6 +2,47 @@
  * Utility functions for building map-related URLs and calculating distances.
  */
 
+/** Tile layer settings passed straight to react-leaflet's `<TileLayer>`. */
+export type TileLayerConfig = {
+  url: string;
+  attribution: string;
+  maxZoom: number;
+  subdomains?: string;
+};
+
+/**
+ * Returns the tile layer to render behind the site's Leaflet maps.
+ *
+ * CARTO's raster basemaps (used for the warm "Voyager" style that matches
+ * the site palette) now require a free, domain-restricted API key — without
+ * one, CARTO silently serves an "API key required" watermark tile instead of
+ * an error. When `NEXT_PUBLIC_CARTO_API_KEY` is configured we use CARTO;
+ * otherwise we fall back to plain OpenStreetMap tiles (no key required) so
+ * maps still render, just in OSM's default style rather than Voyager's.
+ *
+ * @returns Tile URL, attribution, and zoom/subdomain settings for `<TileLayer>`.
+ */
+export function getTileLayerConfig(): TileLayerConfig {
+  const cartoApiKey = process.env.NEXT_PUBLIC_CARTO_API_KEY;
+
+  if (cartoApiKey) {
+    return {
+      url: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20,
+    };
+  }
+
+  return {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  };
+}
+
 /**
  * Builds a Google Maps directions URL for a given destination string.
  * Uses the directions endpoint so the link opens turn-by-turn navigation

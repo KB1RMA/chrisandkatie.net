@@ -237,6 +237,7 @@ export type EventRsvpGuestRow = {
    * pass this back so a concurrent change can be detected before overwriting.
    */
   partyRsvpUpdatedAt: string | null;
+  contactEmail: string | null;
 };
 
 export type EventRsvpReconstructionResult = {
@@ -368,6 +369,7 @@ export async function getEventRsvpReconstruction(
       legacyAttending: guest.attending ?? null,
       hasPartyResponse: respondedInvitationIds.has(guest.invitationId),
       partyRsvpUpdatedAt: updatedAtByInvitation.get(guest.invitationId) ?? null,
+      contactEmail: guest.invitation?.contactEmail ?? null,
     };
   });
 

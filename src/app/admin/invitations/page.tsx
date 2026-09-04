@@ -3,27 +3,16 @@ import type { Metadata } from 'next';
 import { asc } from 'drizzle-orm';
 import { getDb } from '@/lib/db';
 import { events } from '@/lib/db/schema';
+import { findEventIdsWithSeatingTables } from '@/lib/db/repositories/seating';
 import type { MealOption } from '@/lib/constants';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { ExportDropdown } from '@/components/admin/ExportDropdown';
+import { CopyEmailsButton } from '@/components/admin/CopyEmailsButton';
 import {
   InvitationTable,
   type AvailableEvent,
   type InvitationTableRow,
 } from '@/components/admin/InvitationTable';
-
-const EXPORT_FORMATS = [
-  {
-    id: 'minted',
-    label: 'Minted Address Book',
-    href: '/api/admin/export/invitations?format=minted',
-  },
-  {
-    id: 'venue',
-    label: 'Venue Guest List (Meals & Allergies)',
-    href: '/api/admin/export/guests?format=venue',
-  },
-] as const;
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +52,29 @@ export default async function AdminInvitationsPage() {
     .select({ id: events.id, name: events.name, sortOrder: events.sortOrder })
     .from(events)
     .orderBy(asc(events.sortOrder));
+
+  // Only events whose seating chart has been built can fill the Table column
+  const eventIdsWithSeating = new Set(await findEventIdsWithSeatingTables());
+
+  const exportFormats = [
+    {
+      id: 'minted',
+      label: 'Minted Address Book',
+      href: '/api/admin/export/invitations?format=minted',
+    },
+    {
+      id: 'venue',
+      label: 'Venue Guest List (Meals & Allergies)',
+      href: '/api/admin/export/guests?format=venue',
+    },
+    ...availableEvents
+      .filter((event) => eventIdsWithSeating.has(event.id))
+      .map((event) => ({
+        id: `venue-tables-${event.id}`,
+        label: `Venue Guest List with Tables (${event.name})`,
+        href: `/api/admin/export/guests?format=venue&eventId=${encodeURIComponent(event.id)}`,
+      })),
+  ];
 
   const invitations = await db.query.invitations.findMany({
     with: {
@@ -132,6 +144,7 @@ export default async function AdminInvitationsPage() {
       initialVisibleEventIds,
       searchText,
       invitationCode: invitation.invitationCode ?? null,
+      contactEmail: invitation.contactEmail ?? null,
       mailingAddress: invitation.mailingAddress ?? null,
       address: invitation.address ?? null,
       addressLine2: invitation.addressLine2 ?? null,
@@ -167,8 +180,9 @@ export default async function AdminInvitationsPage() {
         </p>
 
         {/* Export controls */}
-        <div className="mb-4 flex justify-end">
-          <ExportDropdown options={EXPORT_FORMATS} />
+        <div className="mb-4 flex justify-end gap-2">
+          <CopyEmailsButton emails={rows.map((row) => row.contactEmail)} />
+          <ExportDropdown options={exportFormats} />
         </div>
 
         {/* Summary Statistics */}

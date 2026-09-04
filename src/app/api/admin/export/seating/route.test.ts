@@ -99,6 +99,7 @@ function makeReconstructedRow(
     legacyAttending: null,
     hasPartyResponse: true,
     partyRsvpUpdatedAt: null,
+    contactEmail: null,
     ...overrides,
   };
 }

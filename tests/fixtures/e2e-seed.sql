@@ -123,4 +123,127 @@ INSERT INTO Guest (
 VALUES
   ('guest-e2e-plain', 'invite-e2e-noextras', 'Plain', 'Guest', 'adult', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
+-- ---------------------------------------------------------------------------
+-- Venue guest-list export fixture (used by admin-guest-export.spec.ts).
+--
+-- Kept on its own invitation so the RSVP specs' reset helper — which only
+-- touches invite-e2e-a and invite-e2e-noextras — cannot disturb it.
+--
+--   Carol Export: seated at both charts, RSVP'd to the BBQ with a different
+--                 meal than her wedding meal. Proves the BBQ export reports
+--                 the BBQ meal, not the wedding one.
+--   Dave Export:  seated at the wedding, never invited to the BBQ. Proves the
+--                 BBQ export marks him Not Invited rather than No Response.
+-- ---------------------------------------------------------------------------
+INSERT INTO Invitation (
+  id, relationshipToCouple, totalInvited, visibleEvents,
+  invitationCode, mailingAddress, createdAt, updatedAt
+)
+VALUES (
+  'invite-e2e-export', 'Test', 2, '[0,1,2,3]',
+  'test-export', 'The Export Family', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+);
+
+INSERT INTO Guest (
+  id, invitationId, firstName, lastName, type,
+  attending, mealChoice, dietaryRestrictions, notes, createdAt, updatedAt
+)
+VALUES
+  (
+    'guest-e2e-carol', 'invite-e2e-export', 'Carol', 'Export', 'adult',
+    1, 'short-rib', 'Peanut allergy', 'Maid of honor',
+    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  ),
+  (
+    'guest-e2e-dave', 'invite-e2e-export', 'Dave', 'Export', 'child',
+    NULL, NULL, NULL, NULL,
+    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  );
+
+-- Carol is invited to the wedding and the BBQ; Dave only to the wedding.
+INSERT INTO GuestEvent (id, guestId, eventId)
+VALUES
+  ('guestevent-e2e-carol-wedding', 'guest-e2e-carol', 'event-e2e-wedding'),
+  ('guestevent-e2e-carol-bbq',     'guest-e2e-carol', 'event-e2e-bbq'),
+  ('guestevent-e2e-dave-wedding',  'guest-e2e-dave',  'event-e2e-wedding');
+
+-- Seating charts exist for the wedding and the BBQ only. Cocktail Hour and
+-- Pool Day are deliberately left without tables so the export dropdown has
+-- chart-less events to filter out.
+INSERT INTO SeatingTable (
+  id, eventId, name, capacity, isHeadTable, sortOrder, createdAt, updatedAt
+)
+VALUES
+  (
+    'seatingtable-e2e-wedding-head', 'event-e2e-wedding', 'Head Table',
+    8, 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  ),
+  (
+    'seatingtable-e2e-bbq-picnic', 'event-e2e-bbq', 'Picnic Table 2',
+    8, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  );
+
+INSERT INTO SeatingAssignment (id, eventId, tableId, guestId, seatOrder, createdAt)
+VALUES
+  (
+    'seatingassign-e2e-carol-wedding', 'event-e2e-wedding',
+    'seatingtable-e2e-wedding-head', 'guest-e2e-carol', 0, CURRENT_TIMESTAMP
+  ),
+  (
+    'seatingassign-e2e-dave-wedding', 'event-e2e-wedding',
+    'seatingtable-e2e-wedding-head', 'guest-e2e-dave', 1, CURRENT_TIMESTAMP
+  ),
+  (
+    'seatingassign-e2e-carol-bbq', 'event-e2e-bbq',
+    'seatingtable-e2e-bbq-picnic', 'guest-e2e-carol', 0, CURRENT_TIMESTAMP
+  );
+
+-- Erin sits on her own invitation with no BBQ response at all. She is the
+-- guest who exposes a wedding-data leak: the reconstruction has no meal for
+-- her, so a BBQ export that still consults the guest-level columns would
+-- report her wedding meal and her wedding attendance. She is also invited to
+-- the BBQ but unseated, so her Table cell must be blank.
+INSERT INTO Invitation (
+  id, relationshipToCouple, totalInvited, visibleEvents,
+  invitationCode, mailingAddress, createdAt, updatedAt
+)
+VALUES (
+  'invite-e2e-export-b', 'Test', 1, '[0,1,2,3]',
+  'test-export-b', 'The Unseated Family', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+);
+
+INSERT INTO Guest (
+  id, invitationId, firstName, lastName, type,
+  attending, mealChoice, dietaryRestrictions, notes, createdAt, updatedAt
+)
+VALUES (
+  'guest-e2e-erin', 'invite-e2e-export-b', 'Erin', 'Export', 'adult',
+  1, 'roasted-chicken', 'Gluten free', NULL,
+  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+);
+
+INSERT INTO GuestEvent (id, guestId, eventId)
+VALUES
+  ('guestevent-e2e-erin-wedding', 'guest-e2e-erin', 'event-e2e-wedding'),
+  ('guestevent-e2e-erin-bbq',     'guest-e2e-erin', 'event-e2e-bbq');
+
+-- Carol's BBQ RSVP. The attendee name must match "firstName lastName" for the
+-- reconstruction to attribute the meal to her.
+INSERT INTO RsvpResponse (
+  id, guestId, eventId, attendanceStatus, numberOfAttending,
+  submittedAt, updatedAt
+)
+VALUES (
+  'rsvp-e2e-carol-bbq', 'guest-e2e-carol', 'event-e2e-bbq',
+  'attending', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+);
+
+INSERT INTO Attendee (
+  id, rsvpResponseId, name, mealOption, dietaryRestrictions, sortOrder, createdAt
+)
+VALUES (
+  'attendee-e2e-carol-bbq', 'rsvp-e2e-carol-bbq', 'Carol Export',
+  'option_b', 'Shellfish', 0, CURRENT_TIMESTAMP
+);
+
 COMMIT;
