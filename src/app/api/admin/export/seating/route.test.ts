@@ -96,6 +96,9 @@ function makeReconstructedRow(
     mealOption: null,
     dietaryRestrictions: null,
     specialRequests: null,
+    legacyAttending: null,
+    hasPartyResponse: true,
+    partyRsvpUpdatedAt: null,
     contactEmail: null,
     ...overrides,
   };

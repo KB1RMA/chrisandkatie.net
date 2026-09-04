@@ -169,6 +169,12 @@ export function normalizeName(name: string): string {
  *   This covers both members omitted from an attending response and party-level
  *   declines (which store zero attendee names).
  *
+ * Known limitation: people are matched by name, so two members of the same
+ * party whose names are identical (a Jr/Sr pair entered without suffixes, or a
+ * duplicated import) cannot be told apart — both resolve to whatever the shared
+ * name resolves to, and a per-person status cannot be set for just one of them.
+ * Distinguishing them would mean keying Attendee rows on guestId instead.
+ *
  * @param invitedGuests - Guests invited to the event, each tagged with their invitationId.
  * @param responses - RSVP responses for the event, each tagged with the responder's invitationId and attendee names.
  * @returns Per-guest statuses and the aggregated attendance summary.
@@ -227,4 +233,80 @@ export function reconstructEventRsvpStatuses(
   );
 
   return { statuses, summary };
+}
+
+/** A guest on the party being edited, invited to the event in question. */
+export type PartyMemberInput = {
+  guestId: string;
+  firstName: string;
+  lastName: string;
+};
+
+/** Meal details already recorded for an attendee, keyed by their stored name. */
+export type ExistingAttendeeInput = {
+  name: string;
+  mealOption: 'option_a' | 'option_b' | null;
+  dietaryRestrictions: string | null;
+};
+
+/** The attendee rows and response fields to persist for a party's RSVP. */
+export type PartyEventRsvpWrite = {
+  attendanceStatus: 'attending' | 'not_attending';
+  numberOfAttending: number;
+  attendees: Array<
+    ExistingAttendeeInput & {
+      sortOrder: number;
+    }
+  >;
+};
+
+/**
+ * Build the response fields and attendee rows for a party's event RSVP.
+ *
+ * RSVPs are stored per party: a single response row carries the party-level
+ * status, and one attendee row is written for each person who is attending.
+ * This mirrors how the guest-facing form writes an RSVP, so an admin edit and a
+ * guest submission produce the same shape of data.
+ *
+ * Meal option and dietary restrictions are carried over from `existingAttendees`
+ * by normalized name match, so re-writing a party to change one person's status
+ * does not discard the meal choices already recorded for everyone else.
+ *
+ * @param input - Party members, the ids of those attending, and the attendee rows currently stored.
+ * @returns Response status, headcount, and the ordered attendee rows to write.
+ */
+export function buildPartyEventRsvpWrite(input: {
+  members: PartyMemberInput[];
+  attendingGuestIds: string[];
+  existingAttendees: ExistingAttendeeInput[];
+}): PartyEventRsvpWrite {
+  const attendingIds = new Set(input.attendingGuestIds);
+
+  const detailByName = input.existingAttendees.reduce((acc, attendee) => {
+    const key = normalizeName(attendee.name);
+
+    return acc.has(key) ? acc : acc.set(key, attendee);
+  }, new Map<string, ExistingAttendeeInput>());
+
+  const attendees = input.members
+    .filter((member) => attendingIds.has(member.guestId))
+    .map((member, index) => {
+      const name = `${member.firstName} ${member.lastName}`;
+      const existing = detailByName.get(normalizeName(name));
+
+      return {
+        name,
+        mealOption: existing?.mealOption ?? null,
+        dietaryRestrictions: existing?.dietaryRestrictions ?? null,
+        sortOrder: index,
+      };
+    });
+
+  return {
+    // A party with nobody attending is stored as a decline with no attendee
+    // rows, matching the invariant the guest-facing schema enforces.
+    attendanceStatus: attendees.length > 0 ? 'attending' : 'not_attending',
+    numberOfAttending: attendees.length,
+    attendees,
+  };
 }
