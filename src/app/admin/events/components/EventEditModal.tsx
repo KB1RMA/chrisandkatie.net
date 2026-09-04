@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { eventFormSchema, type EventFormData } from '@/lib/schemas/event';
 import { updateEvent } from '../actions';
 import type { WeddingEvent } from '@/lib/db/schema';
+import { Modal, type ModalHandle } from '@/components/admin/Modal';
 
 type EventEditModalProps = {
   event: WeddingEvent;
@@ -32,7 +33,7 @@ export default function EventEditModal({
   event,
   onClose,
 }: EventEditModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const modalRef = useRef<ModalHandle>(null);
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -60,16 +61,11 @@ export default function EventEditModal({
 
   const eventType = watch('type');
 
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
-
   /**
-   * Handle close by calling the parent's onClose callback and closing the dialog.
+   * Closes the dialog; the resulting native close event notifies the parent.
    */
   function handleClose() {
-    dialogRef.current?.close();
-    onClose();
+    modalRef.current?.close();
   }
 
   /**
@@ -90,17 +86,17 @@ export default function EventEditModal({
       }
 
       router.refresh();
-      onClose();
+      handleClose();
     } catch {
       setSubmitError('An unexpected error occurred. Please try again.');
     }
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50"
+    <Modal
+      ref={modalRef}
       onClose={onClose}
+      className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50"
     >
       <h2 className="mb-4 text-lg font-semibold text-gray-900">Edit Event</h2>
 
@@ -309,6 +305,6 @@ export default function EventEditModal({
           </button>
         </div>
       </form>
-    </dialog>
+    </Modal>
   );
 }

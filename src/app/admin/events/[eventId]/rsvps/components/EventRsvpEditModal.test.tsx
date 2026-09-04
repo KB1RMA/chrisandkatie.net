@@ -47,6 +47,8 @@ function renderModal(
 }
 
 // jsdom does not implement the native dialog methods the component calls.
+// close() dispatches a real 'close' event, matching browser behavior, since
+// Modal relies on that event (not a direct call) to invoke onClose.
 beforeEach(() => {
   vi.clearAllMocks();
   mockSetPartyEventRsvp.mockResolvedValue({ success: true });
@@ -60,6 +62,7 @@ beforeEach(() => {
     this: HTMLDialogElement,
   ) {
     this.open = false;
+    this.dispatchEvent(new Event('close'));
   });
 });
 
