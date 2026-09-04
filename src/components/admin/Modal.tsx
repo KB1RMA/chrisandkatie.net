@@ -17,15 +17,23 @@ export type ModalHandle = {
 
 type ModalProps = Omit<
   DialogHTMLAttributes<HTMLDialogElement>,
-  'open' | 'ref'
+  'open' | 'ref' | 'onCancel'
 > & {
   /**
-   * Called whenever the dialog closes - Escape, a backdrop click via a
-   * `<form method="dialog">` submit button, or an imperative `close()`
-   * through the forwarded ref. Consumers should call `close()` rather than
-   * this prop directly; the native `close` event is what invokes it.
+   * Called whenever the dialog closes - Escape, or an imperative `close()`
+   * through the forwarded ref. Consumers should call `close()` (not this
+   * prop) to close the dialog; the native `close` event is what invokes it,
+   * so it fires exactly once no matter which path triggered the close.
    */
   onClose: () => void;
+  /**
+   * Blocks Escape (and any other trigger of the dialog's native `cancel`
+   * event) from closing the dialog while true - e.g. while an action
+   * started from inside the dialog is still in flight, so the dialog can't
+   * close (and the caller unmount) out from under a pending request. Save/
+   * Cancel/Delete buttons should be disabled for the same condition.
+   */
+  preventClose?: boolean;
   /** Full class list for the dialog panel (size, background, padding, etc). */
   className: string;
   children: ReactNode;
@@ -43,11 +51,16 @@ type ModalProps = Omit<
  * @param props - See {@link ModalProps}.
  * @param ref - Forwarded handle exposing `close()`, so a Save or Cancel
  *   handler can dismiss the dialog; the resulting native `close` event is
- *   what calls `onClose`, so callers should not call `onClose` themselves.
+ *   what calls `onClose`. IMPORTANT: consumers must call `close()` via this
+ *   ref to close the dialog - never call the `onClose` prop directly. Calling
+ *   `onClose` directly leaves the native `<dialog>` open (`showModal()` ran,
+ *   `close()` never did) while the caller unmounts believing it's dismissed;
+ *   `close()` is what actually closes the dialog, and `onClose` firing is
+ *   just its side effect.
  * @returns A centered native dialog element.
  */
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
-  { onClose, className, children, ...rest },
+  { onClose, preventClose = false, className, children, ...rest },
   ref,
 ) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -69,6 +82,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
       {...rest}
       ref={dialogRef}
       onClose={onClose}
+      onCancel={(event) => {
+        if (preventClose) {
+          event.preventDefault();
+        }
+      }}
       className={cn('m-auto', className)}
     >
       {children}

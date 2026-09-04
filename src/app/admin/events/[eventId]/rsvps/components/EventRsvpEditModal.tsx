@@ -100,6 +100,7 @@ export function EventRsvpEditModal({
     <Modal
       ref={modalRef}
       onClose={onClose}
+      preventClose={isPending}
       className="w-full max-w-md rounded-lg bg-[#fffdfb] p-6 shadow-xl backdrop:bg-black/50"
     >
       <h2 className="text-lg font-semibold text-[#9e3f3f]">Edit RSVP</h2>

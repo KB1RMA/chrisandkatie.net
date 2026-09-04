@@ -77,7 +77,7 @@ export default function InvitationEditModal({
       }
 
       router.refresh();
-      modalRef.current?.close();
+      handleClose();
     } catch {
       setSubmitError('An unexpected error occurred. Please try again.');
     }

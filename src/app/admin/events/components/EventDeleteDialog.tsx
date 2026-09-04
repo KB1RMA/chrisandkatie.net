@@ -52,6 +52,7 @@ export default function EventDeleteDialog({
     <Modal
       ref={modalRef}
       onClose={onClose}
+      preventClose={isSubmitting}
       className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50"
     >
       <h2 className="mb-2 text-lg font-semibold text-gray-900">Delete Event</h2>

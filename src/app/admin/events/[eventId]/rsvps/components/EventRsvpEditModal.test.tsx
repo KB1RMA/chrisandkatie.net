@@ -46,24 +46,11 @@ function renderModal(
   return { onClose };
 }
 
-// jsdom does not implement the native dialog methods the component calls.
-// close() dispatches a real 'close' event, matching browser behavior, since
-// Modal relies on that event (not a direct call) to invoke onClose.
+// The HTMLDialogElement showModal()/close() polyfill jsdom lacks is
+// registered once, globally, in vitest.setup.ts.
 beforeEach(() => {
   vi.clearAllMocks();
   mockSetPartyEventRsvp.mockResolvedValue({ success: true });
-
-  HTMLDialogElement.prototype.showModal = vi.fn(function showModal(
-    this: HTMLDialogElement,
-  ) {
-    this.open = true;
-  });
-  HTMLDialogElement.prototype.close = vi.fn(function close(
-    this: HTMLDialogElement,
-  ) {
-    this.open = false;
-    this.dispatchEvent(new Event('close'));
-  });
 });
 
 describe('EventRsvpEditModal', () => {
@@ -144,5 +131,32 @@ describe('EventRsvpEditModal', () => {
 
     expect(mockSetPartyEventRsvp).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  test('should block Escape from closing the dialog while a save is in flight', async () => {
+    const user = userEvent.setup();
+    let resolveSave!: (result: { success: true }) => void;
+    mockSetPartyEventRsvp.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+
+    const { onClose } = renderModal();
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // The save is still pending here - Escape must not close the dialog
+    // (and unmount it) out from under the in-flight request.
+    const cancelEvent = new Event('cancel', { cancelable: true });
+    screen.getByRole('dialog').dispatchEvent(cancelEvent);
+
+    expect(cancelEvent.defaultPrevented).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveSave({ success: true });
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 });

@@ -1,26 +1,10 @@
-import { expect, test, describe, vi, beforeEach } from 'vitest';
+import { expect, test, describe, vi } from 'vitest';
 import { createRef } from 'react';
 import { render, screen } from '@testing-library/react';
 import { Modal, type ModalHandle } from './Modal';
 
-// jsdom does not implement the native dialog methods the component calls.
-// close() dispatches a real 'close' event, matching browser behavior, since
-// Modal relies on that event (not a direct call) to invoke onClose.
-beforeEach(() => {
-  vi.clearAllMocks();
-
-  HTMLDialogElement.prototype.showModal = vi.fn(function showModal(
-    this: HTMLDialogElement,
-  ) {
-    this.open = true;
-  });
-  HTMLDialogElement.prototype.close = vi.fn(function close(
-    this: HTMLDialogElement,
-  ) {
-    this.open = false;
-    this.dispatchEvent(new Event('close'));
-  });
-});
+// The HTMLDialogElement showModal()/close() polyfill jsdom lacks is
+// registered once, globally, in vitest.setup.ts.
 
 describe('Modal', () => {
   test('should open itself via showModal on mount', () => {
@@ -82,15 +66,15 @@ describe('Modal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  test('should not block the native Escape/cancel default action', () => {
+  test('should not block the native Escape/cancel default action by default', () => {
     // jsdom doesn't implement the browser's actual Escape-closes-<dialog>
     // behavior, so this can't simulate a keypress end-to-end. What we *can*
-    // verify: Modal attaches no `onCancel` handler, so the browser's default
-    // action for the dialog's 'cancel' event (calling close(), which then
-    // fires 'close' -> onClose, exactly like the Cancel button) is never
-    // preventDefault()'d. That default action is spec'd, native browser
-    // behavior for dialog.showModal() - not something this component
-    // implements - so leaving 'cancel' untouched is what keeps Escape working.
+    // verify: without `preventClose`, Modal's `cancel` handler never calls
+    // preventDefault(), so the browser's default action (calling close(),
+    // which then fires 'close' -> onClose, exactly like the Cancel button)
+    // proceeds. That default action is spec'd, native browser behavior for
+    // dialog.showModal() - not something this component implements - so
+    // leaving 'cancel' unblocked is what keeps Escape working.
     render(
       <Modal onClose={vi.fn()} className="max-w-md">
         Content
@@ -101,6 +85,25 @@ describe('Modal', () => {
     screen.getByRole('dialog').dispatchEvent(cancelEvent);
 
     expect(cancelEvent.defaultPrevented).toBe(false);
+  });
+
+  test('should block the native Escape/cancel default action when preventClose is set', () => {
+    // preventClose lets a caller keep the dialog open through Escape while
+    // an action started from inside it (e.g. a pending delete/save request)
+    // is still in flight, so the dialog can't close - and the caller
+    // unmount - out from under that request.
+    const onClose = vi.fn();
+    render(
+      <Modal onClose={onClose} preventClose className="max-w-md">
+        Content
+      </Modal>,
+    );
+
+    const cancelEvent = new Event('cancel', { cancelable: true });
+    screen.getByRole('dialog').dispatchEvent(cancelEvent);
+
+    expect(cancelEvent.defaultPrevented).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   test('should pass through extra dialog attributes such as aria-labelledby', () => {
