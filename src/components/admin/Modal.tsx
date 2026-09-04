@@ -8,6 +8,7 @@ import {
   type DialogHTMLAttributes,
   type ReactNode,
 } from 'react';
+import { cn } from '@/lib/cn';
 
 export type ModalHandle = {
   /** Closes the dialog, firing its `onClose` callback. */
@@ -55,16 +56,20 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
     dialogRef.current?.showModal();
   }, []);
 
-  useImperativeHandle(ref, () => ({
-    close: () => dialogRef.current?.close(),
-  }));
+  useImperativeHandle(
+    ref,
+    () => ({
+      close: () => dialogRef.current?.close(),
+    }),
+    [],
+  );
 
   return (
     <dialog
       {...rest}
       ref={dialogRef}
       onClose={onClose}
-      className={`m-auto ${className}`}
+      className={cn('m-auto', className)}
     >
       {children}
     </dialog>
